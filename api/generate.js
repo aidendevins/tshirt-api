@@ -5,17 +5,8 @@ const openai = new OpenAI({
 });
 
 export default async function handler(req, res) {
-  // Your Shopify store URLs
-  const allowedOrigins = [
-    'https://irs1jc-nu.myshopify.com',
-    'https://admin.shopify.com'
-  ];
-  
-  const origin = req.headers.origin;
-  if (allowedOrigins.includes(origin)) {
-    res.setHeader('Access-Control-Allow-Origin', origin);
-  }
-  
+  // Allow all origins (temporary fix for CORS)
+  res.setHeader('Access-Control-Allow-Origin', '*');
   res.setHeader('Access-Control-Allow-Methods', 'POST, OPTIONS');
   res.setHeader('Access-Control-Allow-Headers', 'Content-Type');
   res.setHeader('Access-Control-Allow-Credentials', 'true');
