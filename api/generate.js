@@ -30,9 +30,9 @@ export default async function handler(req, res) {
 
     const response = await openai.images.generate({
       model: "dall-e-3",
-      prompt: `Create a t-shirt graphic design: ${prompt}. The design should be centered, bold, and suitable for screen printing on a t-shirt.`,
+      prompt: ` ${prompt} `,
       n: 1,
-      size: "1024x1024",
+      size: "256x256",
       quality: "standard"
     });
 
