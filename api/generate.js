@@ -29,10 +29,11 @@ export default async function handler(req, res) {
     console.log('Generating design for:', prompt);
 
     const response = await openai.images.generate({
-      model: "dall-e-2",
+      model: "dall-e-3",
       prompt: `${prompt}`,
       n: 1,
-      size: "512x512"
+      size: "1024x1024",
+      quality: "standard"
     });
 
     const imageUrl = response.data[0].url;
