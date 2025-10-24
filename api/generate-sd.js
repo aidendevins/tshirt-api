@@ -47,7 +47,7 @@ export default async function handler(req, res) {
       
       try {
         // Use Gemini 2.0 Flash for fast vision capabilities
-        const model = genAI.getGenerativeModel({ model: "gemini-2.5-flash-lite" });
+        const model = genAI.getGenerativeModel({ model: "gemini-2.5-flash-image" });
         console.log(`Model: ${model}`);
         
         // Prepare the image data for Gemini
