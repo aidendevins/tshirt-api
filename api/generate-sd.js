@@ -9,14 +9,14 @@ const openai = new OpenAI({
   apiKey: process.env.OPENAI_API_KEY
 });
 
-// Helper function to convert base64 data URL to File-like object
-async function base64ToFile(base64Data) {
+// Helper function to convert base64 data URL to Blob
+function base64ToBlob(base64Data) {
   // Remove data URL prefix if present
   const base64String = base64Data.replace(/^data:image\/\w+;base64,/, '');
   const buffer = Buffer.from(base64String, 'base64');
   
-  // Create a File-like object that OpenAI accepts
-  return new File([buffer], 'image.png', { type: 'image/png' });
+  // Create a Blob (works better than File in Node.js environment)
+  return new Blob([buffer], { type: 'image/png' });
 }
 
 export default async function handler(req, res) {
@@ -45,34 +45,93 @@ export default async function handler(req, res) {
     if (image) {
       console.log('Generating with DALL-E images.edit() API:', prompt);
       
-      // Convert base64 image to File object
-      const imageFile = await base64ToFile(image);
-      
-      // Use DALL-E's edit endpoint - this is what ChatGPT actually uses!
-      const dalleResponse = await openai.images.edit({
-        model: "dall-e-2", // Note: edit() only works with dall-e-2, not dall-e-3
-        image: imageFile,
-        prompt: prompt,
-        n: 1,
-        size: "1024x1024"
-      });
-      
-      const dalleImageUrl = dalleResponse.data[0].url;
-      console.log('DALL-E edited image URL:', dalleImageUrl);
-      
-      // Download the image from OpenAI to bypass CORS
-      const imageResponse = await fetch(dalleImageUrl);
-      const imageBuffer = await imageResponse.arrayBuffer();
-      
-      // Convert to base64 data URL
-      const base64Image = `data:image/png;base64,${Buffer.from(imageBuffer).toString('base64')}`;
-      
-      res.status(200).json({
-        success: true,
-        imageUrl: base64Image,
-        prompt: prompt,
-        model: 'dall-e-2-edit'
-      });
+      try {
+        // Convert base64 to buffer
+        const base64String = image.replace(/^data:image\/\w+;base64,/, '');
+        const imageBuffer = Buffer.from(base64String, 'base64');
+        
+        // Create a proper file for the OpenAI API
+        const imageBlob = new Blob([imageBuffer], { type: 'image/png' });
+        
+        // Use DALL-E's edit endpoint - this is what ChatGPT actually uses!
+        const dalleResponse = await openai.images.edit({
+          model: "dall-e-2", // Note: edit() only works with dall-e-2, not dall-e-3
+          image: imageBlob,
+          prompt: prompt,
+          n: 1,
+          size: "1024x1024"
+        });
+        
+        const dalleImageUrl = dalleResponse.data[0].url;
+        console.log('DALL-E edited image URL:', dalleImageUrl);
+        
+        // Download the image from OpenAI to bypass CORS
+        const imageResponse = await fetch(dalleImageUrl);
+        const resultBuffer = await imageResponse.arrayBuffer();
+        
+        // Convert to base64 data URL
+        const base64Image = `data:image/png;base64,${Buffer.from(resultBuffer).toString('base64')}`;
+        
+        res.status(200).json({
+          success: true,
+          imageUrl: base64Image,
+          prompt: prompt,
+          model: 'dall-e-2-edit'
+        });
+        
+      } catch (editError) {
+        console.error('Edit API error:', editError);
+        
+        // If edit fails, fall back to DALL-E 3 generation with vision
+        console.log('Falling back to DALL-E 3 generation with vision analysis');
+        
+        const visionResponse = await openai.chat.completions.create({
+          model: "gpt-4o",
+          messages: [
+            {
+              role: "system",
+              content: "You are an expert at analyzing images and creating optimal DALL-E 3 prompts. Create a detailed prompt that preserves the original image's characteristics while incorporating the requested changes."
+            },
+            {
+              role: "user",
+              content: [
+                {
+                  type: "text",
+                  text: `Analyze this image and create a DALL-E 3 prompt that: 1) Preserves the style, colors, and composition, 2) Incorporates this modification: "${prompt}". Provide only the prompt, no other text.`
+                },
+                {
+                  type: "image_url",
+                  image_url: { url: image }
+                }
+              ]
+            }
+          ],
+          max_tokens: 500
+        });
+        
+        const optimizedPrompt = visionResponse.choices[0].message.content.trim();
+        
+        const dalleResponse = await openai.images.generate({
+          model: "dall-e-3",
+          prompt: optimizedPrompt,
+          n: 1,
+          size: "1024x1024",
+          quality: "standard"
+        });
+        
+        const dalleImageUrl = dalleResponse.data[0].url;
+        const imageResponse = await fetch(dalleImageUrl);
+        const resultBuffer = await imageResponse.arrayBuffer();
+        const base64Image = `data:image/png;base64,${Buffer.from(resultBuffer).toString('base64')}`;
+        
+        res.status(200).json({
+          success: true,
+          imageUrl: base64Image,
+          prompt: prompt,
+          model: 'dall-e-3-fallback',
+          note: 'Edit API failed, used generation with vision analysis'
+        });
+      }
       
     } else {
       // No image provided, use Stable Diffusion XL (cheaper for text-only)
