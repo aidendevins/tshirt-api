@@ -31,20 +31,25 @@ export default async function handler(req, res) {
       return res.status(400).json({ error: 'Please provide a detailed prompt' });
     }
 
-    // If image is provided, use DALL-E 3 with vision analysis
+    // If image is provided, use GPT-4o (full) + DALL-E 3 (ChatGPT method)
     if (image) {
-      console.log('Generating with DALL-E 3 (image provided):', prompt);
+      console.log('Generating with GPT-4o + DALL-E 3 (ChatGPT method):', prompt);
       
-      // Step 1: Use GPT-4o Mini Vision to analyze the uploaded image
+      // Step 1: Use GPT-4o (full model) to analyze image and create optimal DALL-E prompt
+      // This mimics what ChatGPT does internally
       const visionResponse = await openai.chat.completions.create({
-        model: "gpt-4o-mini",
+        model: "gpt-4o",
         messages: [
+          {
+            role: "system",
+            content: "You are an expert at analyzing images and creating optimal DALL-E 3 prompts. When given an image and a user's modification request, create a detailed DALL-E 3 prompt that will preserve the key characteristics, style, and essence of the original image while incorporating the user's requested changes. Be extremely detailed about colors, art style, composition, lighting, and specific visual elements that should be maintained."
+          },
           {
             role: "user",
             content: [
               {
                 type: "text",
-                text: "Describe this image in detail, focusing on the art style, main subject, colors, composition, and mood. Keep it concise but descriptive for use as a reference for generating a similar artistic image. Focus on visual and artistic elements rather than literal descriptions."
+                text: `I have an image and want to make the following modification: "${prompt}"\n\nPlease analyze this image in extreme detail and create a comprehensive DALL-E 3 prompt that will:\n1. Preserve all the key visual characteristics (style, colors, composition, lighting, art style)\n2. Incorporate my requested modification: "${prompt}"\n3. Be specific about what should stay the same and what should change\n\nProvide ONLY the DALL-E prompt, no other text.`
               },
               {
                 type: "image_url",
@@ -55,20 +60,16 @@ export default async function handler(req, res) {
             ]
           }
         ],
-        max_tokens: 300
+        max_tokens: 500
       });
       
-      const imageDescription = visionResponse.choices[0].message.content;
-      console.log('Vision analysis:', imageDescription);
+      const optimizedPrompt = visionResponse.choices[0].message.content.trim();
+      console.log('GPT-4o optimized DALL-E prompt:', optimizedPrompt);
       
-      // Step 2: Use DALL-E 3 to generate based on combined prompt
-      const combinedPrompt = `${prompt}. Style and artistic approach inspired by: ${imageDescription}`;
-      
-      console.log('Combined DALL-E prompt:', combinedPrompt);
-      
+      // Step 2: Use DALL-E 3 to generate based on the optimized prompt
       const dalleResponse = await openai.images.generate({
         model: "dall-e-3",
-        prompt: combinedPrompt,
+        prompt: optimizedPrompt,
         n: 1,
         size: "1024x1024",
         quality: "standard"
@@ -88,8 +89,8 @@ export default async function handler(req, res) {
         success: true,
         imageUrl: base64Image,
         prompt: prompt,
-        model: 'dall-e-3-with-vision',
-        visionAnalysis: imageDescription
+        model: 'gpt-4o-chatgpt-method',
+        optimizedPrompt: optimizedPrompt
       });
       
     } else {
