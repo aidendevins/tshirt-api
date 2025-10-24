@@ -3,7 +3,7 @@
   "version": "1.0.0",
   "type": "module",
   "dependencies": {
-    "openai": "^4.20.0",
+    "@google/generative-ai": "^0.21.0",
     "replicate": "^0.31.0"
   }
 }
