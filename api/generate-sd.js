@@ -1,5 +1,6 @@
 import Replicate from 'replicate';
 import OpenAI from 'openai';
+import sharp from 'sharp';
 
 const replicate = new Replicate({
   auth: process.env.REPLICATE_API_TOKEN
@@ -9,14 +10,36 @@ const openai = new OpenAI({
   apiKey: process.env.OPENAI_API_KEY
 });
 
-// Helper function to convert base64 data URL to Blob
-function base64ToBlob(base64Data) {
-  // Remove data URL prefix if present
-  const base64String = base64Data.replace(/^data:image\/\w+;base64,/, '');
-  const buffer = Buffer.from(base64String, 'base64');
-  
-  // Create a Blob (works better than File in Node.js environment)
-  return new Blob([buffer], { type: 'image/png' });
+// Helper function to preprocess image for DALL-E edit API
+async function preprocessImageForEdit(base64Data) {
+  try {
+    // Remove data URL prefix
+    const base64String = base64Data.replace(/^data:image\/\w+;base64,/, '');
+    const inputBuffer = Buffer.from(base64String, 'base64');
+    
+    // Use sharp to ensure proper PNG format with alpha channel
+    const processedBuffer = await sharp(inputBuffer)
+      .resize(1024, 1024, {
+        fit: 'contain',
+        background: { r: 0, g: 0, b: 0, alpha: 0 } // Transparent background
+      })
+      .png({ compressionLevel: 9, palette: false }) // Force RGBA PNG
+      .toBuffer();
+    
+    return new Blob([processedBuffer], { type: 'image/png' });
+  } catch (error) {
+    console.error('Image preprocessing error:', error);
+    // If preprocessing fails, return original
+    const base64String = base64Data.replace(/^data:image\/\w+;base64,/, '');
+    const buffer = Buffer.from(base64String, 'base64');
+    return new Blob([buffer], { type: 'image/png' });
+  }
+}
+
+// Enhanced prompt engineering function
+function enhancePromptForEdit(userPrompt) {
+  // Add hidden instructions that preserve original characteristics
+  return `${userPrompt}. Important: Maintain the exact same art style, color palette, lighting, and composition as the original image. Only modify what was specifically requested. Keep all other visual elements identical to the source image.`;
 }
 
 export default async function handler(req, res) {
@@ -41,63 +64,75 @@ export default async function handler(req, res) {
       return res.status(400).json({ error: 'Please provide a detailed prompt' });
     }
 
-    // If image is provided, use DALL-E images.edit() API (the CORRECT way!)
+    // If image is provided, use enhanced DALL-E workflow
     if (image) {
-      console.log('Generating with DALL-E images.edit() API:', prompt);
+      console.log('Processing image edit with enhanced workflow:', prompt);
+      
+      // QUICK WIN #1: Preprocess image for better compatibility
+      const preprocessedImage = await preprocessImageForEdit(image);
+      
+      // QUICK WIN #2: Enhanced prompt engineering
+      const enhancedPrompt = enhancePromptForEdit(prompt);
+      console.log('Enhanced prompt:', enhancedPrompt);
       
       try {
-        // Convert base64 to buffer
-        const base64String = image.replace(/^data:image\/\w+;base64,/, '');
-        const imageBuffer = Buffer.from(base64String, 'base64');
-        
-        // Create a proper file for the OpenAI API
-        const imageBlob = new Blob([imageBuffer], { type: 'image/png' });
-        
-        // Use DALL-E's edit endpoint - this is what ChatGPT actually uses!
+        // Try DALL-E edit API with preprocessed image and enhanced prompt
         const dalleResponse = await openai.images.edit({
-          model: "dall-e-2", // Note: edit() only works with dall-e-2, not dall-e-3
-          image: imageBlob,
-          prompt: prompt,
+          model: "dall-e-2",
+          image: preprocessedImage,
+          prompt: enhancedPrompt,
           n: 1,
           size: "1024x1024"
         });
         
         const dalleImageUrl = dalleResponse.data[0].url;
-        console.log('DALL-E edited image URL:', dalleImageUrl);
+        console.log('DALL-E edit successful:', dalleImageUrl);
         
-        // Download the image from OpenAI to bypass CORS
+        // Download and convert to base64
         const imageResponse = await fetch(dalleImageUrl);
         const resultBuffer = await imageResponse.arrayBuffer();
-        
-        // Convert to base64 data URL
         const base64Image = `data:image/png;base64,${Buffer.from(resultBuffer).toString('base64')}`;
         
         res.status(200).json({
           success: true,
           imageUrl: base64Image,
           prompt: prompt,
-          model: 'dall-e-2-edit'
+          model: 'dall-e-2-edit-enhanced'
         });
         
       } catch (editError) {
-        console.error('Edit API error:', editError);
+        console.error('Edit API failed, using advanced fallback:', editError);
         
-        // If edit fails, fall back to DALL-E 3 generation with vision
-        console.log('Falling back to DALL-E 3 generation with vision analysis');
-        
+        // QUICK WIN #3: Smarter GPT-4o analysis with better instructions
         const visionResponse = await openai.chat.completions.create({
           model: "gpt-4o",
           messages: [
             {
               role: "system",
-              content: "You are an expert at analyzing images and creating optimal DALL-E 3 prompts. Create a detailed prompt that preserves the original image's characteristics while incorporating the requested changes."
+              content: `You are an expert AI image analyst and DALL-E 3 prompt engineer. Your job is to analyze images in extreme detail and create prompts that will make DALL-E 3 recreate the EXACT same image with specific modifications.
+
+When creating prompts, you must:
+1. Describe EVERY visual detail: exact colors (use hex codes if possible), art style, lighting direction and quality, composition, camera angle, background elements
+2. Describe the subject in extreme detail: pose, expression, clothing/accessories, textures, patterns, materials
+3. Specify the modification clearly and how it integrates with the existing image
+4. Use phrases like "maintaining the exact same style as the original" and "preserving the identical composition"
+5. Be extremely specific about what should NOT change
+
+Your prompts should be 200-400 words and read like instructions to a precise artist.`
             },
             {
               role: "user",
               content: [
                 {
                   type: "text",
-                  text: `Analyze this image and create a DALL-E 3 prompt that: 1) Preserves the style, colors, and composition, 2) Incorporates this modification: "${prompt}". Provide only the prompt, no other text.`
+                  text: `I need to modify this image with the following change: "${prompt}"
+
+Analyze every aspect of this image and create a comprehensive DALL-E 3 prompt that will:
+1. Recreate this EXACT image (describe all visual details precisely)
+2. Apply ONLY this modification: "${prompt}"
+3. Preserve everything else identically
+
+Be extremely detailed about colors, style, lighting, composition, and all visual elements. Provide ONLY the DALL-E prompt, no other commentary.`
                 },
                 {
                   type: "image_url",
@@ -106,11 +141,14 @@ export default async function handler(req, res) {
               ]
             }
           ],
-          max_tokens: 500
+          max_tokens: 800,
+          temperature: 0.3 // Lower temperature for more consistent, precise descriptions
         });
         
         const optimizedPrompt = visionResponse.choices[0].message.content.trim();
+        console.log('GPT-4o optimized prompt (length: ' + optimizedPrompt.length + '):', optimizedPrompt);
         
+        // Generate with DALL-E 3 using the optimized prompt
         const dalleResponse = await openai.images.generate({
           model: "dall-e-3",
           prompt: optimizedPrompt,
@@ -128,8 +166,9 @@ export default async function handler(req, res) {
           success: true,
           imageUrl: base64Image,
           prompt: prompt,
-          model: 'dall-e-3-fallback',
-          note: 'Edit API failed, used generation with vision analysis'
+          model: 'dall-e-3-enhanced-vision',
+          optimizedPrompt: optimizedPrompt.substring(0, 200) + '...', // Include snippet
+          note: 'Used advanced GPT-4o vision analysis with DALL-E 3'
         });
       }
       
@@ -152,7 +191,6 @@ export default async function handler(req, res) {
         { input: inputConfig }
       );
 
-      // output is an array of image URLs
       const imageUrl = output[0];
 
       res.status(200).json({
@@ -177,16 +215,10 @@ export default async function handler(req, res) {
         error: 'Content policy violation. Please try a different prompt or image.'
       });
     }
-    
-    // More specific error for image format issues
-    if (error.message && error.message.includes('image')) {
-      return res.status(400).json({
-        error: 'Invalid image format. Please try a different image.'
-      });
-    }
 
     res.status(500).json({
-      error: 'Failed to generate design. Please try again.'
+      error: 'Failed to generate design. Please try again.',
+      details: error.message
     });
   }
 }
