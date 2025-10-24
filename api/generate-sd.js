@@ -31,9 +31,9 @@ export default async function handler(req, res) {
       return res.status(400).json({ error: 'Please provide a detailed prompt' });
     }
 
-    // If image is provided, use GPT-4o Mini Vision + Stable Diffusion XL
+    // If image is provided, use DALL-E 3 with vision analysis
     if (image) {
-      console.log('Generating with GPT-4o Mini Vision + Stable Diffusion XL (image provided):', prompt);
+      console.log('Generating with DALL-E 3 (image provided):', prompt);
       
       // Step 1: Use GPT-4o Mini Vision to analyze the uploaded image
       const visionResponse = await openai.chat.completions.create({
@@ -44,7 +44,7 @@ export default async function handler(req, res) {
             content: [
               {
                 type: "text",
-                text: "Describe this image in detail for use in generating a similar t-shirt design. Focus on: main subject, colors, style, composition, mood, and any notable visual elements. Be specific and descriptive."
+                text: "Describe this image in detail, focusing on the art style, main subject, colors, composition, and mood. Keep it concise but descriptive for use as a reference for generating a similar artistic image. Focus on visual and artistic elements rather than literal descriptions."
               },
               {
                 type: "image_url",
@@ -61,40 +61,39 @@ export default async function handler(req, res) {
       const imageDescription = visionResponse.choices[0].message.content;
       console.log('Vision analysis:', imageDescription);
       
-      // Step 2: Combine user prompt with vision description for Stable Diffusion
-      const enhancedPrompt = `${prompt}. Based on this reference: ${imageDescription}`;
+      // Step 2: Use DALL-E 3 to generate based on combined prompt
+      const combinedPrompt = `${prompt}. Style and artistic approach inspired by: ${imageDescription}`;
       
-      console.log('Enhanced prompt for SD:', enhancedPrompt);
+      console.log('Combined DALL-E prompt:', combinedPrompt);
       
-      // Step 3: Use Stable Diffusion XL to generate
-      const inputConfig = {
-        prompt: `${enhancedPrompt}, high quality, detailed, vibrant artwork, professional t-shirt design`,
-        negative_prompt: "ugly, blurry, low quality, distorted, text, watermark, photograph, realistic photo",
-        width: 1024,
-        height: 1024,
-        num_outputs: 1,
-        num_inference_steps: 30,
-        guidance_scale: 7.5
-      };
+      const dalleResponse = await openai.images.generate({
+        model: "dall-e-3",
+        prompt: combinedPrompt,
+        n: 1,
+        size: "1024x1024",
+        quality: "standard"
+      });
       
-      const output = await replicate.run(
-        "stability-ai/sdxl:39ed52f2a78e934b3ba6e2a89f5b1c712de7dfea535525255b1aa35c5565e08b",
-        { input: inputConfig }
-      );
-
-      // output is an array of image URLs
-      const imageUrl = output[0];
-
+      const dalleImageUrl = dalleResponse.data[0].url;
+      console.log('DALL-E generated image URL:', dalleImageUrl);
+      
+      // Step 3: Download the image from OpenAI to bypass CORS
+      const imageResponse = await fetch(dalleImageUrl);
+      const imageBuffer = await imageResponse.arrayBuffer();
+      
+      // Step 4: Convert to base64 data URL
+      const base64Image = `data:image/png;base64,${Buffer.from(imageBuffer).toString('base64')}`;
+      
       res.status(200).json({
         success: true,
-        imageUrl: imageUrl,
+        imageUrl: base64Image,
         prompt: prompt,
-        model: 'gpt-4o-mini-vision-sd-xl',
+        model: 'dall-e-3-with-vision',
         visionAnalysis: imageDescription
       });
       
     } else {
-      // No image provided, use Stable Diffusion XL (standard text-to-image)
+      // No image provided, use Stable Diffusion XL (cheaper for text-only)
       console.log('Generating with Stable Diffusion XL (text-only):', prompt);
       
       const inputConfig = {
