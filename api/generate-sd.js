@@ -20,28 +20,34 @@ export default async function handler(req, res) {
   }
 
   try {
-    const { prompt } = req.body;
-
+    const { prompt, image } = req.body;
+    
     if (!prompt || prompt.length < 3) {
       return res.status(400).json({ error: 'Please provide a detailed prompt' });
     }
 
     console.log('Generating with Stable Diffusion XL:', prompt);
-
+    
     // Run Stable Diffusion XL
+    const inputConfig = {
+      prompt: `${prompt}, high quality, detailed, vibrant artwork`,
+      negative_prompt: "ugly, blurry, low quality, distorted, text, watermark",
+      width: 1024,
+      height: 1024,
+      num_outputs: 1,
+      num_inference_steps: 30,
+      guidance_scale: 7.5
+    };
+    
+    // Add image parameter if provided (for img2img)
+    if (image) {
+      inputConfig.image = image; // Base64 data URL
+      inputConfig.prompt_strength = 0.8; // How much to transform the image (0-1, lower = closer to original)
+    }
+    
     const output = await replicate.run(
       "stability-ai/sdxl:39ed52f2a78e934b3ba6e2a89f5b1c712de7dfea535525255b1aa35c5565e08b",
-      {
-        input: {
-          prompt: `${prompt}, high quality, detailed, vibrant artwork`,
-          negative_prompt: "ugly, blurry, low quality, distorted, text, watermark",
-          width: 1024,
-          height: 1024,
-          num_outputs: 1,
-          num_inference_steps: 30,
-          guidance_scale: 7.5
-        }
-      }
+      { input: inputConfig }
     );
 
     // output is an array of image URLs
@@ -58,12 +64,12 @@ export default async function handler(req, res) {
     console.error('Stable Diffusion error:', error);
     
     if (error.message && error.message.includes('safety')) {
-      return res.status(400).json({ 
-        error: 'Invalid prompt. Please try a different description.' 
+      return res.status(400).json({
+        error: 'Invalid prompt. Please try a different description.'
       });
     }
-    
-    res.status(500).json({ 
+
+    res.status(500).json({
       error: 'Failed to generate design. Please try again.'
     });
   }
