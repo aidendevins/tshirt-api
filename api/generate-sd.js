@@ -76,7 +76,7 @@ Provide only the enhanced prompt text, no explanations or additional text.`;
         
         // Generate new image with Stable Diffusion XL using the enhanced prompt
         const inputConfig = {
-          prompt: `${optimizedPrompt}, high quality, detailed, professional`,
+          prompt: `${optimizedPrompt}, high quality, detailed, professional, realistic, as described`,
           negative_prompt: "ugly, blurry, low quality, distorted, text, watermark, deformed",
           width: 1024,
           height: 1024,
