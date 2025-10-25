@@ -177,7 +177,7 @@ export default async function handler(req, res) {
       console.log('Generating with Stable Diffusion XL (text-only):', prompt);
       
       try {
-        const model = genAI.getGenerativeModel({ model: "gemini-2.0-flash-exp" });
+        const model = genAI.getGenerativeModel({ model: "gemini-2.5-flash-image" });
         
         const result = await model.generateContent({
           contents: [{
