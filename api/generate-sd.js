@@ -183,7 +183,7 @@ export default async function handler(req, res) {
           contents: [{
             role: 'user',
             parts: [{
-              text: `Create a high-quality image: ${prompt}. Professional t-shirt design style, vibrant colors, detailed artwork.`
+              text: `Create a high-quality image: ${prompt}. high quality, detailed, vibrant artwork, professional design for a t-shirt`
             }]
           }],
           generationConfig: {
