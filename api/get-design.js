@@ -1,6 +1,6 @@
 // Vercel Serverless Function for Design Retrieval
-// This endpoint provides information about how to retrieve a design
-// In production, this would fetch from S3/Cloudinary/Database
+// Retrieves designs from Vercel Blob storage
+import { head } from '@vercel/blob';
 
 export default async function handler(req, res) {
   // CORS headers (match your generate-sd.js pattern)
@@ -31,39 +31,42 @@ export default async function handler(req, res) {
       });
     }
 
-    // In production, you would:
-    // 1. Fetch from S3: const url = await getSignedUrl(id)
-    // 2. Fetch from Cloudinary: const url = cloudinary.url(id)
-    // 3. Query database: const design = await db.designs.findById(id)
-
     console.log(`📥 Design retrieval request: ${id}`);
 
-    // For now, return instructions
-    return res.status(200).json({
-      success: true,
-      designId: id,
-      message: 'Design retrieval information',
-      storage: 'localStorage',
-      instructions: {
-        step1: 'Designs are currently stored in browser localStorage',
-        step2: 'Access using key: "tshirt_designs_backup"',
-        step3: 'Find design by matching Design_ID in the array',
-        step4: 'For production: Implement S3/Cloudinary storage'
-      },
-      localStorageKey: 'tshirt_designs_backup',
-      productionRecommendation: 'Upload designs to S3 or Cloudinary for persistent storage',
-      exampleCode: {
-        javascript: `
-// Retrieve from localStorage
-const designs = JSON.parse(localStorage.getItem('tshirt_designs_backup'));
-const design = designs.find(d => d.id === '${id}');
-if (design) {
-  const designJPEG = design.designJPEG; // Full print-ready image
-  const thumbnail = design.thumbnail;   // Preview
-}
-        `.trim()
-      }
-    });
+    // Try to find the design in Vercel Blob
+    // We'll try both .jpeg and .jpg extensions
+    try {
+      const blobUrl = `https://i1bjjylg9gcpwss2.public.blob.vercel-storage.com/designs/${id}.jpeg`;
+      
+      // Check if blob exists
+      const blobInfo = await head(blobUrl);
+      
+      return res.status(200).json({
+        success: true,
+        designId: id,
+        designUrl: blobInfo.url,
+        downloadUrl: blobInfo.downloadUrl,
+        size: blobInfo.size,
+        uploadedAt: blobInfo.uploadedAt,
+        storage: 'vercel-blob',
+        message: 'Design retrieved successfully'
+      });
+    } catch (error) {
+      // Blob not found - might be in localStorage
+      console.log(`⚠️ Design ${id} not found in Vercel Blob:`, error.message);
+      
+      return res.status(404).json({
+        success: false,
+        designId: id,
+        error: 'Design not found in cloud storage',
+        storage: 'vercel-blob',
+        fallback: {
+          message: 'Design may be in browser localStorage',
+          key: 'tshirt_designs_backup',
+          instructions: 'Check customer browser localStorage for legacy designs'
+        }
+      });
+    }
 
   } catch (error) {
     console.error('❌ Retrieval error:', error);
