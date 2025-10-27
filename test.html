@@ -3983,13 +3983,10 @@
         // Show success feedback
         showCartAddedFeedback(true);
         
-        // Trigger Shopify cart refresh (if theme uses cart drawer)
-        document.documentElement.dispatchEvent(
-          new CustomEvent('cart:refresh', { bubbles: true })
-        );
+        // Note: Cart refresh disabled to prevent theme compatibility issues
+        // The item is in the cart, customer can see it by going to /cart
         
-        // Alternative: Try to update cart icon if it exists
-        updateShopifyCartCount();
+        console.log('✅ Item added successfully! Customer can view cart at /cart');
         
       } catch (error) {
         console.error('❌ Shopify cart error:', error);
