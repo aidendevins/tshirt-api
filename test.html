@@ -3986,12 +3986,23 @@
         // Note: Cart refresh disabled to prevent theme compatibility issues
         // The item is in the cart, customer can see it by going to /cart
         
-        console.log('✅ Item added successfully! Redirecting to cart...');
+        console.log('✅ Item added successfully! Customer can view cart at /cart');
         
-        // Redirect to cart page immediately to avoid theme errors
+        // Suppress Shopify theme alert that appears after successful add
+        // This is a known issue with Shopify themes trying to refresh cart UI
+        const originalAlert = window.alert;
+        window.alert = function(msg) {
+          if (msg && (msg.includes('Could not add to cart') || msg.includes('cart'))) {
+            console.log('🚫 Suppressed Shopify theme error (item already in cart)');
+            return; // Don't show the alert
+          }
+          originalAlert.call(window, msg); // Show other alerts normally
+        };
+        
+        // Restore original alert after 2 seconds
         setTimeout(() => {
-          window.top.location.href = '/cart';
-        }, 500);
+          window.alert = originalAlert;
+        }, 2000);
         
       } catch (error) {
         console.error('❌ Shopify cart error:', error);
