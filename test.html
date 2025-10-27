@@ -3776,20 +3776,27 @@
       const drawPrintTextElement = () => {
         if (!appState.textElement) return;
         
+        // Text coordinates are already relative to print area, no conversion needed
         const relX = appState.textX - appState.printBounds.x;
         const relY = appState.textY - appState.printBounds.y;
         
         printCtx.save();
         printCtx.translate(relX, relY);
         
-        const { text, font, size, color, warpType, warpIntensity, warpDirection } = appState.textElement;
+        const { text, font, fontSize, color, warpType, warpIntensity, warpDirection } = appState.textElement;
         
-        printCtx.font = `${size}px ${font}`;
+        printCtx.font = `${fontSize}px ${font}`;
         printCtx.fillStyle = color;
-        printCtx.textBaseline = 'top';
+        printCtx.textAlign = 'center';
+        printCtx.textBaseline = 'middle';
         
         if (warpType === 'none' || !warpType) {
-          printCtx.fillText(text, 0, 0);
+          // Draw text centered in its bounding box
+          printCtx.fillText(
+            text,
+            appState.textWidth / 2,
+            appState.textHeight / 2
+          );
         } else {
           // Apply text warping (simplified for print)
           const centerX = appState.textWidth / 2;
@@ -3806,7 +3813,7 @@
               const charWidth = printCtx.measureText(char).width;
               const charAngle = startAngle + (i / text.length) * arcAngle;
               const x = centerX + radius * Math.sin(charAngle);
-              const y = centerY - radius * Math.cos(charAngle) + radius - size / 2;
+              const y = centerY - radius * Math.cos(charAngle) + radius - fontSize / 2;
               
               printCtx.save();
               printCtx.translate(x, y);
@@ -3815,7 +3822,12 @@
               printCtx.restore();
             }
           } else {
-            printCtx.fillText(text, 0, 0);
+            // For other warp types, draw normally centered
+            printCtx.fillText(
+              text,
+              appState.textWidth / 2,
+              appState.textHeight / 2
+            );
           }
         }
         
