@@ -63,20 +63,6 @@ export default async function handler(req, res) {
           }
         };
         
-        // // Create a prompt for Gemini to analyze the image and incorporate changes
-        // const visionPrompt = `Analyze this image carefully and create a detailed image generation prompt that:
-        // 1) Preserves the original style, colors, composition, and key visual elements
-        // 2) Incorporates this modification: "${prompt}"
-        // 3) Is optimized for image generation AI models
-
-        // Provide only the enhanced prompt text, no explanations or additional text.`;
-        
-        // const visionResult = await model.generateContent([visionPrompt, imagePart]);
-        // const visionResponse = await visionResult.response;
-        // const optimizedPrompt = visionResponse.text().trim();
-        
-        // console.log('Gemini Flash 2.0-enhanced prompt:', optimizedPrompt);
-        
         // Generate new image with Gemini native image generation
         const result = await model.generateContent({
           contents: [{
@@ -108,29 +94,6 @@ export default async function handler(req, res) {
         
         const base64Image = `data:${generatedImage.inlineData.mimeType};base64,${generatedImage.inlineData.data}`;
         
-        // // Generate new image with Stable Diffusion XL using the enhanced prompt
-        // const inputConfig = {
-        //   prompt: `${optimizedPrompt}, high quality, detailed, professional`,
-        //   negative_prompt: "ugly, blurry, low quality, distorted, text, watermark, deformed",
-        //   width: 1024,
-        //   height: 1024,
-        //   num_outputs: 1,
-        //   num_inference_steps: 40,
-        //   guidance_scale: 7.5
-        // };
-        
-        // const output = await replicate.run(
-        //   "stability-ai/sdxl:39ed52f2a78e934b3ba6e2a89f5b1c712de7dfea535525255b1aa35c5565e08b",
-        //   { input: inputConfig }
-        // );
-
-        // const imageUrl = output[0];
-        
-        // // Download and convert to base64 for consistent response
-        // const imageResponse = await fetch(imageUrl);
-        // const resultBuffer = await imageResponse.arrayBuffer();
-        // const base64Image = `data:image/png;base64,${Buffer.from(resultBuffer).toString('base64')}`;
-        
         res.status(200).json({
           success: true,
           imageUrl: base64Image,
@@ -144,26 +107,6 @@ export default async function handler(req, res) {
         // Fallback: generate with original prompt if vision analysis fails
         console.log('Falling back to direct generation');
         
-        // const inputConfig = {
-        //   prompt: `${prompt}, high quality, detailed, vibrant artwork, professional design`,
-        //   negative_prompt: "ugly, blurry, low quality, distorted, text, watermark",
-        //   width: 1024,
-        //   height: 1024,
-        //   num_outputs: 1,
-        //   num_inference_steps: 30,
-        //   guidance_scale: 7.5
-        // };
-        
-        // const output = await replicate.run(
-        //   "stability-ai/sdxl:39ed52f2a78e934b3ba6e2a89f5b1c712de7dfea535525255b1aa35c5565e08b",
-        //   { input: inputConfig }
-        // );
-
-        // const imageUrl = output[0];
-        // const imageResponse = await fetch(imageUrl);
-        // const resultBuffer = await imageResponse.arrayBuffer();
-        // const base64Image = `data:image/png;base64,${Buffer.from(resultBuffer).toString('base64')}`;
-        
         res.status(200).json({
           success: false,
           error: visionError.message,
@@ -173,8 +116,8 @@ export default async function handler(req, res) {
       }
       
     } else {
-      // No image provided, use Stable Diffusion XL
-      console.log('Generating with Stable Diffusion XL (text-only):', prompt);
+      // No image provided, use Gemini 2.5 Flash Image
+      console.log('Generating with Gemini 2.5 Flash Image', prompt);
       
       try {
         const model = genAI.getGenerativeModel({ model: "gemini-2.5-flash-image" });
@@ -183,7 +126,8 @@ export default async function handler(req, res) {
           contents: [{
             role: 'user',
             parts: [{
-              text: `Create a high-quality image: ${prompt}. high quality, detailed, vibrant artwork, professional design for a t-shirt`
+              text: `Create a high-quality image: ${prompt}. high quality, detailed, vibrant artwork, professional design for a t-shirt.
+              do not a t shirt, only the design.`
             }]
           }],
           generationConfig: {
@@ -209,7 +153,7 @@ export default async function handler(req, res) {
           success: true,
           imageUrl: base64Image,
           prompt: prompt,
-          model: 'gemini-2.0-flash-imagen'
+          model: 'gemini-2.5-flash-image'
         });
         
       } catch (error) {
@@ -222,29 +166,6 @@ export default async function handler(req, res) {
         });
       }
       
-      // const inputConfig = {
-      //   prompt: `${prompt}, high quality, detailed, vibrant artwork, professional t-shirt design`,
-      //   negative_prompt: "ugly, blurry, low quality, distorted, text, watermark",
-      //   width: 1024,
-      //   height: 1024,
-      //   num_outputs: 1,
-      //   num_inference_steps: 30,
-      //   guidance_scale: 7.5
-      // };
-      
-      // const output = await replicate.run(
-      //   "stability-ai/sdxl:39ed52f2a78e934b3ba6e2a89f5b1c712de7dfea535525255b1aa35c5565e08b",
-      //   { input: inputConfig }
-      // );
-
-      // const imageUrl = output[0];
-
-      // res.status(200).json({
-      //   success: true,
-      //   imageUrl: imageUrl,
-      //   prompt: prompt,
-      //   model: 'stable-diffusion-xl'
-      // });
     }
 
   } catch (error) {

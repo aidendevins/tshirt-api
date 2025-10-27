@@ -1,0 +1,575 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>T-Shirt Design Generator</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
+            padding: 20px;
+        }
+
+        .container {
+            max-width: 1200px;
+            margin: 0 auto;
+            background: white;
+            border-radius: 20px;
+            box-shadow: 0 20px 40px rgba(0, 0, 0, 0.1);
+            overflow: hidden;
+        }
+
+        .header {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            padding: 40px;
+            text-align: center;
+        }
+
+        .header h1 {
+            font-size: 2.5rem;
+            margin-bottom: 10px;
+            font-weight: 700;
+        }
+
+        .header p {
+            font-size: 1.1rem;
+            opacity: 0.9;
+        }
+
+        .main-content {
+            padding: 40px;
+        }
+
+        .form-section {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 40px;
+            margin-bottom: 40px;
+        }
+
+        .form-group {
+            display: flex;
+            flex-direction: column;
+        }
+
+        .form-group label {
+            font-weight: 600;
+            margin-bottom: 10px;
+            color: #333;
+            font-size: 1.1rem;
+        }
+
+        .prompt-input {
+            padding: 15px;
+            border: 2px solid #e1e5e9;
+            border-radius: 10px;
+            font-size: 1rem;
+            resize: vertical;
+            min-height: 120px;
+            transition: border-color 0.3s ease;
+        }
+
+        .prompt-input:focus {
+            outline: none;
+            border-color: #667eea;
+        }
+
+        .image-upload-area {
+            border: 2px dashed #e1e5e9;
+            border-radius: 10px;
+            padding: 40px;
+            text-align: center;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            background: #f8f9fa;
+        }
+
+        .image-upload-area:hover {
+            border-color: #667eea;
+            background: #f0f2ff;
+        }
+
+        .image-upload-area.dragover {
+            border-color: #667eea;
+            background: #f0f2ff;
+        }
+
+        .upload-icon {
+            font-size: 3rem;
+            color: #667eea;
+            margin-bottom: 15px;
+        }
+
+        .upload-text {
+            color: #666;
+            font-size: 1.1rem;
+            margin-bottom: 10px;
+        }
+
+        .upload-hint {
+            color: #999;
+            font-size: 0.9rem;
+        }
+
+        .image-preview {
+            max-width: 100%;
+            max-height: 300px;
+            border-radius: 10px;
+            margin-top: 15px;
+            display: none;
+        }
+
+        .image-preview.show {
+            display: block;
+        }
+
+        .api-selector {
+            margin-bottom: 30px;
+        }
+
+        .api-selector label {
+            font-weight: 600;
+            margin-bottom: 15px;
+            display: block;
+            color: #333;
+            font-size: 1.1rem;
+        }
+
+        .api-options {
+            display: flex;
+            gap: 20px;
+        }
+
+        .api-option {
+            flex: 1;
+            padding: 15px;
+            border: 2px solid #e1e5e9;
+            border-radius: 10px;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            text-align: center;
+        }
+
+        .api-option:hover {
+            border-color: #667eea;
+        }
+
+        .api-option.selected {
+            border-color: #667eea;
+            background: #f0f2ff;
+        }
+
+        .api-option input[type="radio"] {
+            margin-right: 10px;
+        }
+
+        .api-option h3 {
+            margin-bottom: 5px;
+            color: #333;
+        }
+
+        .api-option p {
+            color: #666;
+            font-size: 0.9rem;
+        }
+
+        .generate-btn {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            border: none;
+            padding: 15px 40px;
+            border-radius: 10px;
+            font-size: 1.1rem;
+            font-weight: 600;
+            cursor: pointer;
+            transition: transform 0.3s ease;
+            width: 100%;
+            margin-bottom: 30px;
+        }
+
+        .generate-btn:hover {
+            transform: translateY(-2px);
+        }
+
+        .generate-btn:disabled {
+            opacity: 0.6;
+            cursor: not-allowed;
+            transform: none;
+        }
+
+        .loading {
+            display: none;
+            text-align: center;
+            padding: 20px;
+        }
+
+        .loading.show {
+            display: block;
+        }
+
+        .spinner {
+            border: 4px solid #f3f3f3;
+            border-top: 4px solid #667eea;
+            border-radius: 50%;
+            width: 40px;
+            height: 40px;
+            animation: spin 1s linear infinite;
+            margin: 0 auto 15px;
+        }
+
+        @keyframes spin {
+            0% { transform: rotate(0deg); }
+            100% { transform: rotate(360deg); }
+        }
+
+        .result-section {
+            display: none;
+        }
+
+        .result-section.show {
+            display: block;
+        }
+
+        .result-image {
+            max-width: 100%;
+            border-radius: 15px;
+            box-shadow: 0 10px 30px rgba(0, 0, 0, 0.1);
+            margin-bottom: 20px;
+        }
+
+        .result-info {
+            background: #f8f9fa;
+            padding: 20px;
+            border-radius: 10px;
+            margin-bottom: 20px;
+        }
+
+        .result-info h3 {
+            color: #333;
+            margin-bottom: 10px;
+        }
+
+        .result-info p {
+            color: #666;
+            margin-bottom: 5px;
+        }
+
+        .download-btn {
+            background: #28a745;
+            color: white;
+            border: none;
+            padding: 12px 25px;
+            border-radius: 8px;
+            font-weight: 600;
+            cursor: pointer;
+            transition: background 0.3s ease;
+        }
+
+        .download-btn:hover {
+            background: #218838;
+        }
+
+        .error-message {
+            background: #f8d7da;
+            color: #721c24;
+            padding: 15px;
+            border-radius: 10px;
+            margin-bottom: 20px;
+            display: none;
+        }
+
+        .error-message.show {
+            display: block;
+        }
+
+        @media (max-width: 768px) {
+            .form-section {
+                grid-template-columns: 1fr;
+                gap: 20px;
+            }
+            
+            .api-options {
+                flex-direction: column;
+            }
+            
+            .header h1 {
+                font-size: 2rem;
+            }
+            
+            .main-content {
+                padding: 20px;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="header">
+            <h1>🎨 T-Shirt Design Generator</h1>
+            <p>Create amazing t-shirt designs with AI-powered image generation</p>
+        </div>
+
+        <div class="main-content">
+            <div class="error-message" id="errorMessage"></div>
+
+            <div class="api-selector">
+                <label>Choose AI Model:</label>
+                <div class="api-options">
+                    <div class="api-option selected" data-api="gemini">
+                        <input type="radio" name="api" value="gemini" checked>
+                        <h3>Gemini Flash 2.0</h3>
+                        <p>Advanced image analysis and generation with optional image input</p>
+                    </div>
+                    <div class="api-option" data-api="dalle">
+                        <input type="radio" name="api" value="dalle">
+                        <h3>DALL-E 3</h3>
+                        <p>High-quality text-to-image generation</p>
+                    </div>
+                </div>
+            </div>
+
+            <div class="form-section">
+                <div class="form-group">
+                    <label for="prompt">Design Prompt:</label>
+                    <textarea 
+                        id="prompt" 
+                        class="prompt-input" 
+                        placeholder="Describe your t-shirt design... (e.g., 'A minimalist mountain landscape with a sunset, clean lines, modern design')"
+                    ></textarea>
+                </div>
+
+                <div class="form-group">
+                    <label>Reference Image (Optional):</label>
+                    <div class="image-upload-area" id="imageUploadArea">
+                        <div class="upload-icon">📁</div>
+                        <div class="upload-text">Click to upload or drag & drop</div>
+                        <div class="upload-hint">PNG, JPG, GIF up to 10MB</div>
+                        <input type="file" id="imageInput" accept="image/*" style="display: none;">
+                        <img id="imagePreview" class="image-preview" alt="Preview">
+                    </div>
+                </div>
+            </div>
+
+            <button class="generate-btn" id="generateBtn">
+                Generate Design
+            </button>
+
+            <div class="loading" id="loading">
+                <div class="spinner"></div>
+                <p>Generating your design... This may take a moment.</p>
+            </div>
+
+            <div class="result-section" id="resultSection">
+                <h2>Generated Design</h2>
+                <img id="resultImage" class="result-image" alt="Generated design">
+                <div class="result-info">
+                    <h3>Design Details</h3>
+                    <p><strong>Prompt:</strong> <span id="resultPrompt"></span></p>
+                    <p><strong>Model:</strong> <span id="resultModel"></span></p>
+                    <p><strong>Generated:</strong> <span id="resultTime"></span></p>
+                </div>
+                <button class="download-btn" id="downloadBtn">Download Image</button>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        class TShirtGenerator {
+            constructor() {
+                this.initializeElements();
+                this.attachEventListeners();
+            }
+
+            initializeElements() {
+                this.promptInput = document.getElementById('prompt');
+                this.imageInput = document.getElementById('imageInput');
+                this.imageUploadArea = document.getElementById('imageUploadArea');
+                this.imagePreview = document.getElementById('imagePreview');
+                this.generateBtn = document.getElementById('generateBtn');
+                this.loading = document.getElementById('loading');
+                this.resultSection = document.getElementById('resultSection');
+                this.resultImage = document.getElementById('resultImage');
+                this.resultPrompt = document.getElementById('resultPrompt');
+                this.resultModel = document.getElementById('resultModel');
+                this.resultTime = document.getElementById('resultTime');
+                this.downloadBtn = document.getElementById('downloadBtn');
+                this.errorMessage = document.getElementById('errorMessage');
+                this.apiOptions = document.querySelectorAll('.api-option');
+            }
+
+            attachEventListeners() {
+                // API selection
+                this.apiOptions.forEach(option => {
+                    option.addEventListener('click', () => {
+                        this.apiOptions.forEach(opt => opt.classList.remove('selected'));
+                        option.classList.add('selected');
+                        option.querySelector('input[type="radio"]').checked = true;
+                    });
+                });
+
+                // Image upload
+                this.imageUploadArea.addEventListener('click', () => {
+                    this.imageInput.click();
+                });
+
+                this.imageInput.addEventListener('change', (e) => {
+                    this.handleImageUpload(e.target.files[0]);
+                });
+
+                // Drag and drop
+                this.imageUploadArea.addEventListener('dragover', (e) => {
+                    e.preventDefault();
+                    this.imageUploadArea.classList.add('dragover');
+                });
+
+                this.imageUploadArea.addEventListener('dragleave', () => {
+                    this.imageUploadArea.classList.remove('dragover');
+                });
+
+                this.imageUploadArea.addEventListener('drop', (e) => {
+                    e.preventDefault();
+                    this.imageUploadArea.classList.remove('dragover');
+                    const files = e.dataTransfer.files;
+                    if (files.length > 0) {
+                        this.handleImageUpload(files[0]);
+                    }
+                });
+
+                // Generate button
+                this.generateBtn.addEventListener('click', () => {
+                    this.generateDesign();
+                });
+
+                // Download button
+                this.downloadBtn.addEventListener('click', () => {
+                    this.downloadImage();
+                });
+            }
+
+            handleImageUpload(file) {
+                if (!file) return;
+
+                if (!file.type.startsWith('image/')) {
+                    this.showError('Please select a valid image file.');
+                    return;
+                }
+
+                if (file.size > 10 * 1024 * 1024) {
+                    this.showError('Image size must be less than 10MB.');
+                    return;
+                }
+
+                const reader = new FileReader();
+                reader.onload = (e) => {
+                    this.imagePreview.src = e.target.result;
+                    this.imagePreview.classList.add('show');
+                };
+                reader.readAsDataURL(file);
+            }
+
+            async generateDesign() {
+                const prompt = this.promptInput.value.trim();
+                if (!prompt) {
+                    this.showError('Please enter a design prompt.');
+                    return;
+                }
+
+                const selectedApi = document.querySelector('input[name="api"]:checked').value;
+                const imageFile = this.imageInput.files[0];
+
+                this.showLoading(true);
+                this.hideError();
+
+                try {
+                    let requestBody = { prompt };
+
+                    // Add image if provided and using Gemini
+                    if (imageFile && selectedApi === 'gemini') {
+                        const base64Image = await this.fileToBase64(imageFile);
+                        requestBody.image = base64Image;
+                    }
+
+                    const endpoint = selectedApi === 'gemini' ? '/api/generate-sd' : '/api/generate';
+                    
+                    const response = await fetch(endpoint, {
+                        method: 'POST',
+                        headers: {
+                            'Content-Type': 'application/json',
+                        },
+                        body: JSON.stringify(requestBody)
+                    });
+
+                    const result = await response.json();
+
+                    if (result.success) {
+                        this.showResult(result);
+                    } else {
+                        this.showError(result.error || 'Failed to generate design. Please try again.');
+                    }
+                } catch (error) {
+                    console.error('Error:', error);
+                    this.showError('Network error. Please check your connection and try again.');
+                } finally {
+                    this.showLoading(false);
+                }
+            }
+
+            fileToBase64(file) {
+                return new Promise((resolve, reject) => {
+                    const reader = new FileReader();
+                    reader.readAsDataURL(file);
+                    reader.onload = () => resolve(reader.result);
+                    reader.onerror = error => reject(error);
+                });
+            }
+
+            showResult(result) {
+                this.resultImage.src = result.imageUrl;
+                this.resultPrompt.textContent = result.prompt;
+                this.resultModel.textContent = result.model || 'AI Model';
+                this.resultTime.textContent = new Date().toLocaleString();
+                this.resultSection.classList.add('show');
+                this.resultSection.scrollIntoView({ behavior: 'smooth' });
+            }
+
+            downloadImage() {
+                const link = document.createElement('a');
+                link.href = this.resultImage.src;
+                link.download = `tshirt-design-${Date.now()}.png`;
+                document.body.appendChild(link);
+                link.click();
+                document.body.removeChild(link);
+            }
+
+            showLoading(show) {
+                this.loading.classList.toggle('show', show);
+                this.generateBtn.disabled = show;
+                this.generateBtn.textContent = show ? 'Generating...' : 'Generate Design';
+            }
+
+            showError(message) {
+                this.errorMessage.textContent = message;
+                this.errorMessage.classList.add('show');
+            }
+
+            hideError() {
+                this.errorMessage.classList.remove('show');
+            }
+        }
+
+        // Initialize the application
+        document.addEventListener('DOMContentLoaded', () => {
+            new TShirtGenerator();
+        });
+    </script>
+</body>
+</html>

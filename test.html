@@ -1,0 +1,4103 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>T-Shirt Designer</title>
+  <style>
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+      background: #ffffff;
+      min-height: 100vh;
+      padding: 2rem 1rem;
+    }
+    
+    .designer-wrapper {
+      max-width: 1400px;
+      margin: 0 auto;
+    }
+    
+    .page-title {
+      font-size: 3rem;
+      font-weight: 800;
+      margin-bottom: 2rem;
+      color: #000000;
+      text-align: center;
+    }
+    
+    .designer-layout {
+      display: grid;
+      grid-template-columns: 1fr;
+      gap: 2rem;
+    }
+    
+    @media (min-width: 1024px) {
+      .designer-layout { grid-template-columns: 1.2fr 1fr; }
+    }
+    
+    .card {
+      background: #fff;
+      border-radius: 20px;
+      box-shadow: 0 2px 12px rgba(0,0,0,0.08);
+      padding: 2.5rem;
+      position: relative;
+      overflow: hidden;
+      border: 1px solid #f0f0f0;
+    }
+    
+    .tshirt-viewer {
+      position: relative;
+      aspect-ratio: 1;
+      background: #fafafa;
+      border-radius: 16px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      overflow: hidden;
+      border: 1px solid #e5e5e5;
+    }
+    
+    #canvas-container {
+      position: relative;
+      width: 100%;
+      height: 100%;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+    }
+    
+    #tshirt-canvas {
+      max-width: 100%;
+      max-height: 100%;
+      cursor: default;
+    }
+    
+    #loading-screen {
+      position: absolute;
+      inset: 0;
+      background: rgba(0, 0, 0, 0.9);
+      display: none;
+      align-items: center;
+      justify-content: center;
+      border-radius: 16px;
+      z-index: 20;
+    }
+    
+    #loading-screen.active { display: flex; }
+    
+    .loader {
+      width: 60px;
+      height: 60px;
+      border: 6px solid rgba(255,255,255,0.3);
+      border-top-color: #fff;
+      border-radius: 50%;
+      animation: rotate 1s linear infinite;
+    }
+    
+    @keyframes rotate {
+      to { transform: rotate(360deg); }
+    }
+    
+    .loader-text {
+      color: #fff;
+      margin-top: 1.5rem;
+      font-size: 1.1rem;
+      font-weight: 600;
+    }
+    
+    .controls { display: flex; flex-direction: column; gap: 1.5rem; }
+    
+    .control-group {
+      background: #fff;
+      border-radius: 16px;
+      box-shadow: 0 2px 8px rgba(0,0,0,0.06);
+      padding: 1.75rem;
+      transition: transform 0.2s, box-shadow 0.2s;
+      border: 1px solid #f0f0f0;
+      position: relative;
+      overflow: visible;
+      min-height: 200px;
+      z-index: 1;
+    }
+    
+    .control-group:has(.text-overlay.visible) {
+      z-index: 50;
+    }
+    
+    .control-group:hover {
+      transform: translateY(-2px);
+      box-shadow: 0 4px 12px rgba(0,0,0,0.1);
+    }
+    
+    .control-label {
+      display: block;
+      font-size: 0.875rem;
+      font-weight: 700;
+      text-transform: uppercase;
+      letter-spacing: 0.5px;
+      margin-bottom: 1rem;
+      color: #000000;
+    }
+    
+    .prompt-header {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      margin-bottom: 1rem;
+    }
+    
+    .upload-btn {
+      padding: 0.5rem 1rem;
+      background: #f8f9fa;
+      border: 2px solid #dee2e6;
+      border-radius: 8px;
+      font-size: 0.8rem;
+      font-weight: 600;
+      cursor: pointer;
+      transition: all 0.2s;
+      font-family: inherit;
+      color: #495057;
+    }
+    
+    .upload-btn:hover {
+      background: #e9ecef;
+      border-color: #adb5bd;
+    }
+    
+    .upload-btn.has-image {
+      background: #d1fae5;
+      border-color: #10b981;
+      color: #065f46;
+    }
+    
+    .image-preview {
+      display: none;
+      margin-top: 0.75rem;
+      padding: 0.75rem;
+      background: #f8f9fa;
+      border-radius: 8px;
+      border: 1px solid #dee2e6;
+    }
+    
+    .image-preview.visible {
+      display: block;
+    }
+    
+    .preview-container {
+      display: flex;
+      align-items: center;
+      gap: 0.75rem;
+    }
+    
+    .preview-img {
+      width: 60px;
+      height: 60px;
+      object-fit: cover;
+      border-radius: 6px;
+      border: 2px solid #dee2e6;
+    }
+    
+    .preview-info {
+      flex: 1;
+      font-size: 0.85rem;
+      color: #495057;
+    }
+    
+    .preview-info strong {
+      display: block;
+      color: #000;
+      margin-bottom: 0.25rem;
+    }
+    
+    .remove-image-btn {
+      padding: 0.4rem 0.75rem;
+      background: #ef4444;
+      color: white;
+      border: none;
+      border-radius: 6px;
+      font-size: 0.75rem;
+      font-weight: 600;
+      cursor: pointer;
+      transition: all 0.2s;
+      font-family: inherit;
+    }
+    
+    .remove-image-btn:hover {
+      background: #dc2626;
+    }
+    
+    #image-upload {
+      display: none;
+    }
+    
+    .prompt-field {
+      width: 100%;
+      padding: 1.125rem;
+      border: 2px solid #dee2e6;
+      border-radius: 12px;
+      font-size: 1rem;
+      font-family: inherit;
+      resize: vertical;
+      min-height: 120px;
+      transition: all 0.2s;
+    }
+    
+    .prompt-field:focus {
+      outline: none;
+      border-color: #000000;
+      box-shadow: 0 0 0 3px rgba(0, 0, 0, 0.1);
+    }
+    
+    .btn {
+      padding: 1rem 1.75rem;
+      border: none;
+      border-radius: 12px;
+      font-size: 1rem;
+      font-weight: 600;
+      cursor: pointer;
+      transition: all 0.3s;
+      font-family: inherit;
+    }
+    
+    .btn-generate {
+      width: 100%;
+      background: #000000;
+      color: #fff;
+      margin-top: 1rem;
+    }
+    
+    .btn-generate:hover:not(:disabled) {
+      background: #1a1a1a;
+      transform: translateY(-2px);
+      box-shadow: 0 4px 12px rgba(0, 0, 0, 0.2);
+    }
+    
+    .btn-generate:disabled {
+      background: #adb5bd;
+      cursor: not-allowed;
+      transform: none;
+      box-shadow: none;
+    }
+    
+    .btn-add-cart {
+      width: 100%;
+      background: #10b981;
+      color: #fff;
+      margin-top: 1rem;
+      position: relative;
+    }
+    
+    .btn-add-cart:hover:not(:disabled) {
+      background: #059669;
+      transform: translateY(-2px);
+      box-shadow: 0 4px 12px rgba(16, 185, 129, 0.3);
+    }
+    
+    .btn-add-cart:disabled {
+      background: #adb5bd;
+      cursor: not-allowed;
+      transform: none;
+      box-shadow: none;
+    }
+    
+    .cart-badge {
+      position: absolute;
+      top: -8px;
+      right: -8px;
+      background: #ef4444;
+      color: white;
+      border-radius: 50%;
+      width: 24px;
+      height: 24px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 0.75rem;
+      font-weight: 700;
+    }
+    
+    .cart-modal {
+      position: fixed;
+      top: 0;
+      left: 0;
+      right: 0;
+      bottom: 0;
+      background: rgba(0, 0, 0, 0.7);
+      display: none;
+      align-items: center;
+      justify-content: center;
+      z-index: 10000;
+      padding: 1rem;
+    }
+    
+    .cart-modal.visible {
+      display: flex;
+    }
+    
+    .cart-content {
+      background: white;
+      border-radius: 16px;
+      max-width: 800px;
+      width: 100%;
+      max-height: 90vh;
+      overflow-y: auto;
+      box-shadow: 0 20px 60px rgba(0, 0, 0, 0.3);
+    }
+    
+    .cart-header {
+      padding: 1.5rem;
+      border-bottom: 2px solid #e9ecef;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      position: sticky;
+      top: 0;
+      background: white;
+      z-index: 1;
+    }
+    
+    .cart-title {
+      font-size: 1.5rem;
+      font-weight: 700;
+      display: flex;
+      align-items: center;
+      gap: 0.5rem;
+    }
+    
+    .cart-close {
+      background: none;
+      border: none;
+      font-size: 1.5rem;
+      cursor: pointer;
+      padding: 0.5rem;
+      border-radius: 8px;
+      transition: background 0.2s;
+    }
+    
+    .cart-close:hover {
+      background: #f1f3f5;
+    }
+    
+    .cart-items {
+      padding: 1.5rem;
+    }
+    
+    .cart-item {
+      display: flex;
+      gap: 1rem;
+      padding: 1rem;
+      border: 2px solid #e9ecef;
+      border-radius: 12px;
+      margin-bottom: 1rem;
+      background: #f8f9fa;
+    }
+    
+    .cart-item-image {
+      width: 120px;
+      height: 120px;
+      border-radius: 8px;
+      object-fit: cover;
+      border: 2px solid #dee2e6;
+    }
+    
+    .cart-item-details {
+      flex: 1;
+      display: flex;
+      flex-direction: column;
+      gap: 0.5rem;
+    }
+    
+    .cart-item-title {
+      font-weight: 600;
+      font-size: 1.1rem;
+    }
+    
+    .cart-item-meta {
+      color: #666;
+      font-size: 0.9rem;
+    }
+    
+    .cart-item-actions {
+      display: flex;
+      align-items: center;
+      gap: 0.5rem;
+      margin-top: auto;
+    }
+    
+    .cart-item-remove {
+      padding: 0.5rem 1rem;
+      background: #ef4444;
+      color: white;
+      border: none;
+      border-radius: 6px;
+      cursor: pointer;
+      font-size: 0.9rem;
+      font-weight: 600;
+      transition: background 0.2s;
+    }
+    
+    .cart-item-remove:hover {
+      background: #dc2626;
+    }
+    
+    .cart-empty {
+      text-align: center;
+      padding: 3rem 1.5rem;
+      color: #868e96;
+      font-size: 1.1rem;
+    }
+    
+    .cart-footer {
+      padding: 1.5rem;
+      border-top: 2px solid #e9ecef;
+      background: #f8f9fa;
+      position: sticky;
+      bottom: 0;
+    }
+    
+    .cart-total {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      font-size: 1.5rem;
+      font-weight: 700;
+      margin-bottom: 1rem;
+    }
+    
+    .cart-checkout {
+      width: 100%;
+      padding: 1.25rem;
+      background: #000;
+      color: white;
+      border: none;
+      border-radius: 12px;
+      font-size: 1.1rem;
+      font-weight: 600;
+      cursor: pointer;
+      transition: all 0.3s;
+    }
+    
+    .cart-checkout:hover {
+      background: #1a1a1a;
+      transform: translateY(-2px);
+      box-shadow: 0 4px 12px rgba(0, 0, 0, 0.2);
+    }
+    
+    /* Cart update animation for Shopify header cart */
+    .cart-updated {
+      animation: cart-bounce 0.5s ease-in-out;
+    }
+    
+    @keyframes cart-bounce {
+      0%, 100% { transform: scale(1); }
+      50% { transform: scale(1.2); }
+    }
+    
+    .options-row {
+      display: flex;
+      gap: 0.75rem;
+      flex-wrap: wrap;
+    }
+    
+    .option-btn {
+      flex: 1;
+      min-width: 60px;
+      padding: 1rem;
+      border: 2px solid #dee2e6;
+      background: #fff;
+      border-radius: 10px;
+      font-weight: 600;
+      cursor: pointer;
+      transition: all 0.2s;
+      font-family: inherit;
+      font-size: 0.95rem;
+    }
+    
+    .option-btn:hover { 
+      border-color: #000000;
+      transform: translateY(-1px);
+    }
+    
+    .option-btn.selected {
+      background: #000000;
+      color: #fff;
+      border-color: #000000;
+    }
+    
+    .design-controls {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 0.75rem;
+      margin-top: 1rem;
+    }
+    
+    .control-btn {
+      padding: 0.75rem;
+      border: 2px solid #dee2e6;
+      background: #f8f9fa;
+      border-radius: 8px;
+      font-weight: 600;
+      cursor: pointer;
+      transition: all 0.2s;
+      font-size: 0.9rem;
+    }
+    
+    .control-btn:hover {
+      background: #e9ecef;
+      border-color: #adb5bd;
+    }
+    
+    .control-btn:active {
+      transform: scale(0.95);
+    }
+    
+    .error-box {
+      display: none;
+      margin-top: 1rem;
+      padding: 1rem;
+      background: #f8d7da;
+      border: 2px solid #f5c2c7;
+      border-radius: 10px;
+      color: #842029;
+      font-size: 0.9rem;
+      font-weight: 500;
+    }
+    
+    .error-box.visible { display: block; }
+    
+    .success-alert {
+      display: none;
+      margin-bottom: 1.5rem;
+      padding: 1.25rem;
+      background: #f0fdf4;
+      border: 2px solid #bbf7d0;
+      border-radius: 12px;
+      color: #166534;
+      font-weight: 600;
+    }
+    
+    .success-alert.visible { display: block; }
+    
+    .instructions {
+      background: #fafafa;
+      border: 1px solid #e5e5e5;
+      border-radius: 12px;
+      padding: 1rem;
+      margin-top: 1rem;
+      font-size: 0.85rem;
+      color: #404040;
+      line-height: 1.6;
+    }
+    
+    .instructions strong {
+      display: block;
+      margin-bottom: 0.5rem;
+      font-size: 0.9rem;
+      color: #000000;
+    }
+    
+    .image-selector {
+      display: flex;
+      gap: 0.5rem;
+      justify-content: center;
+      flex-wrap: wrap;
+      margin-top: 1rem;
+      margin-bottom: 1rem;
+      width: 100%;
+    }
+    
+    .thumbnail-btn {
+      width: 70px;
+      height: 70px;
+      border: 2px solid #e5e5e5;
+      border-radius: 8px;
+      overflow: hidden;
+      cursor: pointer;
+      transition: all 0.2s;
+      background: #fff;
+      padding: 4px;
+      flex-shrink: 0;
+    }
+    
+    .thumbnail-btn img {
+      width: 100%;
+      height: 100%;
+      object-fit: cover;
+      display: block;
+      border-radius: 4px;
+    }
+    
+    .thumbnail-btn:hover {
+      border-color: #666;
+    }
+    
+    .thumbnail-btn.active {
+      border-color: #000;
+      border-width: 3px;
+      padding: 3px;
+    }
+    
+    #design-only-thumbnail {
+      position: relative;
+    }
+    
+    #design-only-thumbnail.disabled {
+      opacity: 0.4;
+      cursor: not-allowed;
+    }
+    
+    #design-only-thumbnail.disabled:hover {
+      border-color: #e5e5e5;
+    }
+    
+    #design-only-thumbnail.no-image::before {
+      content: 'Your Design';
+      position: absolute;
+      top: 50%;
+      left: 50%;
+      transform: translate(-50%, -50%);
+      font-size: 0.65rem;
+      font-weight: 600;
+      color: #999;
+      text-align: center;
+      pointer-events: none;
+      z-index: 1;
+      white-space: nowrap;
+    }
+    
+    .add-text-btn {
+      position: absolute;
+      right: 0.75rem;
+      top: 0.75rem;
+      padding: 0.5rem 0.75rem;
+      background: rgba(255, 255, 255, 0.95);
+      border: 2px solid #e5e5e5;
+      border-radius: 8px;
+      font-size: 0.75rem;
+      font-weight: 700;
+      text-transform: uppercase;
+      color: #666;
+      cursor: pointer;
+      transition: all 0.2s;
+      z-index: 10;
+      box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+    }
+    
+    .add-text-btn:hover {
+      background: #fff;
+      border-color: #999;
+      transform: translateY(-1px);
+      box-shadow: 0 4px 12px rgba(0,0,0,0.15);
+    }
+    
+    .add-text-btn.active {
+      background: #000;
+      color: #fff;
+      border-color: #000;
+    }
+    
+    .sprite-btn {
+      padding: 0.75rem;
+      background: #fff;
+      border: 2px solid #dee2e6;
+      border-radius: 8px;
+      font-size: 2rem;
+      cursor: pointer;
+      transition: all 0.2s;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      min-height: 60px;
+    }
+    
+    .sprite-btn:hover {
+      background: #f0f0f0;
+      border-color: #999;
+      transform: scale(1.1);
+      box-shadow: 0 2px 8px rgba(0,0,0,0.15);
+    }
+    
+    .sprite-btn:active {
+      transform: scale(0.95);
+    }
+    
+    .text-overlay {
+      position: absolute;
+      top: 0;
+      left: 0;
+      right: 0;
+      background: #fff;
+      border-radius: 16px;
+      padding: 1.75rem;
+      display: none;
+      flex-direction: column;
+      gap: 1rem;
+      z-index: 100;
+      box-shadow: 0 4px 16px rgba(0,0,0,0.12);
+      min-height: 100%;
+    }
+    
+    .text-overlay.visible {
+      display: flex;
+    }
+    
+    .text-overlay-header {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      padding-bottom: 0.5rem;
+      border-bottom: 2px solid #f0f0f0;
+      margin-bottom: 0.5rem;
+    }
+    
+    .text-overlay-title {
+      font-size: 0.875rem;
+      font-weight: 700;
+      text-transform: uppercase;
+      letter-spacing: 0.5px;
+      color: #000000;
+    }
+    
+    .close-text-btn {
+      padding: 0.4rem 0.75rem;
+      background: #f8f9fa;
+      border: 2px solid #dee2e6;
+      border-radius: 6px;
+      font-size: 0.75rem;
+      font-weight: 600;
+      cursor: pointer;
+      transition: all 0.2s;
+      font-family: inherit;
+      color: #495057;
+    }
+    
+    .close-text-btn:hover {
+      background: #e9ecef;
+      border-color: #adb5bd;
+    }
+    
+    .text-input-group {
+      display: flex;
+      flex-direction: column;
+      gap: 0.4rem;
+    }
+    
+    .text-input-label {
+      font-size: 0.75rem;
+      font-weight: 600;
+      color: #495057;
+      text-transform: uppercase;
+      letter-spacing: 0.3px;
+    }
+    
+    .text-input-field {
+      width: 100%;
+      padding: 0.75rem;
+      border: 2px solid #dee2e6;
+      border-radius: 8px;
+      font-size: 0.9rem;
+      font-family: inherit;
+      transition: all 0.2s;
+    }
+    
+    .text-input-field:focus {
+      outline: none;
+      border-color: #000000;
+      box-shadow: 0 0 0 3px rgba(0, 0, 0, 0.1);
+    }
+    
+    .text-select {
+      width: 100%;
+      padding: 0.75rem;
+      border: 2px solid #dee2e6;
+      border-radius: 8px;
+      font-size: 0.9rem;
+      font-family: inherit;
+      background: #fff;
+      cursor: pointer;
+      transition: all 0.2s;
+    }
+    
+    .text-select:focus {
+      outline: none;
+      border-color: #000000;
+      box-shadow: 0 0 0 3px rgba(0, 0, 0, 0.1);
+    }
+    
+    .color-input-wrapper {
+      display: flex;
+      gap: 0.75rem;
+      align-items: center;
+    }
+    
+    .text-color-input {
+      width: 60px;
+      height: 40px;
+      border: 2px solid #dee2e6;
+      border-radius: 8px;
+      cursor: pointer;
+      transition: all 0.2s;
+    }
+    
+    .text-color-input:hover {
+      border-color: #adb5bd;
+    }
+    
+    .color-hex-display {
+      flex: 1;
+      padding: 0.75rem;
+      border: 2px solid #dee2e6;
+      border-radius: 8px;
+      font-size: 0.85rem;
+      font-family: 'Courier New', monospace;
+      font-weight: 600;
+      color: #495057;
+      background: #f8f9fa;
+      text-align: center;
+    }
+    
+    .add-text-submit-btn {
+      width: 100%;
+      padding: 0.75rem;
+      background: #000;
+      color: #fff;
+      border: none;
+      border-radius: 8px;
+      font-size: 0.9rem;
+      font-weight: 600;
+      cursor: pointer;
+      transition: all 0.2s;
+      font-family: inherit;
+      margin-top: 0.25rem;
+    }
+    
+    .add-text-submit-btn:hover {
+      background: #1a1a1a;
+      transform: translateY(-1px);
+      box-shadow: 0 4px 12px rgba(0,0,0,0.2);
+    }
+    
+    .add-text-submit-btn:disabled {
+      background: #adb5bd;
+      cursor: not-allowed;
+      transform: none;
+      box-shadow: none;
+    }
+    
+    /* Text Warping Styles */
+    .text-warp-section {
+      margin-top: 1rem;
+      padding: 1rem;
+      background: #f8f9fa;
+      border-radius: 8px;
+      border: 1px solid #dee2e6;
+    }
+    
+    .warp-controls {
+      display: flex;
+      flex-direction: column;
+      gap: 0.75rem;
+    }
+    
+    .warp-type-group,
+    .warp-intensity-group,
+    .warp-direction-group {
+      display: flex;
+      flex-direction: column;
+      gap: 0.4rem;
+    }
+    
+    .warp-type-label,
+    .warp-intensity-label,
+    .warp-direction-label {
+      font-size: 0.75rem;
+      font-weight: 600;
+      color: #495057;
+      text-transform: uppercase;
+      letter-spacing: 0.3px;
+    }
+    
+    .warp-select {
+      width: 100%;
+      padding: 0.5rem;
+      border: 2px solid #dee2e6;
+      border-radius: 6px;
+      font-size: 0.85rem;
+      font-family: inherit;
+      background: #fff;
+      cursor: pointer;
+      transition: border-color 0.2s;
+    }
+    
+    .warp-select:focus {
+      outline: none;
+      border-color: #000000;
+      box-shadow: 0 0 0 3px rgba(0, 0, 0, 0.1);
+    }
+    
+    .warp-slider {
+      width: 100%;
+      height: 6px;
+      border-radius: 3px;
+      background: #dee2e6;
+      outline: none;
+      cursor: pointer;
+      -webkit-appearance: none;
+    }
+    
+    .warp-slider::-webkit-slider-thumb {
+      -webkit-appearance: none;
+      appearance: none;
+      width: 18px;
+      height: 18px;
+      border-radius: 50%;
+      background: #000000;
+      cursor: pointer;
+      border: 2px solid #fff;
+      box-shadow: 0 2px 4px rgba(0,0,0,0.2);
+    }
+    
+    .warp-slider::-moz-range-thumb {
+      width: 18px;
+      height: 18px;
+      border-radius: 50%;
+      background: #000000;
+      cursor: pointer;
+      border: 2px solid #fff;
+      box-shadow: 0 2px 4px rgba(0,0,0,0.2);
+    }
+    
+    .warp-intensity-display {
+      font-size: 0.8rem;
+      font-weight: 600;
+      color: #495057;
+      text-align: center;
+      margin-top: 0.25rem;
+    }
+    
+    .mask-dropdown {
+      margin-top: 0.75rem;
+      padding: 0.75rem;
+      background: #f8f9fa;
+      border-radius: 8px;
+      border: 1px solid #dee2e6;
+      display: none;
+    }
+    
+    .mask-dropdown.visible {
+      display: block;
+    }
+    
+    .mask-dropdown label {
+      display: block;
+      font-size: 0.8rem;
+      font-weight: 600;
+      color: #495057;
+      margin-bottom: 0.5rem;
+    }
+    
+    .mask-select {
+      width: 100%;
+      padding: 0.625rem;
+      border: 2px solid #dee2e6;
+      border-radius: 6px;
+      font-size: 0.9rem;
+      font-family: inherit;
+      background: #fff;
+      cursor: pointer;
+      transition: border-color 0.2s;
+    }
+    
+    .mask-select:focus {
+      outline: none;
+      border-color: #000;
+    }
+    
+    .crop-dropdown {
+      margin-top: 0.75rem;
+      padding: 0.75rem;
+      background: #f8f9fa;
+      border-radius: 8px;
+      border: 1px solid #dee2e6;
+      display: none;
+    }
+    
+    .crop-dropdown.visible {
+      display: block;
+    }
+    
+    .crop-dropdown label {
+      display: block;
+      font-size: 0.8rem;
+      font-weight: 600;
+      color: #495057;
+      margin-bottom: 0.5rem;
+    }
+    
+    .crop-controls {
+      display: flex;
+      flex-direction: column;
+      gap: 0.75rem;
+    }
+    
+    .crop-control-row {
+      display: flex;
+      align-items: center;
+      gap: 0.5rem;
+    }
+    
+    .crop-control-row label {
+      margin: 0;
+      min-width: 80px;
+      font-size: 0.85rem;
+    }
+    
+    .crop-slider {
+      flex: 1;
+      height: 6px;
+      border-radius: 3px;
+      background: #dee2e6;
+      outline: none;
+      cursor: pointer;
+    }
+    
+    .crop-value {
+      min-width: 40px;
+      font-size: 0.85rem;
+      font-weight: 600;
+      color: #495057;
+    }
+    
+    .crop-actions {
+      display: flex;
+      gap: 0.5rem;
+      margin-top: 0.75rem;
+    }
+    
+    .crop-action-btn {
+      flex: 1;
+      padding: 0.625rem;
+      border: none;
+      border-radius: 6px;
+      font-size: 0.85rem;
+      font-weight: 600;
+      cursor: pointer;
+      transition: all 0.2s;
+      font-family: inherit;
+    }
+    
+    .crop-apply-btn {
+      background: #10b981;
+      color: white;
+    }
+    
+    .crop-apply-btn:hover {
+      background: #059669;
+    }
+    
+    .crop-clear-btn {
+      background: #ef4444;
+      color: white;
+    }
+    
+    .crop-clear-btn:hover {
+      background: #dc2626;
+    }
+    
+    .crop-applied-indicator {
+      display: none;
+      margin-top: 0.5rem;
+      padding: 0.5rem;
+      background: #d1fae5;
+      border-radius: 6px;
+      font-size: 0.8rem;
+      color: #065f46;
+      font-weight: 600;
+      text-align: center;
+    }
+    
+    .crop-applied-indicator.visible {
+      display: block;
+    }
+    
+    .design-history-toggle {
+      position: absolute;
+      left: 0.75rem;
+      top: 0.75rem;
+      padding: 0.5rem 0.75rem;
+      background: rgba(255, 255, 255, 0.95);
+      border: 2px solid #e5e5e5;
+      border-radius: 8px;
+      font-size: 0.75rem;
+      font-weight: 700;
+      text-transform: uppercase;
+      color: #666;
+      cursor: pointer;
+      transition: all 0.2s;
+      z-index: 10;
+      box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+    }
+    
+    .design-history-toggle:hover {
+      background: #fff;
+      border-color: #000;
+      color: #000;
+      transform: translateY(-1px);
+      box-shadow: 0 4px 12px rgba(0,0,0,0.15);
+    }
+    
+    .design-history-toggle.active {
+      background: #000;
+      color: #fff;
+      border-color: #000;
+    }
+    
+    .design-history {
+      position: absolute;
+      left: 0;
+      top: 0;
+      bottom: 0;
+      width: 90px;
+      display: none;
+      flex-direction: column;
+      gap: 0.5rem;
+      padding: 0.75rem;
+      padding-top: 3.5rem;
+      background: rgba(255, 255, 255, 0.98);
+      border-right: 1px solid #e5e5e5;
+      overflow-y: auto;
+      z-index: 9;
+      box-shadow: 2px 0 8px rgba(0,0,0,0.1);
+    }
+    
+    .design-history.visible {
+      display: flex;
+    }
+    
+    .design-history-title {
+      display: none;
+    }
+    
+    .history-item {
+      width: 70px;
+      height: 70px;
+      border: 2px solid #e5e5e5;
+      border-radius: 8px;
+      overflow: hidden;
+      cursor: pointer;
+      transition: all 0.2s;
+      background: #fff;
+      padding: 4px;
+      flex-shrink: 0;
+    }
+    
+    .history-item img {
+      width: 100%;
+      height: 100%;
+      object-fit: cover;
+      display: block;
+      border-radius: 4px;
+    }
+    
+    .history-item:hover {
+      border-color: #666;
+      transform: scale(1.05);
+    }
+    
+    .history-item.active {
+      border-color: #000;
+      border-width: 3px;
+      padding: 3px;
+    }
+    
+    .design-history::-webkit-scrollbar {
+      width: 4px;
+    }
+    
+    .design-history::-webkit-scrollbar-track {
+      background: #f0f0f0;
+      border-radius: 2px;
+    }
+    
+    .design-history::-webkit-scrollbar-thumb {
+      background: #999;
+      border-radius: 2px;
+    }
+    
+    .design-history::-webkit-scrollbar-thumb:hover {
+      background: #666;
+    }
+  </style>
+</head>
+<body>
+  <div class="designer-wrapper">
+    <h1 class="page-title">🎨 Apprima T-Shirt Designer</h1>
+    
+    <div id="success-alert" class="success-alert">
+      ✓ Your design has been generated! Drag and resize it to perfect the placement.
+    </div>
+    
+    <div class="designer-layout">
+      <!-- Preview Column -->
+      <div class="card">
+        <div class="tshirt-viewer">
+          <div id="canvas-container">
+            <!-- History Toggle Button -->
+            <button class="design-history-toggle" id="history-toggle">History</button>
+            
+            <!-- Design History Sidebar -->
+            <div class="design-history" id="design-history">
+              <div class="design-history-title">Recent</div>
+            </div>
+            
+            <canvas id="tshirt-canvas"></canvas>
+          </div>
+          
+          <div id="loading-screen">
+            <div style="text-align: center;">
+              <div class="loader"></div>
+              <p class="loader-text">Creating your design...</p>
+            </div>
+          </div>
+        </div>
+        
+        <!-- Image Selector Thumbnails -->
+        <div class="image-selector">
+          <button class="thumbnail-btn active" data-image="template" title="Template View">
+            <img src="https://cdn.shopify.com/s/files/1/0916/8266/8909/files/t-front.png?v=1761178014" alt="Template">
+          </button>
+          <button class="thumbnail-btn" data-image="realistic" title="Realistic View">
+            <img src="https://cdn.shopify.com/s/files/1/0916/8266/8909/files/t-front_realistic.png?v=1761181061" alt="Realistic">
+          </button>
+          <button class="thumbnail-btn" data-image="design-only" title="Design Only" id="design-only-thumbnail">
+            <img src="https://cdn.shopify.com/s/files/1/0916/8266/8909/files/Blank_Image.png?v=1761257355" alt="Design Only" id="design-only-img">
+          </button>
+          <button class="thumbnail-btn" data-image="person" title="Model View">
+            <img src="https://cdn.shopify.com/s/files/1/0916/8266/8909/files/t-front_with_person.png?v=1761181608" alt="On Model">
+          </button>
+        </div>
+        
+        <div class="instructions">
+          <strong>💡 How to use:</strong>
+          • Drag your design to reposition it<br>
+          • Use corner handles to resize<br>
+          • Design stays within print boundaries<br>
+          • Click thumbnails to preview different views
+        </div>
+      </div>
+      
+      <!-- Controls Column -->
+      <div class="controls">
+        <!-- Prompt Input -->
+        <div class="control-group">
+          <div class="prompt-header">
+            <label class="control-label">🖌️ Describe Your Design</label>
+            <label for="image-upload" class="upload-btn" id="upload-btn-label">
+              📎 Upload Image
+            </label>
+            <input type="file" id="image-upload" accept="image/*">
+          </div>
+          
+          <div class="image-preview" id="image-preview">
+            <div class="preview-container">
+              <img id="preview-img" class="preview-img" src="" alt="Preview">
+              <div class="preview-info">
+                <strong>Reference Image Uploaded</strong>
+                <span>Will be used as inspiration for generation</span>
+              </div>
+              <button id="remove-image-btn" class="remove-image-btn">Remove</button>
+            </div>
+          </div>
+          
+          <textarea id="user-prompt" class="prompt-field" 
+                    placeholder="e.g., A majestic mountain landscape at sunset with vibrant colors and geometric patterns"></textarea>
+          <button id="gen-btn" class="btn btn-generate">✨ Generate Design</button>
+          <div id="error-msg" class="error-box"></div>
+        </div>
+        
+        <!-- Design Controls -->
+        <div class="control-group">
+          <button class="add-text-btn" id="layer-order-btn" style="right: 13.5rem;">📚 Layers</button>
+          <button class="add-text-btn" id="sprites-btn" style="right: 7rem;">✨ Sprites</button>
+          <button class="add-text-btn" id="add-text-btn">Add Text</button>
+          <span class="control-label">🎯 Adjust Design</span>
+          <div class="design-controls">
+            <button class="control-btn" onclick="adjustSize(0.9)">🔍 Smaller</button>
+            <button class="control-btn" onclick="adjustSize(1.1)">🔍 Larger</button>
+            <button class="control-btn" onclick="resetDesign()">↺ Reset Position</button>
+            <button class="control-btn" onclick="centerDesign()">⊙ Center</button>
+          </div>
+          
+          <!-- Text Overlay Panel -->
+          <div class="text-overlay" id="text-overlay">
+            <div class="text-overlay-header">
+              <span class="text-overlay-title">✏️ Add Text to Design</span>
+              <button class="close-text-btn" id="close-text-btn">Close</button>
+            </div>
+            
+            <div class="text-input-group">
+              <label class="text-input-label" for="text-content">Your Text</label>
+              <input type="text" id="text-content" class="text-input-field" placeholder="Enter text to add to shirt..." maxlength="50">
+            </div>
+            
+            <div class="text-input-group">
+              <label class="text-input-label" for="text-font">Font Style</label>
+              <select id="text-font" class="text-select">
+                <option value="Arial">Arial</option>
+                <option value="Arial Black">Arial Black</option>
+                <option value="Verdana">Verdana</option>
+                <option value="Helvetica">Helvetica</option>
+                <option value="Georgia">Georgia</option>
+                <option value="Times New Roman">Times New Roman</option>
+                <option value="Courier New">Courier New</option>
+                <option value="Impact">Impact</option>
+                <option value="Comic Sans MS">Comic Sans MS</option>
+                <option value="Trebuchet MS">Trebuchet MS</option>
+                <option value="Palatino">Palatino</option>
+                <option value="Garamond">Garamond</option>
+                <option value="Bookman">Bookman</option>
+                <option value="Avant Garde">Avant Garde</option>
+                <option value="Tahoma">Tahoma</option>
+                <option value="Century Gothic">Century Gothic</option>
+                <option value="Lucida Sans">Lucida Sans</option>
+                <option value="Monaco">Monaco</option>
+                <option value="Copperplate">Copperplate</option>
+                <option value="Brush Script MT">Brush Script MT</option>
+              </select>
+            </div>
+            
+            <div class="text-input-group">
+              <label class="text-input-label" for="text-size">Font Size</label>
+              <select id="text-size" class="text-select">
+                <option value="20">20px - Small</option>
+                <option value="25">25px</option>
+                <option value="30">30px</option>
+                <option value="35">35px</option>
+                <option value="40" selected>40px - Medium</option>
+                <option value="45">45px</option>
+                <option value="50">50px</option>
+                <option value="60">60px</option>
+                <option value="70">70px</option>
+                <option value="80">80px - Large</option>
+                <option value="90">90px</option>
+                <option value="100">100px</option>
+              </select>
+            </div>
+            
+            <div class="text-input-group">
+              <label class="text-input-label" for="text-color">Text Color</label>
+              <div class="color-input-wrapper">
+                <input type="color" id="text-color" class="text-color-input" value="#000000">
+                <div class="color-hex-display" id="color-hex-display">#000000</div>
+              </div>
+            </div>
+            
+            <!-- Text Warping Controls -->
+            <div class="text-warp-section">
+              <label class="text-input-label">Text Warping</label>
+              <div class="warp-controls">
+                <div class="warp-type-group">
+                  <label class="warp-type-label">Warp Type:</label>
+                  <select id="warp-type" class="warp-select">
+                    <option value="none">None</option>
+                    <option value="arc">Arc</option>
+                    <option value="wave">Wave</option>
+                    <option value="spiral">Spiral</option>
+                    <option value="circle">Circle</option>
+                  </select>
+                </div>
+                
+                <div class="warp-intensity-group">
+                  <label class="warp-intensity-label">Intensity:</label>
+                  <input type="range" id="warp-intensity" min="0" max="100" value="50" class="warp-slider">
+                  <div class="warp-intensity-display">50%</div>
+                </div>
+                
+                <div class="warp-direction-group">
+                  <label class="warp-direction-label">Direction:</label>
+                  <select id="warp-direction" class="warp-select">
+                    <option value="up">Up</option>
+                    <option value="down">Down</option>
+                    <option value="left">Left</option>
+                    <option value="right">Right</option>
+                  </select>
+                </div>
+              </div>
+            </div>
+            
+            <button class="add-text-submit-btn" id="add-text-submit-btn">Add Text to Design</button>
+          </div>
+          
+          <!-- Layer Order Overlay Panel -->
+          <div class="text-overlay" id="layer-overlay">
+            <div class="text-overlay-header">
+              <span class="text-overlay-title">📚 Layer Order</span>
+              <button class="close-text-btn" id="close-layer-btn">Close</button>
+            </div>
+            
+            <div class="text-input-group">
+              <label class="text-input-label">Control Selected Element</label>
+              <div style="display: flex; flex-direction: column; gap: 0.75rem; margin-top: 0.5rem;">
+                <button class="control-btn" onclick="bringToFront(); closeLayerOverlay();">⬆️ Bring to Front</button>
+                <button class="control-btn" onclick="bringForward(); closeLayerOverlay();">↑ Bring Forward</button>
+                <button class="control-btn" onclick="sendBackward(); closeLayerOverlay();">↓ Send Backward</button>
+                <button class="control-btn" onclick="sendToBack(); closeLayerOverlay();">⬇️ Send to Back</button>
+              </div>
+              <div style="margin-top: 1rem; padding: 0.75rem; background: #f8f9fa; border-radius: 6px; font-size: 0.85rem; color: #666;">
+                💡 Select an element (image, text, or sprite) first, then use these controls to adjust its position in the layer stack.
+              </div>
+            </div>
+          </div>
+          
+          <!-- Sprites Overlay Panel -->
+          <div class="text-overlay" id="sprites-overlay" style="max-height: 80vh; overflow-y: auto;">
+            <div class="text-overlay-header">
+              <span class="text-overlay-title">✨ Add Sprites/Stickers</span>
+              <button class="close-text-btn" id="close-sprites-btn">Close</button>
+            </div>
+            
+            <div class="text-input-group">
+              <label class="text-input-label">Choose a Sprite</label>
+              <div style="display: grid; grid-template-columns: repeat(3, 1fr); gap: 0.75rem; margin-top: 0.5rem;">
+                <!-- Emoji Sprites -->
+                <button class="sprite-btn" onclick="addSprite('⭐', 60)">⭐</button>
+                <button class="sprite-btn" onclick="addSprite('❤️', 60)">❤️</button>
+                <button class="sprite-btn" onclick="addSprite('🔥', 60)">🔥</button>
+                <button class="sprite-btn" onclick="addSprite('✨', 60)">✨</button>
+                <button class="sprite-btn" onclick="addSprite('💀', 60)">💀</button>
+                <button class="sprite-btn" onclick="addSprite('👑', 60)">👑</button>
+                <button class="sprite-btn" onclick="addSprite('🌟', 60)">🌟</button>
+                <button class="sprite-btn" onclick="addSprite('💎', 60)">💎</button>
+                <button class="sprite-btn" onclick="addSprite('🎸', 60)">🎸</button>
+                <button class="sprite-btn" onclick="addSprite('🎮', 60)">🎮</button>
+                <button class="sprite-btn" onclick="addSprite('🎨', 60)">🎨</button>
+                <button class="sprite-btn" onclick="addSprite('🎭', 60)">🎭</button>
+                <button class="sprite-btn" onclick="addSprite('🌈', 60)">🌈</button>
+                <button class="sprite-btn" onclick="addSprite('⚡', 60)">⚡</button>
+                <button class="sprite-btn" onclick="addSprite('🌙', 60)">🌙</button>
+                <button class="sprite-btn" onclick="addSprite('☀️', 60)">☀️</button>
+                <button class="sprite-btn" onclick="addSprite('🌸', 60)">🌸</button>
+                <button class="sprite-btn" onclick="addSprite('🦋', 60)">🦋</button>
+                <button class="sprite-btn" onclick="addSprite('🐉', 60)">🐉</button>
+                <button class="sprite-btn" onclick="addSprite('🦅', 60)">🦅</button>
+                <button class="sprite-btn" onclick="addSprite('🐺', 60)">🐺</button>
+                <button class="sprite-btn" onclick="addSprite('🦁', 60)">🦁</button>
+                <button class="sprite-btn" onclick="addSprite('🎯', 60)">🎯</button>
+                <button class="sprite-btn" onclick="addSprite('🏆', 60)">🏆</button>
+                <button class="sprite-btn" onclick="addSprite('💪', 60)">💪</button>
+                <button class="sprite-btn" onclick="addSprite('🤘', 60)">🤘</button>
+                <button class="sprite-btn" onclick="addSprite('☮️', 60)">☮️</button>
+                <button class="sprite-btn" onclick="addSprite('☯️', 60)">☯️</button>
+                <button class="sprite-btn" onclick="addSprite('♻️', 60)">♻️</button>
+                <button class="sprite-btn" onclick="addSprite('🔱', 60)">🔱</button>
+              </div>
+            </div>
+          </div>
+        </div>
+        
+        <!-- Image Design Elements -->
+        <div class="control-group">
+          <span class="control-label">🎭 Image Design Elements</span>
+          <div class="options-row">
+            <button class="option-btn type-opt selected" data-val="mask">Mask</button>
+            <button class="option-btn type-opt" data-val="crop">Crop</button>
+          </div>
+          
+          <!-- Mask Dropdown -->
+          <div id="mask-dropdown" class="mask-dropdown">
+            <label for="mask-shape">Select Mask Shape:</label>
+            <select id="mask-shape" class="mask-select">
+              <option value="none">None</option>
+              <option value="oval">Oval</option>
+              <option value="circle">Circle</option>
+              <option value="triangle">Triangle</option>
+              <option value="star">Star</option>
+            </select>
+          </div>
+          
+          <!-- Crop Dropdown -->
+          <div id="crop-dropdown" class="crop-dropdown">
+            <label>Adjust Crop:</label>
+            <div class="crop-controls">
+              <div class="crop-control-row">
+                <label for="crop-zoom">Zoom:</label>
+                <input type="range" id="crop-zoom" class="crop-slider" min="100" max="200" value="100">
+                <span id="crop-zoom-value" class="crop-value">100%</span>
+              </div>
+            </div>
+            <div class="crop-actions">
+              <button id="crop-apply-btn" class="crop-action-btn crop-apply-btn">✓ Apply Crop</button>
+              <button id="crop-clear-btn" class="crop-action-btn crop-clear-btn">🗑 Clear Crop</button>
+            </div>
+            <div id="crop-applied-indicator" class="crop-applied-indicator">
+              ✓ Crop applied - You can now use Mask
+            </div>
+          </div>
+        </div>
+        
+        <!-- Size Options -->
+        <div class="control-group">
+          <span class="control-label">📏 Select Size</span>
+          <div class="options-row">
+            <button class="option-btn size-opt" data-val="XS">XS</button>
+            <button class="option-btn size-opt" data-val="S">S</button>
+            <button class="option-btn size-opt selected" data-val="M">M</button>
+            <button class="option-btn size-opt" data-val="L">L</button>
+            <button class="option-btn size-opt" data-val="XL">XL</button>
+          </div>
+        </div>
+        
+        <!-- Add to Cart -->
+        <button id="cart-btn" class="btn btn-add-cart" disabled>
+          🛒 Add to Cart - $29.99
+        </button>
+      </div>
+    </div>
+  </div>
+
+  <script>
+    // ============================================
+    // CONFIGURATION
+    // ============================================
+    const API_ENDPOINT = 'https://tshirt-api-xi.vercel.app/api/generate-sd';
+    const UPLOAD_ENDPOINT = 'https://tshirt-api-xi.vercel.app/api/upload-design';
+    // Shopify Product: Custom Design T-shirt
+    // Currently using XS variant - can add size selector later
+    const VARIANT_ID = 52643487056237; // XS
+    const PRICE = 29.99;
+    
+    // Printify specifications for Bella+Canvas 3001
+    const PRINTIFY_SPECS = {
+      printWidth: 3951,
+      printHeight: 4800,
+      dpi: 300
+    };
+    
+    // ============================================
+    // APPLICATION STATE
+    // ============================================
+    const appState = {
+      prompt: '',
+      imageUrl: '',
+      size: 'M',
+      type: 'mask',
+      maskShape: 'none',
+      cropZoom: 100,
+      cropApplied: false,
+      croppedImage: null,
+      cropRect: { x: 0, y: 0, width: 0, height: 0 },
+      isCropRectDragging: false,
+      isCropRectResizing: false,
+      cropRectDragStart: { x: 0, y: 0 },
+      cropRectResizeHandle: null,
+      isLoading: false,
+      designImage: null,
+      designX: 0,
+      designY: 0,
+      designWidth: 300,
+      designHeight: 300,
+      isDragging: false,
+      isResizing: false,
+      dragStartX: 0,
+      dragStartY: 0,
+      resizeHandle: null,
+      currentView: 'template',
+      isDesignSelected: false,
+      designHistory: [], // Store up to 5 recent designs
+      uploadedImage: null, // Store uploaded reference image as base64
+      textElement: null, // Store added text element
+      textX: 0,
+      textY: 0,
+      textWidth: 200,
+      textHeight: 50,
+      isTextDragging: false,
+      isTextResizing: false,
+      textDragStartX: 0,
+      textDragStartY: 0,
+      textResizeHandle: null,
+      isTextSelected: false,
+      sprites: [], // Array to store sprite objects
+      layers: [], // Array to manage all layers (image, text, sprites) with z-index
+      imageZIndex: 0, // Z-index for design image
+      textZIndex: 1, // Z-index for text element
+      cart: [] // Shopping cart items with frozen designs
+    };
+    
+    // Background images for different views
+    const BACKGROUND_IMAGES = {
+      template: 'https://cdn.shopify.com/s/files/1/0916/8266/8909/files/t-front.png?v=1761178014',
+      realistic: 'https://cdn.shopify.com/s/files/1/0916/8266/8909/files/t-front_realistic.png?v=1761181061',
+      person: 'https://cdn.shopify.com/s/files/1/0916/8266/8909/files/t-front_with_person.png?v=1761181608',
+      'design-only': null // Special case: no background, just the design
+    };
+    
+    const loadedImages = {};
+    
+    // ============================================
+    // DOM REFERENCES
+    // ============================================
+    const $ = {
+      prompt: document.getElementById('user-prompt'),
+      genBtn: document.getElementById('gen-btn'),
+      cartBtn: document.getElementById('cart-btn'),
+      loading: document.getElementById('loading-screen'),
+      error: document.getElementById('error-msg'),
+      success: document.getElementById('success-alert'),
+      canvas: document.getElementById('tshirt-canvas'),
+      container: document.getElementById('canvas-container'),
+      maskDropdown: document.getElementById('mask-dropdown'),
+      maskShape: document.getElementById('mask-shape'),
+      cropDropdown: document.getElementById('crop-dropdown'),
+      cropZoom: document.getElementById('crop-zoom'),
+      cropZoomValue: document.getElementById('crop-zoom-value'),
+      cropApplyBtn: document.getElementById('crop-apply-btn'),
+      cropClearBtn: document.getElementById('crop-clear-btn'),
+      cropAppliedIndicator: document.getElementById('crop-applied-indicator'),
+      designHistory: document.getElementById('design-history'),
+      historyToggle: document.getElementById('history-toggle'),
+      imageUpload: document.getElementById('image-upload'),
+      uploadBtnLabel: document.getElementById('upload-btn-label'),
+      imagePreview: document.getElementById('image-preview'),
+      previewImg: document.getElementById('preview-img'),
+      removeImageBtn: document.getElementById('remove-image-btn'),
+      addTextBtn: document.getElementById('add-text-btn'),
+      textOverlay: document.getElementById('text-overlay'),
+      closeTextBtn: document.getElementById('close-text-btn'),
+      layerOrderBtn: document.getElementById('layer-order-btn'),
+      layerOverlay: document.getElementById('layer-overlay'),
+      closeLayerBtn: document.getElementById('close-layer-btn'),
+      spritesBtn: document.getElementById('sprites-btn'),
+      spritesOverlay: document.getElementById('sprites-overlay'),
+      closeSpritesBtn: document.getElementById('close-sprites-btn'),
+      textContent: document.getElementById('text-content'),
+      textFont: document.getElementById('text-font'),
+      textSize: document.getElementById('text-size'),
+      textColor: document.getElementById('text-color'),
+      colorHexDisplay: document.getElementById('color-hex-display'),
+      addTextSubmitBtn: document.getElementById('add-text-submit-btn'),
+      warpType: document.getElementById('warp-type'),
+      warpIntensity: document.getElementById('warp-intensity'),
+      warpDirection: document.getElementById('warp-direction'),
+      warpIntensityDisplay: document.querySelector('.warp-intensity-display')
+    };
+    
+    const ctx = $.canvas.getContext('2d');
+    
+    // ============================================
+    // CANVAS SETUP
+    // ============================================
+    let backgroundImage = null;
+    let isBackgroundLoaded = false;
+    
+    function loadBackgroundImage(imageKey) {
+      // Special case for design-only view
+      if (imageKey === 'design-only') {
+        backgroundImage = null;
+        isBackgroundLoaded = false;
+        drawCanvas();
+        return;
+      }
+      
+      if (loadedImages[imageKey]) {
+        backgroundImage = loadedImages[imageKey];
+        isBackgroundLoaded = true;
+        drawCanvas();
+        return;
+      }
+      
+      const img = new Image();
+      img.crossOrigin = 'anonymous';
+      img.onload = function() {
+        loadedImages[imageKey] = img;
+        backgroundImage = img;
+        isBackgroundLoaded = true;
+        drawCanvas();
+      };
+      img.onerror = function() {
+        console.warn('T-shirt template image failed to load');
+        isBackgroundLoaded = false;
+        drawCanvas();
+      };
+      img.src = BACKGROUND_IMAGES[imageKey];
+    }
+    
+    function setupCanvas() {
+      const container = $.container;
+      const size = Math.min(container.clientWidth, container.clientHeight);
+      $.canvas.width = size;
+      $.canvas.height = size;
+      
+      loadBackgroundImage(appState.currentView);
+    }
+    
+    function drawCanvas() {
+      const canvas = $.canvas;
+      const w = canvas.width;
+      const h = canvas.height;
+      
+      ctx.clearRect(0, 0, w, h);
+      
+      const printAreaRatio = PRINTIFY_SPECS.printWidth / PRINTIFY_SPECS.printHeight;
+      
+      const printAreaWidth = w * 0.377;
+      const printAreaHeight = printAreaWidth / printAreaRatio;
+      const printX = (w - printAreaWidth) / 2;
+      const printY = h * 0.265;
+      
+      appState.printBounds = {
+        x: printX,
+        y: printY,
+        width: printAreaWidth,
+        height: printAreaHeight
+      };
+      
+      // Handle design-only view
+      if (appState.currentView === 'design-only') {
+        // White background for design-only view
+        ctx.fillStyle = '#ffffff';
+        ctx.fillRect(0, 0, w, h);
+      } else if (isBackgroundLoaded && backgroundImage) {
+        ctx.drawImage(backgroundImage, 0, 0, w, h);
+      } else {
+        drawFallbackTshirt(w, h, printX, printY, printAreaWidth, printAreaHeight);
+      }
+      
+      if (appState.currentView === 'template') {
+        ctx.fillStyle = 'rgba(0, 0, 0, 0.02)';
+        ctx.fillRect(0, 0, w, h);
+        ctx.clearRect(printX, printY, printAreaWidth, printAreaHeight);
+        
+        ctx.strokeStyle = '#666666';
+        ctx.lineWidth = 2;
+        ctx.setLineDash([10, 6]);
+        ctx.strokeRect(printX, printY, printAreaWidth, printAreaHeight);
+        ctx.setLineDash([]);
+        
+        const markerSize = 12;
+        const markerThickness = 2;
+        ctx.fillStyle = '#666666';
+        
+        ctx.fillRect(printX - 1, printY - 1, markerSize, markerThickness);
+        ctx.fillRect(printX - 1, printY - 1, markerThickness, markerSize);
+        ctx.fillRect(printX + printAreaWidth - markerSize + 1, printY - 1, markerSize, markerThickness);
+        ctx.fillRect(printX + printAreaWidth - 1, printY - 1, markerThickness, markerSize);
+        ctx.fillRect(printX - 1, printY + printAreaHeight - 1, markerSize, markerThickness);
+        ctx.fillRect(printX - 1, printY + printAreaHeight - markerSize + 1, markerThickness, markerSize);
+        ctx.fillRect(printX + printAreaWidth - markerSize + 1, printY + printAreaHeight - 1, markerSize, markerThickness);
+        ctx.fillRect(printX + printAreaWidth - 1, printY + printAreaHeight - markerSize + 1, markerThickness, markerSize);
+      }
+      
+      // Helper function to draw the design image
+      const drawDesignImage = () => {
+        if (!appState.designImage) return;
+        
+        // Save context state before transformations
+        ctx.save();
+        
+        // Determine which image to use (original or cropped)
+        const imageToUse = appState.cropApplied && appState.croppedImage ? appState.croppedImage : appState.designImage;
+        
+        // Special handling for design-only view - static, centered, larger display
+        if (appState.currentView === 'design-only') {
+          // Always use the original design image (ignore crop) in design-only view
+          const displayImage = appState.designImage;
+          
+          // Calculate dimensions to fill more of the canvas while maintaining aspect ratio
+          const maxWidth = w * 0.8;  // Use 80% of canvas width
+          const maxHeight = h * 0.8; // Use 80% of canvas height
+          const imgAspect = displayImage.width / displayImage.height;
+          
+          let displayWidth, displayHeight;
+          if (imgAspect > 1) {
+            // Wider image
+            displayWidth = maxWidth;
+            displayHeight = displayWidth / imgAspect;
+            if (displayHeight > maxHeight) {
+              displayHeight = maxHeight;
+              displayWidth = displayHeight * imgAspect;
+            }
+          } else {
+            // Taller image
+            displayHeight = maxHeight;
+            displayWidth = displayHeight * imgAspect;
+            if (displayWidth > maxWidth) {
+              displayWidth = maxWidth;
+              displayHeight = displayWidth / imgAspect;
+            }
+          }
+          
+          // Center the image on canvas
+          const displayX = (w - displayWidth) / 2;
+          const displayY = (h - displayHeight) / 2;
+          
+          // Draw the design centered and larger (no mask/crop in design-only view)
+          ctx.drawImage(
+            displayImage,
+            displayX,
+            displayY,
+            displayWidth,
+            displayHeight
+          );
+        } else if (appState.type === 'mask' && appState.maskShape && appState.maskShape !== 'none') {
+          // Apply mask clipping
+          applyMaskClipping();
+          ctx.drawImage(
+            imageToUse,
+            appState.designX,
+            appState.designY,
+            appState.designWidth,
+            appState.designHeight
+          );
+        } else if (appState.type === 'crop' && !appState.cropApplied) {
+          // Draw the full image
+          ctx.drawImage(
+            appState.designImage,
+            appState.designX,
+            appState.designY,
+            appState.designWidth,
+            appState.designHeight
+          );
+          
+          // If crop rectangle exists and zoom is applied, show zoom preview
+          if (appState.cropRect.width > 0 && appState.cropZoom > 100) {
+            ctx.save();
+            
+            // Clip to crop rectangle
+            ctx.beginPath();
+            ctx.rect(appState.cropRect.x, appState.cropRect.y, appState.cropRect.width, appState.cropRect.height);
+            ctx.clip();
+            
+            // Calculate zoom preview
+            const zoom = appState.cropZoom / 100;
+            const relX = (appState.cropRect.x - appState.designX) / appState.designWidth;
+            const relY = (appState.cropRect.y - appState.designY) / appState.designHeight;
+            const relWidth = appState.cropRect.width / appState.designWidth;
+            const relHeight = appState.cropRect.height / appState.designHeight;
+            
+            const sourceX = relX * appState.designImage.width;
+            const sourceY = relY * appState.designImage.height;
+            const sourceWidth = relWidth * appState.designImage.width;
+            const sourceHeight = relHeight * appState.designImage.height;
+            
+            const zoomedSourceWidth = sourceWidth / zoom;
+            const zoomedSourceHeight = sourceHeight / zoom;
+            const zoomedSourceX = sourceX + (sourceWidth - zoomedSourceWidth) / 2;
+            const zoomedSourceY = sourceY + (sourceHeight - zoomedSourceHeight) / 2;
+            
+            // Draw zoomed preview
+            ctx.drawImage(
+              appState.designImage,
+              zoomedSourceX,
+              zoomedSourceY,
+              zoomedSourceWidth,
+              zoomedSourceHeight,
+              appState.cropRect.x,
+              appState.cropRect.y,
+              appState.cropRect.width,
+              appState.cropRect.height
+            );
+            
+            ctx.restore();
+          }
+        } else {
+          // No mask or crop - draw normally (or applied crop)
+          ctx.drawImage(
+            imageToUse,
+            appState.designX,
+            appState.designY,
+            appState.designWidth,
+            appState.designHeight
+          );
+        }
+        
+        // Restore context to remove clipping/transformations
+        ctx.restore();
+        
+        // Draw crop rectangle if in crop mode and not applied (NOT in design-only view)
+        if (appState.currentView !== 'design-only' && appState.type === 'crop' && !appState.cropApplied && appState.cropRect.width > 0) {
+          drawCropRectangle();
+        }
+        
+        // Show resize handles only if design is selected AND not in design-only view
+        if (appState.currentView !== 'design-only' && appState.isDesignSelected) {
+          drawResizeHandles();
+        }
+      };
+      
+      // Helper function to draw the text element
+      const drawTextElement = () => {
+        if (!appState.textElement || appState.currentView === 'design-only') return;
+        ctx.save();
+        ctx.font = `${appState.textElement.fontSize}px ${appState.textElement.font}`;
+        ctx.fillStyle = appState.textElement.color;
+        ctx.textAlign = 'center';
+        ctx.textBaseline = 'middle';
+        
+        // Draw warped or normal text
+        if (appState.textElement.warpType && appState.textElement.warpType !== 'none') {
+          drawWarpedText(
+            appState.textElement.text,
+            appState.textX + appState.textWidth / 2,
+            appState.textY + appState.textHeight / 2,
+            appState.textElement
+          );
+        } else {
+        ctx.fillText(
+          appState.textElement.text,
+          appState.textX + appState.textWidth / 2,
+          appState.textY + appState.textHeight / 2
+        );
+        }
+        
+        ctx.restore();
+        
+        // Draw text resize handles if selected
+        if (appState.isTextSelected) {
+          drawTextResizeHandles();
+        }
+      };
+      
+      // Helper function to draw a single sprite
+      const drawSingleSprite = (sprite) => {
+        if (appState.currentView === 'design-only') return;
+        
+        ctx.save();
+        ctx.font = `${sprite.size}px Arial`;
+        ctx.textAlign = 'center';
+        ctx.textBaseline = 'middle';
+        ctx.fillText(sprite.emoji, sprite.x + sprite.width / 2, sprite.y + sprite.height / 2);
+        ctx.restore();
+        
+        // Draw selection handles if selected
+        if (sprite.isSelected) {
+          ctx.strokeStyle = '#f59e0b';
+          ctx.lineWidth = 2;
+          ctx.strokeRect(sprite.x, sprite.y, sprite.width, sprite.height);
+          
+          // Draw corner handles
+          const handleSize = 8;
+          ctx.fillStyle = '#f59e0b';
+          ctx.fillRect(sprite.x - handleSize/2, sprite.y - handleSize/2, handleSize, handleSize);
+          ctx.fillRect(sprite.x + sprite.width - handleSize/2, sprite.y - handleSize/2, handleSize, handleSize);
+          ctx.fillRect(sprite.x - handleSize/2, sprite.y + sprite.height - handleSize/2, handleSize, handleSize);
+          ctx.fillRect(sprite.x + sprite.width - handleSize/2, sprite.y + sprite.height - handleSize/2, handleSize, handleSize);
+        }
+      };
+      
+      // Draw all layers in correct z-order
+      updateLayersArray();
+      appState.layers.forEach(layer => {
+        if (layer.type === 'image') {
+          drawDesignImage();
+        } else if (layer.type === 'text') {
+          drawTextElement();
+        } else if (layer.type === 'sprite' && layer.ref) {
+          drawSingleSprite(layer.ref);
+        }
+      });
+      
+      // Show placeholder if no design image (only if not in design-only view)
+      if (!appState.designImage && appState.currentView !== 'design-only') {
+        ctx.fillStyle = '#999999';
+        ctx.font = '14px -apple-system, BlinkMacSystemFont, sans-serif';
+        ctx.textAlign = 'center';
+        ctx.fillText('Your design will appear here', w / 2, printY + printAreaHeight / 2 - 8);
+        ctx.font = '12px -apple-system, BlinkMacSystemFont, sans-serif';
+        ctx.fillStyle = '#777777';
+        ctx.fillText('(drag to reposition, resize with corners)', w / 2, printY + printAreaHeight / 2 + 12);
+      }
+    }
+    
+    // Text Warping Functions
+    function drawWarpedText(text, centerX, centerY, textElement) {
+      const { warpType, warpIntensity, warpDirection, fontSize } = textElement;
+      const intensity = warpIntensity / 100; // Convert to 0-1 range
+      
+      ctx.save();
+      
+      switch (warpType) {
+        case 'arc':
+          drawArcText(text, centerX, centerY, intensity, warpDirection, fontSize);
+          break;
+        case 'wave':
+          drawWaveText(text, centerX, centerY, intensity, warpDirection, fontSize);
+          break;
+        case 'spiral':
+          drawSpiralText(text, centerX, centerY, intensity, warpDirection, fontSize);
+          break;
+        case 'circle':
+          drawCircleText(text, centerX, centerY, intensity, warpDirection, fontSize);
+          break;
+        default:
+          // Fallback to normal text
+          ctx.fillText(text, centerX, centerY);
+      }
+      
+      ctx.restore();
+    }
+    
+    function drawArcText(text, centerX, centerY, intensity, direction, fontSize) {
+      const textWidth = ctx.measureText(text).width;
+      
+      // At 0 intensity, draw completely flat text
+      if (intensity === 0) {
+        ctx.fillText(text, centerX, centerY);
+        return;
+      }
+      
+      // Calculate arc parameters based on intensity
+      const maxRadius = fontSize * 3; // Maximum radius for full intensity
+      const radius = maxRadius * intensity;
+      
+      // Calculate the arc angle based on text width and radius
+      const arcAngle = (textWidth / radius) * intensity;
+      
+      // Determine starting angle based on direction
+      let startAngle;
+      switch (direction) {
+        case 'up':
+          startAngle = -arcAngle / 2; // Start from left side of arc
+          break;
+        case 'down':
+          startAngle = Math.PI + arcAngle / 2; // Start from right side of arc
+          break;
+        case 'left':
+          startAngle = Math.PI / 2 - arcAngle / 2; // Start from top of arc
+          break;
+        case 'right':
+          startAngle = -Math.PI / 2 - arcAngle / 2; // Start from bottom of arc
+          break;
+        default:
+          startAngle = -arcAngle / 2;
+      }
+      
+      // Calculate pivot point (bottom center of text box)
+      const pivotX = centerX;
+      const pivotY = centerY + fontSize / 2; // Bottom of text
+      
+      // Draw each character along the arc
+      for (let i = 0; i < text.length; i++) {
+        const char = text[i];
+        const charWidth = ctx.measureText(char).width;
+        
+        // Calculate position along the arc
+        const progress = i / Math.max(text.length - 1, 1);
+        const charAngle = startAngle + progress * arcAngle;
+        
+        // Calculate character position
+        const x = pivotX + Math.cos(charAngle) * radius;
+        const y = pivotY + Math.sin(charAngle) * radius;
+        
+        // Calculate character rotation (tangent to the arc)
+        const charRotation = charAngle + Math.PI / 2;
+        
+        ctx.save();
+        ctx.translate(x, y);
+        ctx.rotate(charRotation);
+        ctx.textAlign = 'center';
+        ctx.textBaseline = 'middle';
+        ctx.fillText(char, 0, 0);
+        ctx.restore();
+      }
+    }
+    
+    function drawWaveText(text, centerX, centerY, intensity, direction, fontSize) {
+      const amplitude = fontSize * intensity * 0.5;
+      const frequency = 0.02;
+      const textWidth = ctx.measureText(text).width;
+      
+      for (let i = 0; i < text.length; i++) {
+        const char = text[i];
+        const charWidth = ctx.measureText(char).width;
+        const x = centerX - textWidth/2 + i * charWidth;
+        const waveOffset = Math.sin(x * frequency) * amplitude;
+        const y = centerY + (direction === 'up' ? -waveOffset : 
+                           direction === 'down' ? waveOffset : 0);
+        
+        ctx.fillText(char, x, y);
+      }
+    }
+    
+    function drawSpiralText(text, centerX, centerY, intensity, direction, fontSize) {
+      const radius = fontSize * (0.5 + intensity);
+      const angleStep = (intensity * 0.3 + 0.1) / text.length;
+      let currentAngle = direction === 'up' ? -Math.PI/2 : 
+                        direction === 'down' ? Math.PI/2 :
+                        direction === 'left' ? Math.PI : 0;
+      
+      for (let i = 0; i < text.length; i++) {
+        const char = text[i];
+        const spiralRadius = radius * (1 - i / text.length * 0.5);
+        const x = centerX + Math.cos(currentAngle) * spiralRadius;
+        const y = centerY + Math.sin(currentAngle) * spiralRadius;
+        
+        ctx.save();
+        ctx.translate(x, y);
+        ctx.rotate(currentAngle + Math.PI/2);
+        ctx.fillText(char, 0, 0);
+        ctx.restore();
+        
+        currentAngle += angleStep;
+      }
+    }
+    
+    function drawCircleText(text, centerX, centerY, intensity, direction, fontSize) {
+      const radius = fontSize * (1 + intensity);
+      const textWidth = ctx.measureText(text).width;
+      const circumference = 2 * Math.PI * radius;
+      const anglePerChar = (textWidth / circumference) * 2 * Math.PI;
+      const startAngle = direction === 'up' ? -Math.PI/2 : 
+                       direction === 'down' ? Math.PI/2 :
+                       direction === 'left' ? Math.PI : 0;
+      
+      for (let i = 0; i < text.length; i++) {
+        const char = text[i];
+        const charAngle = startAngle + (i / text.length) * anglePerChar;
+        const x = centerX + Math.cos(charAngle) * radius;
+        const y = centerY + Math.sin(charAngle) * radius;
+        
+        ctx.save();
+        ctx.translate(x, y);
+        ctx.rotate(charAngle + Math.PI/2);
+        ctx.fillText(char, 0, 0);
+        ctx.restore();
+      }
+    }
+    
+    function drawFallbackTshirt(w, h, printX, printY, printAreaWidth, printAreaHeight) {
+      const centerX = w / 2;
+      const bodyLeft = w * 0.217;
+      const bodyRight = w * 0.783;
+      const bodyTop = h * 0.223;
+      const bodyBottom = h * 0.887;
+      
+      ctx.fillStyle = '#ffffff';
+      ctx.strokeStyle = '#000000';
+      ctx.lineWidth = 2;
+      
+      ctx.fillRect(bodyLeft, bodyTop, bodyRight - bodyLeft, bodyBottom - bodyTop);
+      ctx.strokeRect(bodyLeft, bodyTop, bodyRight - bodyLeft, bodyBottom - bodyTop);
+      
+      ctx.beginPath();
+      ctx.arc(centerX, bodyTop, w * 0.115, 0, Math.PI, true);
+      ctx.stroke();
+    }
+    
+    function drawResizeHandles() {
+      const handles = getResizeHandles();
+      
+      ctx.strokeStyle = '#60a5fa';
+      ctx.lineWidth = 2;
+      ctx.strokeRect(
+        appState.designX, 
+        appState.designY, 
+        appState.designWidth, 
+        appState.designHeight
+      );
+      
+      ctx.fillStyle = '#60a5fa';
+      ctx.strokeStyle = '#fff';
+      ctx.lineWidth = 2;
+      
+      handles.forEach(handle => {
+        ctx.beginPath();
+        ctx.arc(handle.x, handle.y, 5, 0, Math.PI * 2);
+        ctx.fill();
+        ctx.stroke();
+      });
+    }
+    
+    function drawTextResizeHandles() {
+      const handles = getTextResizeHandles();
+      
+      ctx.strokeStyle = '#f59e0b';
+      ctx.lineWidth = 2;
+      ctx.strokeRect(
+        appState.textX, 
+        appState.textY, 
+        appState.textWidth, 
+        appState.textHeight
+      );
+      
+      ctx.fillStyle = '#f59e0b';
+      ctx.strokeStyle = '#fff';
+      ctx.lineWidth = 2;
+      
+      handles.forEach(handle => {
+        ctx.beginPath();
+        ctx.arc(handle.x, handle.y, 5, 0, Math.PI * 2);
+        ctx.fill();
+        ctx.stroke();
+      });
+    }
+    
+    function getTextResizeHandles() {
+      const { textX, textY, textWidth, textHeight } = appState;
+      return [
+        { x: textX, y: textY, corner: 'tl' },
+        { x: textX + textWidth, y: textY, corner: 'tr' },
+        { x: textX, y: textY + textHeight, corner: 'bl' },
+        { x: textX + textWidth, y: textY + textHeight, corner: 'br' }
+      ];
+    }
+    
+    function isPointInText(x, y) {
+      return x >= appState.textX && 
+             x <= appState.textX + appState.textWidth &&
+             y >= appState.textY && 
+             y <= appState.textY + appState.textHeight;
+    }
+    
+    function getTextHandleAtPoint(x, y) {
+      const handles = getTextResizeHandles();
+      for (let handle of handles) {
+        const dist = Math.sqrt((x - handle.x) ** 2 + (y - handle.y) ** 2);
+        if (dist < 12) return handle.corner;
+      }
+      return null;
+    }
+    
+    function constrainTextToPrintArea() {
+      const bounds = appState.printBounds;
+      
+      appState.textX = Math.max(bounds.x, Math.min(appState.textX, bounds.x + bounds.width - appState.textWidth));
+      appState.textY = Math.max(bounds.y, Math.min(appState.textY, bounds.y + bounds.height - appState.textHeight));
+      
+      if (appState.textWidth > bounds.width) appState.textWidth = bounds.width;
+      if (appState.textHeight > bounds.height) appState.textHeight = bounds.height;
+    }
+    
+    function applyMaskClipping() {
+      const x = appState.designX;
+      const y = appState.designY;
+      const w = appState.designWidth;
+      const h = appState.designHeight;
+      const cx = x + w / 2;
+      const cy = y + h / 2;
+      
+      ctx.beginPath();
+      
+      switch(appState.maskShape) {
+        case 'oval':
+          // Draw ellipse
+          ctx.ellipse(cx, cy, w / 2, h / 2, 0, 0, Math.PI * 2);
+          break;
+          
+        case 'circle':
+          // Draw circle (use smaller dimension for radius)
+          const radius = Math.min(w, h) / 2;
+          ctx.arc(cx, cy, radius, 0, Math.PI * 2);
+          break;
+          
+        case 'triangle':
+          // Draw equilateral triangle pointing up
+          ctx.moveTo(cx, y);
+          ctx.lineTo(x, y + h);
+          ctx.lineTo(x + w, y + h);
+          ctx.closePath();
+          break;
+          
+        case 'star':
+          // Draw 5-pointed star
+          const outerRadius = Math.min(w, h) / 2;
+          const innerRadius = outerRadius * 0.4;
+          const spikes = 5;
+          
+          for (let i = 0; i < spikes * 2; i++) {
+            const radius = i % 2 === 0 ? outerRadius : innerRadius;
+            const angle = (Math.PI * i) / spikes - Math.PI / 2;
+            const sx = cx + Math.cos(angle) * radius;
+            const sy = cy + Math.sin(angle) * radius;
+            
+            if (i === 0) {
+              ctx.moveTo(sx, sy);
+            } else {
+              ctx.lineTo(sx, sy);
+            }
+          }
+          ctx.closePath();
+          break;
+      }
+      
+      ctx.clip();
+    }
+    
+    function drawCropRectangle() {
+      const rect = appState.cropRect;
+      
+      // Draw semi-transparent overlay outside crop area
+      ctx.fillStyle = 'rgba(0, 0, 0, 0.5)';
+      ctx.fillRect(appState.designX, appState.designY, appState.designWidth, appState.designHeight);
+      
+      // Draw lighter overlay inside crop area (translucent)
+      ctx.fillStyle = 'rgba(0, 0, 0, 0.1)';
+      ctx.fillRect(rect.x, rect.y, rect.width, rect.height);
+      
+      // Draw crop rectangle border
+      ctx.strokeStyle = '#10b981';
+      ctx.lineWidth = 2;
+      ctx.setLineDash([5, 5]);
+      ctx.strokeRect(rect.x, rect.y, rect.width, rect.height);
+      ctx.setLineDash([]);
+      
+      // Draw corner handles
+      const handleSize = 8;
+      const handles = getCropRectHandles();
+      
+      ctx.fillStyle = '#10b981';
+      ctx.strokeStyle = '#fff';
+      ctx.lineWidth = 2;
+      
+      handles.forEach(handle => {
+        ctx.fillRect(handle.x - handleSize/2, handle.y - handleSize/2, handleSize, handleSize);
+        ctx.strokeRect(handle.x - handleSize/2, handle.y - handleSize/2, handleSize, handleSize);
+      });
+    }
+    
+    function getCropRectHandles() {
+      const { x, y, width, height } = appState.cropRect;
+      return [
+        { x: x, y: y, corner: 'tl' },
+        { x: x + width, y: y, corner: 'tr' },
+        { x: x, y: y + height, corner: 'bl' },
+        { x: x + width, y: y + height, corner: 'br' }
+      ];
+    }
+    
+    function getCropRectHandleAtPoint(px, py) {
+      const handles = getCropRectHandles();
+      for (let handle of handles) {
+        const dist = Math.sqrt((px - handle.x) ** 2 + (py - handle.y) ** 2);
+        if (dist < 12) return handle.corner;
+      }
+      return null;
+    }
+    
+    function isPointInCropRect(px, py) {
+      const rect = appState.cropRect;
+      return px >= rect.x && px <= rect.x + rect.width &&
+             py >= rect.y && py <= rect.y + rect.height;
+    }
+    
+    function initializeCropRect() {
+      // Initialize crop rectangle to cover the design area with some padding
+      const padding = 20;
+      appState.cropRect = {
+        x: appState.designX + padding,
+        y: appState.designY + padding,
+        width: appState.designWidth - padding * 2,
+        height: appState.designHeight - padding * 2
+      };
+    }
+    
+    function getResizeHandles() {
+      const { designX, designY, designWidth, designHeight } = appState;
+      return [
+        { x: designX, y: designY, corner: 'tl' },
+        { x: designX + designWidth, y: designY, corner: 'tr' },
+        { x: designX, y: designY + designHeight, corner: 'bl' },
+        { x: designX + designWidth, y: designY + designHeight, corner: 'br' }
+      ];
+    }
+    
+    // ============================================
+    // MOUSE INTERACTION
+    // ============================================
+    function getMousePos(e) {
+      const rect = $.canvas.getBoundingClientRect();
+      return {
+        x: e.clientX - rect.left,
+        y: e.clientY - rect.top
+      };
+    }
+    
+    function isPointInDesign(x, y) {
+      return x >= appState.designX && 
+             x <= appState.designX + appState.designWidth &&
+             y >= appState.designY && 
+             y <= appState.designY + appState.designHeight;
+    }
+    
+    function getHandleAtPoint(x, y) {
+      const handles = getResizeHandles();
+      for (let handle of handles) {
+        const dist = Math.sqrt((x - handle.x) ** 2 + (y - handle.y) ** 2);
+        if (dist < 12) return handle.corner;
+      }
+      return null;
+    }
+    
+    $.canvas.addEventListener('mousedown', (e) => {
+      if (!appState.designImage && !appState.textElement && appState.sprites.length === 0) return;
+      
+      // Disable all interactions in design-only view
+      if (appState.currentView === 'design-only') return;
+      
+      const pos = getMousePos(e);
+      
+      // Check sprite interaction first (reverse order to select top sprites first)
+      for (let i = appState.sprites.length - 1; i >= 0; i--) {
+        const sprite = appState.sprites[i];
+        if (pos.x >= sprite.x && pos.x <= sprite.x + sprite.width &&
+            pos.y >= sprite.y && pos.y <= sprite.y + sprite.height) {
+          // Deselect all other elements
+          appState.isTextSelected = false;
+          appState.isDesignSelected = false;
+          appState.sprites.forEach((s, idx) => {
+            s.isSelected = idx === i;
+          });
+          
+          // Start dragging the sprite
+          sprite.isDragging = true;
+          sprite.dragStartX = pos.x - sprite.x;
+          sprite.dragStartY = pos.y - sprite.y;
+          drawCanvas();
+          return;
+        }
+      }
+      
+      // Check text element interaction first if it exists
+      if (appState.textElement) {
+        const textHandle = getTextHandleAtPoint(pos.x, pos.y);
+        
+        if (textHandle && appState.isTextSelected) {
+          appState.isTextResizing = true;
+          appState.textResizeHandle = textHandle;
+          appState.dragStartX = pos.x;
+          appState.dragStartY = pos.y;
+          appState.startWidth = appState.textWidth;
+          appState.startHeight = appState.textHeight;
+          appState.startX = appState.textX;
+          appState.startY = appState.textY;
+          return;
+        } else if (isPointInText(pos.x, pos.y)) {
+          if (!appState.isTextSelected) {
+            appState.isTextSelected = true;
+            appState.isDesignSelected = false;
+            drawCanvas();
+          } else {
+            appState.isTextDragging = true;
+            appState.textDragStartX = pos.x - appState.textX;
+            appState.textDragStartY = pos.y - appState.textY;
+          }
+          return;
+        }
+      }
+      
+      // Handle crop rectangle interaction when in crop mode and not applied
+      if (appState.designImage && appState.type === 'crop' && !appState.cropApplied && appState.cropRect.width > 0) {
+        const cropHandle = getCropRectHandleAtPoint(pos.x, pos.y);
+        
+        if (cropHandle) {
+          appState.isCropRectResizing = true;
+          appState.cropRectResizeHandle = cropHandle;
+          appState.cropRectDragStart = { x: pos.x, y: pos.y };
+          appState.cropRectStartState = { ...appState.cropRect };
+          return;
+        } else if (isPointInCropRect(pos.x, pos.y)) {
+          appState.isCropRectDragging = true;
+          appState.cropRectDragStart = { x: pos.x - appState.cropRect.x, y: pos.y - appState.cropRect.y };
+          return;
+        }
+      }
+      
+      // Original design interaction code
+      if (appState.designImage) {
+        const handle = getHandleAtPoint(pos.x, pos.y);
+        
+        if (handle && appState.isDesignSelected) {
+          appState.isResizing = true;
+          appState.resizeHandle = handle;
+          appState.dragStartX = pos.x;
+          appState.dragStartY = pos.y;
+          appState.startWidth = appState.designWidth;
+          appState.startHeight = appState.designHeight;
+          appState.startX = appState.designX;
+          appState.startY = appState.designY;
+        } 
+        else if (isPointInDesign(pos.x, pos.y)) {
+          if (!appState.isDesignSelected) {
+            appState.isDesignSelected = true;
+            appState.isTextSelected = false;
+            drawCanvas();
+          } else {
+            appState.isDragging = true;
+            appState.dragStartX = pos.x - appState.designX;
+            appState.dragStartY = pos.y - appState.designY;
+          }
+        } 
+        else {
+          if (appState.isDesignSelected || appState.isTextSelected) {
+            appState.isDesignSelected = false;
+            appState.isTextSelected = false;
+            appState.sprites.forEach(s => s.isSelected = false);
+            drawCanvas();
+          }
+        }
+      } else {
+        if (appState.isTextSelected) {
+          appState.isTextSelected = false;
+          appState.sprites.forEach(s => s.isSelected = false);
+          drawCanvas();
+        }
+      }
+    });
+    
+    $.canvas.addEventListener('mousemove', (e) => {
+      const pos = getMousePos(e);
+      
+      // Disable all interactions in design-only view
+      if (appState.currentView === 'design-only') {
+        $.canvas.style.cursor = 'default';
+        return;
+      }
+      
+      // Handle sprite dragging
+      const draggingSprite = appState.sprites.find(s => s.isDragging);
+      if (draggingSprite) {
+        const bounds = appState.printBounds;
+        draggingSprite.x = Math.max(bounds.x, Math.min(pos.x - draggingSprite.dragStartX, bounds.x + bounds.width - draggingSprite.width));
+        draggingSprite.y = Math.max(bounds.y, Math.min(pos.y - draggingSprite.dragStartY, bounds.y + bounds.height - draggingSprite.height));
+        drawCanvas();
+        return;
+      }
+      
+      // Handle text resizing
+      if (appState.isTextResizing) {
+        const dx = pos.x - appState.dragStartX;
+        const dy = pos.y - appState.dragStartY;
+        const handle = appState.textResizeHandle;
+        
+        let newWidth = appState.startWidth;
+        let newHeight = appState.startHeight;
+        let newX = appState.startX;
+        let newY = appState.startY;
+        
+        if (handle.includes('r')) newWidth += dx;
+        if (handle.includes('l')) { newWidth -= dx; newX += dx; }
+        if (handle.includes('b')) newHeight += dy;
+        if (handle.includes('t')) { newHeight -= dy; newY += dy; }
+        
+        if (newWidth > 50 && newHeight > 20) {
+          appState.textWidth = newWidth;
+          appState.textHeight = newHeight;
+          appState.textX = newX;
+          appState.textY = newY;
+          constrainTextToPrintArea();
+          drawCanvas();
+        }
+        return;
+      }
+      
+      // Handle text dragging
+      if (appState.isTextDragging) {
+        appState.textX = pos.x - appState.textDragStartX;
+        appState.textY = pos.y - appState.textDragStartY;
+        constrainTextToPrintArea();
+        drawCanvas();
+        return;
+      }
+      
+      // Handle crop rectangle resizing
+      if (appState.isCropRectResizing) {
+        const dx = pos.x - appState.cropRectDragStart.x;
+        const dy = pos.y - appState.cropRectDragStart.y;
+        const handle = appState.cropRectResizeHandle;
+        const start = appState.cropRectStartState;
+        
+        let newX = start.x;
+        let newY = start.y;
+        let newWidth = start.width;
+        let newHeight = start.height;
+        
+        if (handle.includes('r')) newWidth += dx;
+        if (handle.includes('l')) { newWidth -= dx; newX += dx; }
+        if (handle.includes('b')) newHeight += dy;
+        if (handle.includes('t')) { newHeight -= dy; newY += dy; }
+        
+        // Constrain to design bounds
+        if (newWidth > 20 && newHeight > 20) {
+          newX = Math.max(appState.designX, Math.min(newX, appState.designX + appState.designWidth - 20));
+          newY = Math.max(appState.designY, Math.min(newY, appState.designY + appState.designHeight - 20));
+          newWidth = Math.min(newWidth, appState.designX + appState.designWidth - newX);
+          newHeight = Math.min(newHeight, appState.designY + appState.designHeight - newY);
+          
+          appState.cropRect = { x: newX, y: newY, width: newWidth, height: newHeight };
+          drawCanvas();
+        }
+        return;
+      }
+      
+      // Handle crop rectangle dragging
+      if (appState.isCropRectDragging) {
+        let newX = pos.x - appState.cropRectDragStart.x;
+        let newY = pos.y - appState.cropRectDragStart.y;
+        
+        // Constrain to design bounds
+        newX = Math.max(appState.designX, Math.min(newX, appState.designX + appState.designWidth - appState.cropRect.width));
+        newY = Math.max(appState.designY, Math.min(newY, appState.designY + appState.designHeight - appState.cropRect.height));
+        
+        appState.cropRect.x = newX;
+        appState.cropRect.y = newY;
+        drawCanvas();
+        return;
+      }
+      
+      // Original design interaction code
+      if (appState.isResizing) {
+        const dx = pos.x - appState.dragStartX;
+        const dy = pos.y - appState.dragStartY;
+        const handle = appState.resizeHandle;
+        
+        let newWidth = appState.startWidth;
+        let newHeight = appState.startHeight;
+        let newX = appState.startX;
+        let newY = appState.startY;
+        
+        if (handle.includes('r')) newWidth += dx;
+        if (handle.includes('l')) { newWidth -= dx; newX += dx; }
+        if (handle.includes('b')) newHeight += dy;
+        if (handle.includes('t')) { newHeight -= dy; newY += dy; }
+        
+        const aspectRatio = appState.startWidth / appState.startHeight;
+        if (Math.abs(newWidth / newHeight - aspectRatio) > 0.1) {
+          newHeight = newWidth / aspectRatio;
+        }
+        
+        if (newWidth > 50 && newHeight > 50) {
+          appState.designWidth = newWidth;
+          appState.designHeight = newHeight;
+          appState.designX = newX;
+          appState.designY = newY;
+          constrainToPrintArea();
+          drawCanvas();
+        }
+      } else if (appState.isDragging) {
+        appState.designX = pos.x - appState.dragStartX;
+        appState.designY = pos.y - appState.dragStartY;
+        constrainToPrintArea();
+        drawCanvas();
+      } else {
+        // Update cursor based on hover state
+        if (appState.textElement && appState.isTextSelected) {
+          const textHandle = getTextHandleAtPoint(pos.x, pos.y);
+          if (textHandle) {
+            $.canvas.style.cursor = textHandle.includes('t') && textHandle.includes('l') ? 'nwse-resize' :
+                                     textHandle.includes('t') && textHandle.includes('r') ? 'nesw-resize' :
+                                     textHandle.includes('b') && textHandle.includes('l') ? 'nesw-resize' : 'nwse-resize';
+          } else if (isPointInText(pos.x, pos.y)) {
+            $.canvas.style.cursor = 'move';
+          } else {
+            $.canvas.style.cursor = 'default';
+          }
+        } else if (appState.textElement && isPointInText(pos.x, pos.y)) {
+          $.canvas.style.cursor = 'pointer';
+        } else if (appState.type === 'crop' && !appState.cropApplied && appState.cropRect.width > 0) {
+          const cropHandle = getCropRectHandleAtPoint(pos.x, pos.y);
+          if (cropHandle) {
+            $.canvas.style.cursor = cropHandle.includes('t') && cropHandle.includes('l') ? 'nwse-resize' :
+                                     cropHandle.includes('t') && cropHandle.includes('r') ? 'nesw-resize' :
+                                     cropHandle.includes('b') && cropHandle.includes('l') ? 'nesw-resize' : 'nwse-resize';
+          } else if (isPointInCropRect(pos.x, pos.y)) {
+            $.canvas.style.cursor = 'move';
+          } else {
+            $.canvas.style.cursor = 'default';
+          }
+        } else if (appState.designImage && appState.isDesignSelected) {
+          const handle = getHandleAtPoint(pos.x, pos.y);
+          if (handle) {
+            $.canvas.style.cursor = handle.includes('t') && handle.includes('l') ? 'nwse-resize' :
+                                     handle.includes('t') && handle.includes('r') ? 'nesw-resize' :
+                                     handle.includes('b') && handle.includes('l') ? 'nesw-resize' : 'nwse-resize';
+          } else if (isPointInDesign(pos.x, pos.y)) {
+            $.canvas.style.cursor = 'move';
+          } else {
+            $.canvas.style.cursor = 'default';
+          }
+        } else {
+          if (appState.designImage && isPointInDesign(pos.x, pos.y)) {
+            $.canvas.style.cursor = 'pointer';
+          } else {
+            $.canvas.style.cursor = 'default';
+          }
+        }
+      }
+    });
+    
+    $.canvas.addEventListener('mouseup', () => {
+      appState.isDragging = false;
+      appState.isResizing = false;
+      appState.isCropRectDragging = false;
+      appState.isCropRectResizing = false;
+      appState.isTextDragging = false;
+      appState.isTextResizing = false;
+      
+      // Stop sprite dragging
+      appState.sprites.forEach(s => {
+        s.isDragging = false;
+      });
+    });
+    
+    $.canvas.addEventListener('mouseleave', () => {
+      appState.isDragging = false;
+      appState.isResizing = false;
+      appState.isCropRectDragging = false;
+      appState.isCropRectResizing = false;
+      appState.isTextDragging = false;
+      appState.isTextResizing = false;
+      
+      // Stop sprite dragging
+      appState.sprites.forEach(s => {
+        s.isDragging = false;
+      });
+    });
+    
+    // Keyboard support for deleting selected sprites
+    document.addEventListener('keydown', (e) => {
+      if ((e.key === 'Delete' || e.key === 'Backspace') && 
+          !e.target.matches('input, textarea')) {
+        removeSelectedSprite();
+      }
+    });
+    
+    // ============================================
+    // DESIGN CONSTRAINTS
+    // ============================================
+    function constrainToPrintArea() {
+      const bounds = appState.printBounds;
+      
+      appState.designX = Math.max(bounds.x, Math.min(appState.designX, bounds.x + bounds.width - appState.designWidth));
+      appState.designY = Math.max(bounds.y, Math.min(appState.designY, bounds.y + bounds.height - appState.designHeight));
+      
+      if (appState.designWidth > bounds.width) appState.designWidth = bounds.width;
+      if (appState.designHeight > bounds.height) appState.designHeight = bounds.height;
+    }
+    
+    // ============================================
+    // DESIGN CONTROLS
+    // ============================================
+    function adjustSize(factor) {
+      if (!appState.designImage) return;
+      
+      const centerX = appState.designX + appState.designWidth / 2;
+      const centerY = appState.designY + appState.designHeight / 2;
+      
+      appState.designWidth *= factor;
+      appState.designHeight *= factor;
+      
+      appState.designX = centerX - appState.designWidth / 2;
+      appState.designY = centerY - appState.designHeight / 2;
+      
+      constrainToPrintArea();
+      drawCanvas();
+    }
+    
+    function resetDesign() {
+      if (!appState.designImage) return;
+      centerDesign();
+      appState.designWidth = 300;
+      appState.designHeight = 300;
+      constrainToPrintArea();
+      drawCanvas();
+    }
+    
+    function centerDesign() {
+      if (!appState.designImage) return;
+      const bounds = appState.printBounds;
+      appState.designX = bounds.x + (bounds.width - appState.designWidth) / 2;
+      appState.designY = bounds.y + (bounds.height - appState.designHeight) / 2;
+      drawCanvas();
+    }
+    
+    // ============================================
+    // LAYERING SYSTEM
+    // ============================================
+    
+    // Initialize layers array when elements are added/modified
+    function updateLayersArray() {
+      const oldLayers = [...appState.layers];
+      appState.layers = [];
+      
+      // Add design image (preserve zIndex or default to 0)
+      if (appState.designImage) {
+        const existingImageLayer = oldLayers.find(l => l.type === 'image');
+        appState.layers.push({
+          type: 'image',
+          ref: null,
+          zIndex: existingImageLayer?.zIndex ?? (appState.imageZIndex ?? 0)
+        });
+      }
+      
+      // Add text element (preserve zIndex or default to 1)
+      if (appState.textElement) {
+        const existingTextLayer = oldLayers.find(l => l.type === 'text');
+        appState.layers.push({
+          type: 'text',
+          ref: null,
+          zIndex: existingTextLayer?.zIndex ?? (appState.textZIndex ?? 1)
+        });
+      }
+      
+      // Add sprites (use sprite's own zIndex)
+      appState.sprites.forEach((sprite, idx) => {
+        appState.layers.push({
+          type: 'sprite',
+          ref: sprite,
+          zIndex: sprite.zIndex ?? (2 + idx)
+        });
+      });
+      
+      // Sort by zIndex
+      appState.layers.sort((a, b) => a.zIndex - b.zIndex);
+      
+      // Store zIndex values back to appState for persistence
+      const imageLayer = appState.layers.find(l => l.type === 'image');
+      const textLayer = appState.layers.find(l => l.type === 'text');
+      if (imageLayer) appState.imageZIndex = imageLayer.zIndex;
+      if (textLayer) appState.textZIndex = textLayer.zIndex;
+    }
+    
+    // Get currently selected layer
+    function getSelectedLayer() {
+      if (appState.isDesignSelected) {
+        return appState.layers.find(l => l.type === 'image');
+      }
+      if (appState.isTextSelected) {
+        return appState.layers.find(l => l.type === 'text');
+      }
+      const selectedSprite = appState.sprites.find(s => s.isSelected);
+      if (selectedSprite) {
+        return appState.layers.find(l => l.type === 'sprite' && l.ref === selectedSprite);
+      }
+      return null;
+    }
+    
+    // Bring selected element to front
+    function bringToFront() {
+      const selectedLayer = getSelectedLayer();
+      if (!selectedLayer) return;
+      
+      updateLayersArray();
+      const maxZ = Math.max(...appState.layers.map(l => l.zIndex), 0);
+      selectedLayer.zIndex = maxZ + 1;
+      
+      // Update persistent storage based on element type
+      if (selectedLayer.type === 'image') {
+        appState.imageZIndex = selectedLayer.zIndex;
+      } else if (selectedLayer.type === 'text') {
+        appState.textZIndex = selectedLayer.zIndex;
+      } else if (selectedLayer.type === 'sprite' && selectedLayer.ref) {
+        selectedLayer.ref.zIndex = selectedLayer.zIndex;
+      }
+      
+      updateLayersArray();
+      drawCanvas();
+    }
+    
+    // Send selected element to back
+    function sendToBack() {
+      const selectedLayer = getSelectedLayer();
+      if (!selectedLayer) return;
+      
+      updateLayersArray();
+      const minZ = Math.min(...appState.layers.map(l => l.zIndex), 0);
+      selectedLayer.zIndex = minZ - 1;
+      
+      // Update persistent storage based on element type
+      if (selectedLayer.type === 'image') {
+        appState.imageZIndex = selectedLayer.zIndex;
+      } else if (selectedLayer.type === 'text') {
+        appState.textZIndex = selectedLayer.zIndex;
+      } else if (selectedLayer.type === 'sprite' && selectedLayer.ref) {
+        selectedLayer.ref.zIndex = selectedLayer.zIndex;
+      }
+      
+      updateLayersArray();
+      drawCanvas();
+    }
+    
+    // Bring selected element forward one layer
+    function bringForward() {
+      const selectedLayer = getSelectedLayer();
+      if (!selectedLayer) return;
+      
+      updateLayersArray();
+      const currentIndex = appState.layers.findIndex(l => l === selectedLayer);
+      
+      // Can't move forward if already at top
+      if (currentIndex >= appState.layers.length - 1) return;
+      
+      const nextLayer = appState.layers[currentIndex + 1];
+      
+      // Set selected layer's zIndex to be between nextLayer and the one after
+      if (currentIndex + 2 < appState.layers.length) {
+        // There's a layer above nextLayer, place between them
+        const layerAbove = appState.layers[currentIndex + 2];
+        selectedLayer.zIndex = (nextLayer.zIndex + layerAbove.zIndex) / 2;
+      } else {
+        // nextLayer is the top layer, go above it
+        selectedLayer.zIndex = nextLayer.zIndex + 1;
+      }
+      
+      // Update persistent storage
+      if (selectedLayer.type === 'image') {
+        appState.imageZIndex = selectedLayer.zIndex;
+      } else if (selectedLayer.type === 'text') {
+        appState.textZIndex = selectedLayer.zIndex;
+      } else if (selectedLayer.type === 'sprite' && selectedLayer.ref) {
+        selectedLayer.ref.zIndex = selectedLayer.zIndex;
+      }
+      
+      updateLayersArray();
+      drawCanvas();
+    }
+    
+    // Send selected element backward one layer
+    function sendBackward() {
+      const selectedLayer = getSelectedLayer();
+      if (!selectedLayer) return;
+      
+      updateLayersArray();
+      const currentIndex = appState.layers.findIndex(l => l === selectedLayer);
+      
+      // Can't move backward if already at bottom
+      if (currentIndex <= 0) return;
+      
+      const prevLayer = appState.layers[currentIndex - 1];
+      
+      // Set selected layer's zIndex to be between prevLayer and the one below
+      if (currentIndex - 2 >= 0) {
+        // There's a layer below prevLayer, place between them
+        const layerBelow = appState.layers[currentIndex - 2];
+        selectedLayer.zIndex = (prevLayer.zIndex + layerBelow.zIndex) / 2;
+      } else {
+        // prevLayer is the bottom layer, go below it
+        selectedLayer.zIndex = prevLayer.zIndex - 1;
+      }
+      
+      // Update persistent storage
+      if (selectedLayer.type === 'image') {
+        appState.imageZIndex = selectedLayer.zIndex;
+      } else if (selectedLayer.type === 'text') {
+        appState.textZIndex = selectedLayer.zIndex;
+      } else if (selectedLayer.type === 'sprite' && selectedLayer.ref) {
+        selectedLayer.ref.zIndex = selectedLayer.zIndex;
+      }
+      
+      updateLayersArray();
+      drawCanvas();
+    }
+    
+    // Helper to close layer overlay
+    function closeLayerOverlay() {
+      document.getElementById('layer-overlay').classList.remove('visible');
+      document.getElementById('layer-order-btn').classList.remove('active');
+    }
+    
+    // ============================================
+    // SPRITES/STICKERS
+    // ============================================
+    function addSprite(emoji, size) {
+      const bounds = appState.printBounds;
+      
+      // Calculate next zIndex
+      updateLayersArray();
+      const maxZ = appState.layers.length > 0 ? Math.max(...appState.layers.map(l => l.zIndex)) : 0;
+      
+      // Create a new sprite object
+      const sprite = {
+        emoji: emoji,
+        size: size,
+        x: bounds.x + (bounds.width - size) / 2,
+        y: bounds.y + (bounds.height - size) / 2,
+        width: size,
+        height: size,
+        isDragging: false,
+        isResizing: false,
+        isSelected: false,
+        zIndex: maxZ + 1
+      };
+      
+      // Add sprite to array
+      appState.sprites.push(sprite);
+      
+      // Close the sprites overlay
+      document.getElementById('sprites-overlay').classList.remove('visible');
+      document.getElementById('sprites-btn').classList.remove('active');
+      
+      // Update layers and redraw
+      updateLayersArray();
+      drawCanvas();
+    }
+    
+    function removeSelectedSprite() {
+      const selectedIndex = appState.sprites.findIndex(s => s.isSelected);
+      if (selectedIndex !== -1) {
+        appState.sprites.splice(selectedIndex, 1);
+        drawCanvas();
+      }
+    }
+    
+    // ============================================
+    // DESIGN HISTORY MANAGEMENT
+    // ============================================
+    function addToDesignHistory(imageUrl, imageObj) {
+      // Add to beginning of array (most recent first)
+      appState.designHistory.unshift({
+        url: imageUrl,
+        image: imageObj,
+        timestamp: Date.now()
+      });
+      
+      // Keep only the 5 most recent
+      if (appState.designHistory.length > 5) {
+        appState.designHistory = appState.designHistory.slice(0, 5);
+      }
+      
+      renderDesignHistory();
+    }
+    
+    function renderDesignHistory() {
+      // Clear existing items (except the title)
+      const title = $.designHistory.querySelector('.design-history-title');
+      $.designHistory.innerHTML = '';
+      $.designHistory.appendChild(title);
+      
+      // Render each history item
+      appState.designHistory.forEach((item, index) => {
+        const historyItem = document.createElement('div');
+        historyItem.className = 'history-item';
+        if (item.url === appState.imageUrl) {
+          historyItem.classList.add('active');
+        }
+        
+        const img = document.createElement('img');
+        img.src = item.url;
+        img.alt = `Design ${index + 1}`;
+        
+        historyItem.appendChild(img);
+        
+        // Click to load this design
+        historyItem.addEventListener('click', () => {
+          loadDesignFromHistory(item);
+        });
+        
+        $.designHistory.appendChild(historyItem);
+      });
+    }
+    
+    function loadDesignFromHistory(historyItem) {
+      appState.designImage = historyItem.image;
+      appState.imageUrl = historyItem.url;
+      
+      // Reset crop settings
+      appState.cropZoom = 100;
+      appState.cropApplied = false;
+      appState.croppedImage = null;
+      appState.cropRect = { x: 0, y: 0, width: 0, height: 0 };
+      $.cropZoom.value = 100;
+      $.cropZoomValue.textContent = '100%';
+      $.cropAppliedIndicator.classList.remove('visible');
+      
+      const bounds = appState.printBounds;
+      const aspectRatio = historyItem.image.width / historyItem.image.height;
+      const maxSize = Math.min(bounds.width, bounds.height) * 0.6;
+      
+      if (aspectRatio > 1) {
+        appState.designWidth = maxSize;
+        appState.designHeight = maxSize / aspectRatio;
+      } else {
+        appState.designHeight = maxSize;
+        appState.designWidth = maxSize * aspectRatio;
+      }
+      
+      centerDesign();
+      drawCanvas();
+      $.cartBtn.disabled = false;
+      
+      appState.isDesignSelected = true;
+      
+      // Update the design-only thumbnail
+      const designOnlyImg = document.getElementById('design-only-img');
+      designOnlyImg.src = historyItem.url;
+      
+      // Update history UI to show active item
+      renderDesignHistory();
+    }
+    
+    // ============================================
+    // IMAGE VIEW SWITCHER
+    // ============================================
+    document.querySelectorAll('.thumbnail-btn').forEach(btn => {
+      btn.addEventListener('click', () => {
+        // Prevent clicking design-only if no design exists
+        if (btn.dataset.image === 'design-only' && !appState.designImage) {
+          return;
+        }
+        
+        document.querySelectorAll('.thumbnail-btn').forEach(b => b.classList.remove('active'));
+        btn.classList.add('active');
+        
+        const imageKey = btn.dataset.image;
+        appState.currentView = imageKey;
+        loadBackgroundImage(imageKey);
+      });
+    });
+    
+    // ============================================
+    // HISTORY TOGGLE
+    // ============================================
+    const historyToggleBtn = document.getElementById('history-toggle');
+    const historyPanel = document.getElementById('design-history');
+    
+    historyToggleBtn.addEventListener('click', () => {
+      historyPanel.classList.toggle('visible');
+      historyToggleBtn.classList.toggle('active');
+    });
+    
+    // ============================================
+    // HISTORY TOGGLE
+    // ============================================
+    $.historyToggle.addEventListener('click', () => {
+      $.designHistory.classList.toggle('visible');
+      $.historyToggle.classList.toggle('active');
+    });
+    
+    // ============================================
+    // GLOBAL DESELECT ON CLICK ANYWHERE
+    // ============================================
+    document.addEventListener('click', (e) => {
+      // Close history sidebar if clicking outside
+      if (!$.designHistory.contains(e.target) && !$.historyToggle.contains(e.target)) {
+        if ($.designHistory.classList.contains('visible')) {
+          $.designHistory.classList.remove('visible');
+          $.historyToggle.classList.remove('active');
+        }
+      }
+      
+      if (!$.canvas.contains(e.target) && e.target !== $.canvas) {
+        if (appState.isDesignSelected) {
+          appState.isDesignSelected = false;
+          drawCanvas();
+        }
+      }
+    });
+    
+    $.canvas.addEventListener('click', (e) => {
+      e.stopPropagation();
+    });
+    
+    // ============================================
+    // SIZE SELECTION
+    // ============================================
+    document.querySelectorAll('.size-opt').forEach(btn => {
+      btn.addEventListener('click', () => {
+        document.querySelectorAll('.size-opt').forEach(b => b.classList.remove('selected'));
+        btn.classList.add('selected');
+        appState.size = btn.dataset.val;
+      });
+    });
+    
+    // ============================================
+    // TYPE SELECTION (Mask/Crop toggle)
+    // ============================================
+    document.querySelectorAll('.type-opt').forEach(btn => {
+      btn.addEventListener('click', () => {
+        document.querySelectorAll('.type-opt').forEach(b => b.classList.remove('selected'));
+        btn.classList.add('selected');
+        appState.type = btn.dataset.val;
+        
+        // Show/hide appropriate dropdown
+        if (appState.type === 'mask') {
+          $.maskDropdown.classList.add('visible');
+          $.cropDropdown.classList.remove('visible');
+        } else if (appState.type === 'crop') {
+          $.maskDropdown.classList.remove('visible');
+          $.cropDropdown.classList.add('visible');
+          // Show indicator if crop was already applied
+          if (appState.cropApplied) {
+            $.cropAppliedIndicator.classList.add('visible');
+          }
+          // Initialize crop rectangle if there's a design and crop not applied
+          if (appState.designImage && !appState.cropApplied) {
+            initializeCropRect();
+          }
+        }
+        
+        drawCanvas();
+      });
+    });
+    
+    // ============================================
+    // MASK SHAPE SELECTION
+    // ============================================
+    $.maskShape.addEventListener('change', (e) => {
+      appState.maskShape = e.target.value;
+      drawCanvas();
+    });
+    
+    // ============================================
+    // CROP CONTROLS
+    // ============================================
+    $.cropZoom.addEventListener('input', (e) => {
+      appState.cropZoom = parseInt(e.target.value);
+      $.cropZoomValue.textContent = appState.cropZoom + '%';
+      drawCanvas();
+    });
+    
+    // Apply crop button - creates a cropped version of the image
+    $.cropApplyBtn.addEventListener('click', () => {
+      if (!appState.designImage || appState.cropRect.width === 0) return;
+      
+      // Create an off-screen canvas to render the cropped image
+      const tempCanvas = document.createElement('canvas');
+      const tempCtx = tempCanvas.getContext('2d');
+      
+      // Set canvas size to match crop rectangle dimensions
+      tempCanvas.width = appState.cropRect.width;
+      tempCanvas.height = appState.cropRect.height;
+      
+      // Calculate the portion of the original image to crop
+      const zoom = appState.cropZoom / 100;
+      
+      // Map crop rectangle position relative to design area
+      const relX = (appState.cropRect.x - appState.designX) / appState.designWidth;
+      const relY = (appState.cropRect.y - appState.designY) / appState.designHeight;
+      const relWidth = appState.cropRect.width / appState.designWidth;
+      const relHeight = appState.cropRect.height / appState.designHeight;
+      
+      // Calculate source dimensions from original image
+      const sourceX = relX * appState.designImage.width;
+      const sourceY = relY * appState.designImage.height;
+      const sourceWidth = relWidth * appState.designImage.width;
+      const sourceHeight = relHeight * appState.designImage.height;
+      
+      // Apply zoom by adjusting source dimensions
+      const zoomedSourceWidth = sourceWidth / zoom;
+      const zoomedSourceHeight = sourceHeight / zoom;
+      const zoomedSourceX = sourceX + (sourceWidth - zoomedSourceWidth) / 2;
+      const zoomedSourceY = sourceY + (sourceHeight - zoomedSourceHeight) / 2;
+      
+      // Draw the cropped portion to the temp canvas
+      tempCtx.drawImage(
+        appState.designImage,
+        zoomedSourceX,
+        zoomedSourceY,
+        zoomedSourceWidth,
+        zoomedSourceHeight,
+        0,
+        0,
+        tempCanvas.width,
+        tempCanvas.height
+      );
+      
+      // Convert to image
+      const croppedImg = new Image();
+      croppedImg.onload = () => {
+        appState.croppedImage = croppedImg;
+        appState.cropApplied = true;
+        
+        // Keep the cropped portion at its exact size and position (like a mask)
+        appState.designX = appState.cropRect.x;
+        appState.designY = appState.cropRect.y;
+        appState.designWidth = appState.cropRect.width;
+        appState.designHeight = appState.cropRect.height;
+        
+        // Reset crop rectangle
+        appState.cropRect = { x: 0, y: 0, width: 0, height: 0 };
+        $.cropAppliedIndicator.classList.add('visible');
+        drawCanvas();
+      };
+      croppedImg.src = tempCanvas.toDataURL();
+    });
+    
+    // Clear crop button - resets crop settings
+    $.cropClearBtn.addEventListener('click', () => {
+      appState.cropZoom = 100;
+      appState.cropApplied = false;
+      appState.croppedImage = null;
+      appState.cropRect = { x: 0, y: 0, width: 0, height: 0 };
+      
+      $.cropZoom.value = 100;
+      $.cropZoomValue.textContent = '100%';
+      $.cropAppliedIndicator.classList.remove('visible');
+      
+      // Reinitialize crop rectangle if still in crop mode and have a design
+      if (appState.type === 'crop' && appState.designImage) {
+        initializeCropRect();
+      }
+      
+      drawCanvas();
+    });
+    
+    // ============================================
+    // IMAGE UPLOAD HANDLING
+    // ============================================
+    $.imageUpload.addEventListener('change', (e) => {
+      const file = e.target.files[0];
+      if (!file) return;
+      
+      // Check file type
+      if (!file.type.startsWith('image/')) {
+        displayError('Please upload an image file');
+        return;
+      }
+      
+      // Check file size (max 5MB)
+      if (file.size > 5 * 1024 * 1024) {
+        displayError('Image must be smaller than 5MB');
+        return;
+      }
+      
+      const reader = new FileReader();
+      reader.onload = (event) => {
+        appState.uploadedImage = event.target.result; // Store base64
+        $.previewImg.src = event.target.result;
+        $.imagePreview.classList.add('visible');
+        $.uploadBtnLabel.classList.add('has-image');
+        $.uploadBtnLabel.textContent = '✓ Image Added';
+      };
+      reader.readAsDataURL(file);
+    });
+    
+    $.removeImageBtn.addEventListener('click', () => {
+      appState.uploadedImage = null;
+      $.imageUpload.value = '';
+      $.imagePreview.classList.remove('visible');
+      $.uploadBtnLabel.classList.remove('has-image');
+      $.uploadBtnLabel.textContent = '📎 Upload Image';
+    });
+    
+    // ============================================
+    // GENERATE DESIGN
+    // ============================================
+    $.genBtn.addEventListener('click', async () => {
+      const userInput = $.prompt.value.trim();
+      
+      if (!userInput) {
+        displayError('Please describe what you want on your t-shirt');
+        return;
+      }
+      
+      if (userInput.length < 5) {
+        displayError('Please provide more detail in your description');
+        return;
+      }
+      
+      clearError();
+      hideSuccess();
+      showLoading(true);
+      
+      try {
+        const payload = { prompt: userInput };
+        
+        // Add uploaded image if exists
+        if (appState.uploadedImage) {
+          payload.image = appState.uploadedImage;
+        }
+        
+        const response = await fetch(API_ENDPOINT, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(payload)
+        });
+        
+        const result = await response.json();
+        
+        if (!response.ok) {
+          throw new Error(result.error || 'Failed to generate design');
+        }
+        
+        const img = new Image();
+        img.crossOrigin = 'anonymous';
+        img.onload = () => {
+          appState.designImage = img;
+          appState.imageUrl = result.imageUrl;
+          appState.prompt = userInput;
+          
+          // Add to design history
+          addToDesignHistory(result.imageUrl, img);
+          
+          // Reset crop settings for new image
+          appState.cropZoom = 100;
+          appState.cropApplied = false;
+          appState.croppedImage = null;
+          appState.cropRect = { x: 0, y: 0, width: 0, height: 0 };
+          $.cropZoom.value = 100;
+          $.cropZoomValue.textContent = '100%';
+          $.cropAppliedIndicator.classList.remove('visible');
+          
+          const bounds = appState.printBounds;
+          const aspectRatio = img.width / img.height;
+          const maxSize = Math.min(bounds.width, bounds.height) * 0.6;
+          
+          if (aspectRatio > 1) {
+            appState.designWidth = maxSize;
+            appState.designHeight = maxSize / aspectRatio;
+          } else {
+            appState.designHeight = maxSize;
+            appState.designWidth = maxSize * aspectRatio;
+          }
+          
+          centerDesign();
+          drawCanvas();
+          $.cartBtn.disabled = false;
+          
+          appState.isDesignSelected = true;
+          
+          // Enable and update the design-only thumbnail
+          const designOnlyThumbnail = document.getElementById('design-only-thumbnail');
+          const designOnlyImg = document.getElementById('design-only-img');
+          designOnlyThumbnail.classList.remove('disabled');
+          designOnlyImg.src = result.imageUrl;
+          
+          showSuccess();
+        };
+        img.src = result.imageUrl;
+        
+      } catch (err) {
+        console.error('Generation failed:', err);
+        displayError(err.message || 'Something went wrong. Please try again.');
+      } finally {
+        showLoading(false);
+      }
+    });
+    
+    // ============================================
+    // ADD TO CART
+    // ============================================
+    $.cartBtn.addEventListener('click', async () => {
+      if (!appState.imageUrl) return;
+      
+      const cartPayload = {
+        items: [{
+          id: VARIANT_ID,
+          quantity: 1,
+          properties: {
+            'Size': appState.size,
+            'Type': appState.type,
+            'Mask Shape': appState.maskShape,
+            'Crop Applied': appState.cropApplied ? 'Yes' : 'No',
+            'Crop Zoom': appState.cropZoom + '%',
+            'Design': appState.imageUrl,
+            'Prompt': appState.prompt,
+            'Position X': Math.round(appState.designX),
+            'Position Y': Math.round(appState.designY),
+            'Width': Math.round(appState.designWidth),
+            'Height': Math.round(appState.designHeight)
+          }
+        }]
+      };
+      
+      try {
+        const response = await fetch('/cart/add.js', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(cartPayload)
+        });
+        
+        if (!response.ok) throw new Error('Cart error');
+        
+        window.location.href = '/cart';
+        
+      } catch (err) {
+        console.error('Add to cart failed:', err);
+        alert('Could not add to cart. Please try again.');
+      }
+    });
+    
+    // ============================================
+    // UI HELPERS
+    // ============================================
+    function showLoading(show) {
+      appState.isLoading = show;
+      $.loading.classList.toggle('active', show);
+      $.genBtn.disabled = show;
+      $.genBtn.textContent = show ? '⏳ Generating...' : '✨ Generate Design';
+    }
+    
+    function displayError(msg) {
+      $.error.textContent = msg;
+      $.error.classList.add('visible');
+    }
+    
+    function clearError() {
+      $.error.classList.remove('visible');
+    }
+    
+    function showSuccess() {
+      $.success.classList.add('visible');
+      setTimeout(() => $.success.classList.remove('visible'), 5000);
+    }
+    
+    function hideSuccess() {
+      $.success.classList.remove('visible');
+    }
+    
+    // ============================================
+    // INITIALIZE
+    // ============================================
+    window.addEventListener('load', () => {
+      setupCanvas();
+      // Show mask dropdown by default since Mask is selected
+      $.maskDropdown.classList.add('visible');
+      // Disable design-only thumbnail initially
+      document.getElementById('design-only-thumbnail').classList.add('disabled');
+      
+      // History toggle button
+      $.historyToggle.addEventListener('click', () => {
+        $.designHistory.classList.toggle('visible');
+        $.historyToggle.classList.toggle('active');
+      });
+      
+      // Add Text button - toggle overlay
+      $.addTextBtn.addEventListener('click', () => {
+        $.textOverlay.classList.add('visible');
+        $.addTextBtn.classList.add('active');
+      });
+      
+      // Close text overlay
+      $.closeTextBtn.addEventListener('click', () => {
+        $.textOverlay.classList.remove('visible');
+        $.addTextBtn.classList.remove('active');
+      });
+      
+      // Layer Order button - toggle overlay
+      $.layerOrderBtn.addEventListener('click', () => {
+        $.layerOverlay.classList.add('visible');
+        $.layerOrderBtn.classList.add('active');
+      });
+      
+      // Close layer overlay
+      $.closeLayerBtn.addEventListener('click', () => {
+        $.layerOverlay.classList.remove('visible');
+        $.layerOrderBtn.classList.remove('active');
+      });
+      
+      // Sprites button - toggle overlay
+      $.spritesBtn.addEventListener('click', () => {
+        $.spritesOverlay.classList.add('visible');
+        $.spritesBtn.classList.add('active');
+      });
+      
+      // Close sprites overlay
+      $.closeSpritesBtn.addEventListener('click', () => {
+        $.spritesOverlay.classList.remove('visible');
+        $.spritesBtn.classList.remove('active');
+      });
+      
+      // Update color hex display when color changes
+      $.textColor.addEventListener('input', (e) => {
+        $.colorHexDisplay.textContent = e.target.value.toUpperCase();
+        // Update text color live if text element exists
+        if (appState.textElement) {
+          appState.textElement.color = e.target.value;
+          drawCanvas();
+        }
+      });
+      
+      // Update warp intensity display
+      $.warpIntensity.addEventListener('input', (e) => {
+        $.warpIntensityDisplay.textContent = e.target.value + '%';
+        // Update text warp live if text element exists
+        if (appState.textElement) {
+          appState.textElement.warpIntensity = parseInt(e.target.value);
+          drawCanvas();
+        }
+      });
+      
+      // Update text warp settings live
+      $.warpType.addEventListener('change', (e) => {
+        if (appState.textElement) {
+          appState.textElement.warpType = e.target.value;
+          drawCanvas();
+        }
+      });
+      
+      $.warpDirection.addEventListener('change', (e) => {
+        if (appState.textElement) {
+          appState.textElement.warpDirection = e.target.value;
+          drawCanvas();
+        }
+      });
+      
+      // Update text font live when font changes
+      $.textFont.addEventListener('change', (e) => {
+        if (appState.textElement) {
+          appState.textElement.font = e.target.value;
+          drawCanvas();
+        }
+      });
+      
+      // Update text size live when size changes
+      $.textSize.addEventListener('change', (e) => {
+        if (appState.textElement) {
+          appState.textElement.fontSize = parseInt(e.target.value);
+          drawCanvas();
+        }
+      });
+      
+      // Update text content live when typing
+      $.textContent.addEventListener('input', (e) => {
+        if (appState.textElement) {
+          appState.textElement.text = e.target.value.trim();
+          drawCanvas();
+        }
+      });
+      
+      // Add text submit button - creates text element on canvas
+      $.addTextSubmitBtn.addEventListener('click', () => {
+        const text = $.textContent.value.trim();
+        const font = $.textFont.value;
+        const color = $.textColor.value;
+        const fontSize = parseInt($.textSize.value);
+        
+        if (!text) {
+          alert('Please enter some text');
+          return;
+        }
+        
+        // Measure text to calculate appropriate size
+        ctx.font = `${fontSize}px ${font}`;
+        const textMetrics = ctx.measureText(text);
+        const textWidth = textMetrics.width;
+        
+        // Create text element with warping properties
+        appState.textElement = {
+          text: text,
+          font: font,
+          color: color,
+          fontSize: fontSize,
+          warpType: $.warpType.value,
+          warpIntensity: parseInt($.warpIntensity.value),
+          warpDirection: $.warpDirection.value
+        };
+        
+        // Position text in center of print area
+        const bounds = appState.printBounds;
+        appState.textWidth = Math.min(textWidth + 40, bounds.width * 0.8);
+        appState.textHeight = fontSize + 20;
+        appState.textX = bounds.x + (bounds.width - appState.textWidth) / 2;
+        appState.textY = bounds.y + (bounds.height - appState.textHeight) / 2;
+        
+        // Select the text element
+        appState.isTextSelected = true;
+        appState.isDesignSelected = false;
+        
+        drawCanvas();
+      });
+    });
+    
+    // ============================================
+    // SHOPIFY CART INTEGRATION
+    // ============================================
+    
+    // Shopify Ajax Cart API helper
+    const ShopifyCart = {
+      async add(items) {
+        const payload = { items };
+        console.log('📤 Sending to Shopify:', JSON.stringify(payload, null, 2));
+        
+        const response = await fetch('/cart/add.js', {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify(payload)
+        });
+        
+        if (!response.ok) {
+          const errorText = await response.text();
+          console.error('❌ Shopify response:', response.status, errorText);
+          throw new Error(`Cart API error: ${response.status} - ${errorText}`);
+        }
+        
+        return await response.json();
+      },
+      
+      async get() {
+        const response = await fetch('/cart.js');
+        return await response.json();
+      },
+      
+      async update(updates) {
+        const response = await fetch('/cart/update.js', {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify({ updates })
+        });
+        
+        return await response.json();
+      }
+    };
+    
+    // Generate print-ready PNG from current design
+    function generatePrintReadyPNG() {
+      // Create an offscreen canvas with Printify specs
+      const printCanvas = document.createElement('canvas');
+      printCanvas.width = PRINTIFY_SPECS.printWidth;
+      printCanvas.height = PRINTIFY_SPECS.printHeight;
+      const printCtx = printCanvas.getContext('2d');
+      
+      // Set white background
+      printCtx.fillStyle = '#FFFFFF';
+      printCtx.fillRect(0, 0, printCanvas.width, printCanvas.height);
+      
+      // Calculate scale factor from canvas to print size
+      const canvasPrintWidth = appState.printBounds.width;
+      const canvasPrintHeight = appState.printBounds.height;
+      const scaleX = PRINTIFY_SPECS.printWidth / canvasPrintWidth;
+      const scaleY = PRINTIFY_SPECS.printHeight / canvasPrintHeight;
+      
+      printCtx.save();
+      printCtx.scale(scaleX, scaleY);
+      
+      // Helper to draw design image
+      const drawPrintDesignImage = () => {
+        if (!appState.designImage) return;
+        
+        const relX = appState.designX - appState.printBounds.x;
+        const relY = appState.designY - appState.printBounds.y;
+        
+        printCtx.drawImage(
+          appState.designImage,
+          relX,
+          relY,
+          appState.designWidth,
+          appState.designHeight
+        );
+      };
+      
+      // Helper to draw text element
+      const drawPrintTextElement = () => {
+        if (!appState.textElement) return;
+        
+        const relX = appState.textX - appState.printBounds.x;
+        const relY = appState.textY - appState.printBounds.y;
+        
+        printCtx.save();
+        printCtx.translate(relX, relY);
+        
+        const { text, font, size, color, warpType, warpIntensity, warpDirection } = appState.textElement;
+        
+        printCtx.font = `${size}px ${font}`;
+        printCtx.fillStyle = color;
+        printCtx.textBaseline = 'top';
+        
+        if (warpType === 'none' || !warpType) {
+          printCtx.fillText(text, 0, 0);
+        } else {
+          // Apply text warping (simplified for print)
+          const centerX = appState.textWidth / 2;
+          const centerY = appState.textHeight / 2;
+          
+          if (warpType === 'arc') {
+            const radius = Math.max(300, 1000 / (warpIntensity + 0.1));
+            const totalWidth = printCtx.measureText(text).width;
+            const arcAngle = totalWidth / radius;
+            const startAngle = -arcAngle / 2;
+            
+            for (let i = 0; i < text.length; i++) {
+              const char = text[i];
+              const charWidth = printCtx.measureText(char).width;
+              const charAngle = startAngle + (i / text.length) * arcAngle;
+              const x = centerX + radius * Math.sin(charAngle);
+              const y = centerY - radius * Math.cos(charAngle) + radius - size / 2;
+              
+              printCtx.save();
+              printCtx.translate(x, y);
+              printCtx.rotate(charAngle);
+              printCtx.fillText(char, -charWidth / 2, 0);
+              printCtx.restore();
+            }
+          } else {
+            printCtx.fillText(text, 0, 0);
+          }
+        }
+        
+        printCtx.restore();
+      };
+      
+      // Helper to draw sprite
+      const drawPrintSprite = (sprite) => {
+        const relX = sprite.x - appState.printBounds.x;
+        const relY = sprite.y - appState.printBounds.y;
+        
+        printCtx.save();
+        printCtx.font = `${sprite.size}px Arial`;
+        printCtx.textAlign = 'center';
+        printCtx.textBaseline = 'middle';
+        printCtx.fillText(sprite.emoji, relX + sprite.width / 2, relY + sprite.height / 2);
+        printCtx.restore();
+      };
+      
+      // Draw all layers in correct order
+      updateLayersArray();
+      appState.layers.forEach(layer => {
+        if (layer.type === 'image') {
+          drawPrintDesignImage();
+        } else if (layer.type === 'text') {
+          drawPrintTextElement();
+        } else if (layer.type === 'sprite' && layer.ref) {
+          drawPrintSprite(layer.ref);
+        }
+      });
+      
+      printCtx.restore();
+      
+      // Convert to JPEG with compression for smaller file size
+      // JPEG at 0.85 quality is ~10x smaller than PNG while maintaining print quality
+      const compressedDataURL = printCanvas.toDataURL('image/jpeg', 0.85);
+      
+      console.log('🖼️ Print file generated:', {
+        dimensions: `${printCanvas.width}x${printCanvas.height}`,
+        format: 'JPEG',
+        quality: '85%',
+        sizeKB: Math.round(compressedDataURL.length / 1024),
+        sizeMB: (compressedDataURL.length / 1024 / 1024).toFixed(2)
+      });
+      
+      return compressedDataURL;
+    }
+    
+    // Add current design to Shopify cart
+    async function addToCart() {
+      // Show loading state
+      $.cartBtn.disabled = true;
+      $.cartBtn.innerHTML = '⏳ Adding to Cart...';
+      
+      try {
+        // Generate print-ready design (now compressed as JPEG)
+        const designJPEG = generatePrintReadyPNG();
+        
+        // Generate TINY thumbnail for Shopify cart (must be under 50KB!)
+        // Create a small canvas for thumbnail
+        const thumbCanvas = document.createElement('canvas');
+        const maxThumbSize = 150; // Very small for Shopify
+        const scale = Math.min(maxThumbSize / $.canvas.width, maxThumbSize / $.canvas.height);
+        thumbCanvas.width = $.canvas.width * scale;
+        thumbCanvas.height = $.canvas.height * scale;
+        const thumbCtx = thumbCanvas.getContext('2d');
+        thumbCtx.drawImage($.canvas, 0, 0, thumbCanvas.width, thumbCanvas.height);
+        
+        // Very low quality JPEG for Shopify (aim for <30KB)
+        const thumbnail = thumbCanvas.toDataURL('image/jpeg', 0.2);
+        
+        console.log('📸 Thumbnail generated:', {
+          dimensions: `${thumbCanvas.width}x${thumbCanvas.height}`,
+          sizeKB: Math.round(thumbnail.length / 1024)
+        });
+        
+        // Create backup cart item for localStorage
+        const cartItem = {
+          id: Date.now(),
+          designJPEG: designJPEG,
+          size: appState.size,
+          price: PRICE,
+          timestamp: new Date().toISOString(),
+          thumbnail: thumbnail,
+          variantId: VARIANT_ID
+        };
+        
+        // Save to localStorage as backup (with quota error handling)
+        try {
+          appState.cart.push(cartItem);
+          
+          // Keep only last 3 designs to avoid quota issues
+          if (appState.cart.length > 3) {
+            appState.cart = appState.cart.slice(-3);
+          }
+          
+          localStorage.setItem('tshirt_designs_backup', JSON.stringify(appState.cart));
+          console.log('💾 Saved to localStorage backup');
+        } catch (storageError) {
+          console.warn('⚠️ localStorage full, keeping in memory only:', storageError);
+          // Still keep in appState.cart even if localStorage fails
+          appState.cart.push(cartItem);
+        }
+        
+        // Upload design to backend and get URL
+        console.log('📤 Uploading design to backend...');
+        
+        let designUrl = null;
+        try {
+          const uploadResponse = await fetch(UPLOAD_ENDPOINT, {
+            method: 'POST',
+            headers: {
+              'Content-Type': 'application/json',
+            },
+            body: JSON.stringify({
+              designData: designJPEG,
+              designId: cartItem.id.toString(),
+              size: appState.size
+            })
+          });
+          
+          if (uploadResponse.ok) {
+            const uploadResult = await uploadResponse.json();
+            designUrl = uploadResult.designUrl;
+            console.log('✅ Design uploaded to backend:', designUrl);
+          } else {
+            console.warn('⚠️ Backend upload failed, will use localStorage only');
+          }
+        } catch (uploadError) {
+          console.warn('⚠️ Could not upload to backend:', uploadError.message);
+        }
+        
+        // Development tip: You can copy the design from console
+        console.log('💾 Design Data URL (for testing):', designJPEG.substring(0, 100) + '...');
+        
+        // Shopify properties - METADATA ONLY (no images!)
+        // Total size must be under ~5KB for all properties combined
+        let cartProperties = {
+          'Design ID': cartItem.id.toString(),
+          'Design URL': designUrl || 'See localStorage',
+          'Timestamp': new Date().toLocaleString(),
+          'Specs': `${PRINTIFY_SPECS.printWidth}x${PRINTIFY_SPECS.printHeight}`,
+          'DPI': PRINTIFY_SPECS.dpi.toString()
+        };
+        
+        console.log('📦 Cart properties:', JSON.stringify(cartProperties).length, 'bytes');
+        
+        // Create Shopify cart item with minimal data
+        const shopifyItem = {
+          id: VARIANT_ID,
+          quantity: 1,
+          properties: cartProperties
+        };
+        
+        console.log('🛒 Adding to Shopify cart:', shopifyItem);
+        console.log('📊 Variant ID:', VARIANT_ID);
+        console.log('📊 Properties size:', JSON.stringify(cartProperties).length, 'bytes');
+        
+        // Add to Shopify cart via Ajax API
+        const result = await ShopifyCart.add([shopifyItem]);
+        
+        console.log('✅ Added to Shopify cart:', result);
+        console.log('📦 Design saved to localStorage as backup');
+        
+        // Show success feedback
+        showCartAddedFeedback(true);
+        
+        // Trigger Shopify cart refresh (if theme uses cart drawer)
+        document.documentElement.dispatchEvent(
+          new CustomEvent('cart:refresh', { bubbles: true })
+        );
+        
+        // Alternative: Try to update cart icon if it exists
+        updateShopifyCartCount();
+        
+      } catch (error) {
+        console.error('❌ Shopify cart error:', error);
+        
+        // Fallback: Show error and keep in localStorage
+        showCartAddedFeedback(false, error.message);
+        
+        // Still saved to localStorage as backup
+        console.log('💾 Design saved to localStorage (Shopify cart failed)');
+      }
+    }
+    
+    // Load saved designs from localStorage on page load
+    function loadBackupDesigns() {
+      try {
+        const backup = localStorage.getItem('tshirt_designs_backup');
+        if (backup) {
+          appState.cart = JSON.parse(backup);
+          console.log(`📦 Loaded ${appState.cart.length} backup designs from localStorage`);
+        }
+      } catch (error) {
+        console.warn('Could not load backup designs:', error);
+      }
+    }
+    
+    // Update Shopify cart icon count
+    async function updateShopifyCartCount() {
+      try {
+        const cart = await ShopifyCart.get();
+        
+        // Try to find and update cart count elements
+        const cartCountElements = document.querySelectorAll('[data-cart-count], .cart-count, #cart-count');
+        cartCountElements.forEach(el => {
+          el.textContent = cart.item_count;
+          if (cart.item_count > 0) {
+            el.style.display = '';
+          }
+        });
+        
+        // Try to find cart icon/button
+        const cartIcon = document.querySelector('[data-cart-icon], .cart-icon, #cart-icon, header-actions');
+        if (cartIcon) {
+          cartIcon.classList.add('cart-updated');
+          setTimeout(() => cartIcon.classList.remove('cart-updated'), 500);
+        }
+        
+        console.log(`🛒 Cart now has ${cart.item_count} items`);
+      } catch (error) {
+        console.warn('Could not update cart count:', error);
+      }
+    }
+    
+    // Show cart added feedback
+    function showCartAddedFeedback(success = true, errorMessage = '') {
+      if (success) {
+        $.cartBtn.innerHTML = '✅ Added to Cart!';
+        $.cartBtn.style.background = '#10b981';
+        
+        setTimeout(() => {
+          $.cartBtn.innerHTML = '🛒 Add to Cart - $29.99';
+          $.cartBtn.style.background = '';
+          $.cartBtn.disabled = false;
+        }, 2000);
+      } else {
+        $.cartBtn.innerHTML = '❌ Cart Error';
+        $.cartBtn.style.background = '#ef4444';
+        
+        // Show error details
+        const shortError = errorMessage.split('\n')[0].substring(0, 50);
+        alert(`Could not add to Shopify cart: ${shortError}\n\nYour design has been saved locally as a backup.\n\nPlease check console for details.`);
+        
+        setTimeout(() => {
+          $.cartBtn.innerHTML = '🛒 Add to Cart - $29.99';
+          $.cartBtn.style.background = '';
+          $.cartBtn.disabled = false;
+        }, 3000);
+      }
+    }
+    
+    // Event Listeners
+    $.cartBtn.addEventListener('click', () => {
+      if (!appState.designImage && !appState.textElement && appState.sprites.length === 0) {
+        alert('Please add a design, text, or sprite before adding to cart.');
+        return;
+      }
+      addToCart();
+    });
+    
+    // Enable cart button when design exists
+    function updateCartButtonState() {
+      const hasContent = appState.designImage || appState.textElement || appState.sprites.length > 0;
+      $.cartBtn.disabled = !hasContent;
+    }
+    
+    // Call updateCartButtonState whenever design changes
+    const originalDrawCanvas = drawCanvas;
+    window.drawCanvas = function() {
+      originalDrawCanvas();
+      updateCartButtonState();
+    };
+    
+    // Initialize cart button state
+    updateCartButtonState();
+    
+    // Load backup designs on page load
+    loadBackupDesigns();
+    
+    window.addEventListener('resize', setupCanvas);
+  </script>
+</body>
+</html>

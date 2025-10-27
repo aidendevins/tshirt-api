@@ -1,11 +1,25 @@
-import OpenAI from 'openai';
+import Replicate from 'replicate';
+import dotenv from 'dotenv';
+dotenv.config();
 
-const openai = new OpenAI({
-  apiKey: process.env.OPENAI_API_KEY
+const replicate = new Replicate({
+  auth: process.env.REPLICATE_API_TOKEN
 });
 
+// Helper function to convert base64 data URL to buffer for Gemini
+function base64ToBuffer(base64Data) {
+  const base64String = base64Data.replace(/^data:image\/\w+;base64,/, '');
+  return Buffer.from(base64String, 'base64');
+}
+
+// Helper function to get mime type from base64 data URL
+function getMimeType(base64Data) {
+  const match = base64Data.match(/^data:(image\/\w+);base64,/);
+  return match ? match[1] : 'image/png';
+}
+
 export default async function handler(req, res) {
-  // Allow all origins (temporary fix for CORS)
+  // Allow all origins (CORS)
   res.setHeader('Access-Control-Allow-Origin', '*');
   res.setHeader('Access-Control-Allow-Methods', 'POST, OPTIONS');
   res.setHeader('Access-Control-Allow-Headers', 'Content-Type');
@@ -20,41 +34,146 @@ export default async function handler(req, res) {
   }
 
   try {
-    const { prompt } = req.body;
-
+    const { prompt, image } = req.body;
+    
     if (!prompt || prompt.length < 3) {
       return res.status(400).json({ error: 'Please provide a detailed prompt' });
     }
 
-    console.log('Generating design for:', prompt);
+    // If image is provided, use Gemini Flash 2.0 to analyze and create an enhanced prompt
+    if (image) {
+      console.log('Using Gemini Flash 2.0 to analyze image and create prompt:', prompt);
+      
+      try {        
+        // Create a prompt for Gemini to analyze the image and incorporate changes
+        const visionPrompt = `Analyze this image carefully and create a detailed image generation prompt that:
+        1) Preserves the original style, colors, composition, and key visual elements
+        2) Incorporates this modification: "${prompt}"
+        3) Is optimized for image generation AI models
 
-    const response = await openai.images.generate({
-      model: "dall-e-3",
-      prompt: `${prompt}`,
-      n: 1,
-      size: "1024x1024",
-      quality: "standard"
-    });
+        Provide only the enhanced prompt text, no explanations or additional text.`;
+        
+        const visionResult = await model.generateContent([visionPrompt, imagePart]);
+        const visionResponse = await visionResult.response;
+        const optimizedPrompt = visionResponse.text().trim();
+        
+        console.log('Gemini Flash 2.0-enhanced prompt:', optimizedPrompt);
+        
+        
+        // Generate new image with Stable Diffusion XL using the enhanced prompt
+        const inputConfig = {
+          prompt: `${optimizedPrompt}, high quality, detailed, professional`,
+          negative_prompt: "ugly, blurry, low quality, distorted, text, watermark, deformed",
+          width: 1024,
+          height: 1024,
+          num_outputs: 1,
+          num_inference_steps: 40,
+          guidance_scale: 7.5
+        };
+        
+        const output = await replicate.run(
+          "stability-ai/sdxl:39ed52f2a78e934b3ba6e2a89f5b1c712de7dfea535525255b1aa35c5565e08b",
+          { input: inputConfig }
+        );
 
-    const imageUrl = response.data[0].url;
+        const imageUrl = output[0];
+        
+        // Download and convert to base64 for consistent response
+        const imageResponse = await fetch(imageUrl);
+        const resultBuffer = await imageResponse.arrayBuffer();
+        const base64Image = `data:image/png;base64,${Buffer.from(resultBuffer).toString('base64')}`;
+        
+        res.status(200).json({
+          success: true,
+          imageUrl: base64Image,
+          prompt: prompt,
+          model: 'replicate-sdxl'
+        });
+        
+      } catch (visionError) {
+        console.error('Gemini Flash 2.0 error:', visionError);
+        
+        // Fallback: generate with original prompt if vision analysis fails
+        console.log('Falling back to direct generation');
+        
+        const inputConfig = {
+          prompt: `${prompt}, high quality, detailed, vibrant artwork, professional design`,
+          negative_prompt: "ugly, blurry, low quality, distorted, text, watermark",
+          width: 1024,
+          height: 1024,
+          num_outputs: 1,
+          num_inference_steps: 30,
+          guidance_scale: 7.5
+        };
+        
+        const output = await replicate.run(
+          "stability-ai/sdxl:39ed52f2a78e934b3ba6e2a89f5b1c712de7dfea535525255b1aa35c5565e08b",
+          { input: inputConfig }
+        );
 
-    res.status(200).json({
-      success: true,
-      imageUrl: imageUrl,
-      prompt: prompt
-    });
+        const imageUrl = output[0];
+        const imageResponse = await fetch(imageUrl);
+        const resultBuffer = await imageResponse.arrayBuffer();
+        const base64Image = `data:image/png;base64,${Buffer.from(resultBuffer).toString('base64')}`;
+        
+        res.status(200).json({
+          success: true,
+          imageUrl: base64Image,
+          prompt: prompt,
+          model: 'replicate-sdxl'
+        });
+      }
+      
+    } else {
+      
+      const inputConfig = {
+        prompt: `${prompt}, high quality, detailed, vibrant artwork, professional t-shirt design`,
+        negative_prompt: "ugly, blurry, low quality, distorted, text, watermark",
+        width: 1024,
+        height: 1024,
+        num_outputs: 1,
+        num_inference_steps: 30,
+        guidance_scale: 7.5
+      };
+      
+      const output = await replicate.run(
+        "stability-ai/sdxl:39ed52f2a78e934b3ba6e2a89f5b1c712de7dfea535525255b1aa35c5565e08b",
+        { input: inputConfig }
+      );
+
+      const imageUrl = output[0];
+
+      res.status(200).json({
+        success: true,
+        imageUrl: imageUrl,
+        prompt: prompt,
+        model: 'stable-diffusion-xl'
+      });
+    }
 
   } catch (error) {
-    console.error('Error:', error);
+    console.error('Generation error:', error);
     
-    if (error.status === 400) {
-      return res.status(400).json({ 
-        error: 'Invalid prompt. Please try a different description.' 
+    if (error.message && error.message.includes('safety')) {
+      return res.status(400).json({
+        error: 'Invalid prompt. Please try a different description.'
       });
     }
     
-    res.status(500).json({ 
-      error: 'Failed to generate design. Please try again.' 
+    if (error.message && error.message.includes('SAFETY')) {
+      return res.status(400).json({
+        error: 'Content safety filter triggered. Please try a different prompt or image.'
+      });
+    }
+    
+    if (error.message && error.message.includes('image')) {
+      return res.status(400).json({
+        error: 'Invalid image format. Please try a different image.'
+      });
+    }
+
+    res.status(500).json({
+      error: 'Failed to generate design. Please try again.'
     });
   }
 }
