@@ -1,6 +1,7 @@
 // Vercel Serverless Function for Design Upload
-// Uses Vercel Blob for persistent cloud storage
-import { put } from '@vercel/blob';
+// This stores designs temporarily and returns a retrieval URL
+// Note: Vercel serverless functions are stateless, so for production
+// you should upload to S3, Cloudinary, or a database
 
 export default async function handler(req, res) {
   // CORS headers (match your generate-sd.js pattern)
@@ -56,27 +57,39 @@ export default async function handler(req, res) {
     const formatMatch = designData.match(/data:image\/(\w+);/);
     const format = formatMatch ? formatMatch[1] : 'jpeg';
 
-    console.log(`📤 Uploading design to Vercel Blob: ${designId} (${sizeKB}KB, ${format})`);
+    // For now, we'll return success with metadata
+    // The full design is stored in localStorage on the client side
+    // In production, you would:
+    // 1. Upload to S3: await uploadToS3(buffer, designId)
+    // 2. Upload to Cloudinary: await cloudinary.uploader.upload(designData)
+    // 3. Store in database with the base64 data
 
-    // Upload to Vercel Blob storage
-    const blob = await put(`designs/${designId}.${format}`, buffer, {
-      access: 'public',
-      contentType: `image/${format}`,
-      addRandomSuffix: false // Keep consistent filename
-    });
+    const designInfo = {
+      id: designId,
+      size: size || 'M',
+      format: format,
+      sizeKB: sizeKB,
+      sizeMB: sizeMB,
+      timestamp: new Date().toISOString(),
+      stored: 'localStorage' // Change to 's3' or 'cloudinary' when implemented
+    };
 
-    console.log(`✅ Design uploaded to Vercel Blob: ${blob.url}`);
+    // Generate retrieval URL
+    const host = req.headers.host || 'tshirt-api-xi.vercel.app';
+    const protocol = host.includes('localhost') ? 'http' : 'https';
+    const designUrl = `${protocol}://${host}/api/get-design?id=${designId}`;
+
+    console.log(`📦 Design upload request: ${designId} (${sizeKB}KB, ${format})`);
 
     return res.status(200).json({
       success: true,
       designId: designId,
-      designUrl: blob.url, // Direct CDN URL from Vercel Blob
+      designUrl: designUrl,
       sizeKB: sizeKB,
       sizeMB: sizeMB,
       format: format,
-      storage: 'vercel-blob',
-      message: 'Design uploaded successfully to Vercel Blob',
-      downloadUrl: blob.downloadUrl
+      message: 'Design metadata stored successfully',
+      note: 'Full design stored in browser localStorage. For production, implement S3/Cloudinary upload.'
     });
 
   } catch (error) {
