@@ -3970,14 +3970,7 @@
           'Design URL': designUrl || 'See localStorage',
           'Timestamp': new Date().toLocaleString(),
           'Specs': `${PRINTIFY_SPECS.printWidth}x${PRINTIFY_SPECS.printHeight}`,
-          'DPI': PRINTIFY_SPECS.dpi.toString(),
-          // Printify-specific properties
-          '_printify_design_url': designUrl || 'See localStorage',
-          '_printify_print_area': 'front',
-          '_printify_position_x': '0.5',
-          '_printify_position_y': '0.5',
-          '_printify_scale': '1.0',
-          '_printify_angle': '0'
+          'DPI': PRINTIFY_SPECS.dpi.toString()
         };
         
         console.log('📦 Cart properties:', JSON.stringify(cartProperties).length, 'bytes');
