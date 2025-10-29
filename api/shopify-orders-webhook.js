@@ -45,26 +45,47 @@ async function createPrintifyOrder(printifyShopId, apiKey, payload) {
 
 export default async function handler(req) {
   if (req.method !== 'POST') {
-    return new Response(JSON.stringify({ success: false, error: 'Method not allowed' }), { status: 405 });
+    return new Response(JSON.stringify({ success: false, error: 'Method not allowed' }), { 
+      status: 405,
+      headers: { 'Content-Type': 'application/json' }
+    });
   }
 
-  const rawBody = await req.text();
+  let rawBody;
+  try {
+    rawBody = await req.text();
+  } catch (err) {
+    return new Response(JSON.stringify({ success: false, error: 'Cannot read body' }), { 
+      status: 400,
+      headers: { 'Content-Type': 'application/json' }
+    });
+  }
+
   const hmac = req.headers.get('x-shopify-hmac-sha256');
   const topic = req.headers.get('x-shopify-topic');
 
   const secret = process.env.SHOPIFY_WEBHOOK_SECRET;
   if (!secret) {
-    return new Response(JSON.stringify({ success: false, error: 'Missing SHOPIFY_WEBHOOK_SECRET' }), { status: 500 });
+    return new Response(JSON.stringify({ success: false, error: 'Missing SHOPIFY_WEBHOOK_SECRET' }), { 
+      status: 500,
+      headers: { 'Content-Type': 'application/json' }
+    });
   }
 
   const isValid = await verifyShopifyHmac(rawBody, hmac, secret);
   if (!isValid) {
-    return new Response(JSON.stringify({ success: false, error: 'Invalid HMAC' }), { status: 401 });
+    return new Response(JSON.stringify({ success: false, error: 'Invalid HMAC' }), { 
+      status: 401,
+      headers: { 'Content-Type': 'application/json' }
+    });
   }
 
   if (topic !== 'orders/create') {
     // Ignore other topics for now
-    return new Response(JSON.stringify({ success: true, message: 'Ignored topic' }), { status: 200 });
+    return new Response(JSON.stringify({ success: true, message: 'Ignored topic' }), { 
+      status: 200,
+      headers: { 'Content-Type': 'application/json' }
+    });
   }
 
   const order = JSON.parse(rawBody);
@@ -72,7 +93,10 @@ export default async function handler(req) {
   const PRINTIFY_API_KEY = process.env.PRINTIFY_API_KEY;
   const PRINTIFY_SHOP_ID = process.env.PRINTIFY_SHOP_ID;
   if (!PRINTIFY_API_KEY || !PRINTIFY_SHOP_ID) {
-    return new Response(JSON.stringify({ success: false, error: 'Missing Printify env vars' }), { status: 500 });
+    return new Response(JSON.stringify({ success: false, error: 'Missing Printify env vars' }), { 
+      status: 500,
+      headers: { 'Content-Type': 'application/json' }
+    });
   }
 
   // Build Printify order payload
@@ -104,7 +128,10 @@ export default async function handler(req) {
   }
 
   if (line_items.length === 0) {
-    return new Response(JSON.stringify({ success: true, message: 'No eligible items with design URL' }), { status: 200 });
+    return new Response(JSON.stringify({ success: true, message: 'No eligible items with design URL' }), { 
+      status: 200,
+      headers: { 'Content-Type': 'application/json' }
+    });
   }
 
   const payload = {
@@ -129,9 +156,16 @@ export default async function handler(req) {
 
   try {
     const created = await createPrintifyOrder(PRINTIFY_SHOP_ID, PRINTIFY_API_KEY, payload);
-    return new Response(JSON.stringify({ success: true, created }), { status: 200 });
+    return new Response(JSON.stringify({ success: true, created }), { 
+      status: 200,
+      headers: { 'Content-Type': 'application/json' }
+    });
   } catch (err) {
-    return new Response(JSON.stringify({ success: false, error: err.message }), { status: 500 });
+    console.error('Printify order creation failed:', err);
+    return new Response(JSON.stringify({ success: false, error: err.message }), { 
+      status: 500,
+      headers: { 'Content-Type': 'application/json' }
+    });
   }
 }
 
