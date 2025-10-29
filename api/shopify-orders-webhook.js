@@ -165,9 +165,15 @@ export default async function handler(req, res) {
     return res.status(200).json({ success: true, message: 'No eligible items with design URL' });
   }
 
+  // Get design URL for reference
+  const firstItem = order.line_items?.[0];
+  const props = firstItem?.properties || [];
+  const designUrlProp = props.find(p => (p.name || p.key) === 'Design_URL');
+  const designUrlForLabel = designUrlProp?.value || '';
+
   const payload = {
     external_id: `shopify-${order.id}`,
-    label: `Shopify order ${order.name}`,
+    label: `${order.name} | Design: ${designUrlForLabel.substring(0, 50)}...`,
     line_items,
     send_to_production: false, // manual approval
     shipping_method: 1, // default
