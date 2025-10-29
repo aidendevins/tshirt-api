@@ -110,13 +110,21 @@ export default async function handler(req, res) {
       continue;
     }
 
-    // Printify line item with product ID and print provider
+    // Printify line item with product ID and print areas
     line_items.push({
       product_id: '69002a71cc3996561c06c45e', // Your Printify product ID
       variant_id: printifyVariantId,
       quantity: item.quantity || 1,
       print_areas: {
-        front: designUrl, // Simplified: just the design URL for front
+        front: [
+          {
+            src: designUrl,
+            scale: 1,
+            x: 0.5,
+            y: 0.5,
+            angle: 0
+          }
+        ]
       },
     });
   }
