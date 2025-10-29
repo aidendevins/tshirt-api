@@ -42,7 +42,8 @@ async function uploadImageToPrintify(apiKey, imageUrl, fileName) {
   if (!res.ok) {
     throw new Error(`Printify image upload error ${res.status}: ${JSON.stringify(data)}`);
   }
-  return data.id; // Return the Printify image ID
+  // Return the full image object (contains id and file_name)
+  return data.id;
 }
 
 async function createPrintifyOrder(printifyShopId, apiKey, payload) {
@@ -130,26 +131,14 @@ export default async function handler(req, res) {
       continue;
     }
 
-    // Upload image to Printify first
-    const designIdProp = props.find(p => (p.name || p.key) === 'Design_ID');
-    const designId = designIdProp?.value || designIdProp?.[1] || 'design';
-    const printifyImageId = await uploadImageToPrintify(PRINTIFY_API_KEY, designUrl, `${designId}.jpg`);
-
     // Printify line item with product ID and print areas
+    // Use the Vercel Blob URL directly - Printify will fetch it
     line_items.push({
       product_id: '69002a71cc3996561c06c45e', // Your Printify product ID
       variant_id: printifyVariantId,
       quantity: item.quantity || 1,
       print_areas: {
-        front: [
-          {
-            src: printifyImageId, // Use Printify image ID instead of URL
-            scale: 1,
-            x: 0.5,
-            y: 0.5,
-            angle: 0
-          }
-        ]
+        front: designUrl // Use the URL string directly, not an object
       },
     });
   }
