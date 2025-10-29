@@ -3963,11 +3963,19 @@
         // Development tip: You can copy the design from console
         console.log('💾 Design Data URL (for testing):', designJPEG.substring(0, 100) + '...');
         
+        // CRITICAL: Don't add to cart if upload failed
+        if (!designUrl) {
+          alert('❌ Design upload failed. Please try again.');
+          $.cartBtn.disabled = false;
+          $.cartBtn.textContent = '🛒 Add to Cart';
+          return;
+        }
+        
         // Shopify properties - METADATA ONLY (no images!)
         // Total size must be under ~5KB for all properties combined
         let cartProperties = {
-          'Design ID': cartItem.id.toString(),
-          'Design URL': designUrl || 'See localStorage',
+          'Design_ID': cartItem.id.toString(),
+          'Design_URL': designUrl, // Always valid URL now
           'Timestamp': new Date().toLocaleString(),
           'Specs': `${PRINTIFY_SPECS.printWidth}x${PRINTIFY_SPECS.printHeight}`,
           'DPI': PRINTIFY_SPECS.dpi.toString()
