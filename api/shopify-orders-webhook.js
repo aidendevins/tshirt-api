@@ -25,6 +25,26 @@ const SHOPIFY_TO_PRINTIFY_VARIANT = {
   '52646156239213': 64333, // Vintage White / S
 };
 
+// Upload image URL to Printify and get Printify image ID
+async function uploadImageToPrintify(apiKey, imageUrl, fileName) {
+  const res = await fetch(`https://api.printify.com/v1/uploads/images.json`, {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+      Authorization: `Bearer ${apiKey}`,
+    },
+    body: JSON.stringify({
+      file_name: fileName,
+      url: imageUrl,
+    }),
+  });
+  const data = await res.json().catch(() => ({}));
+  if (!res.ok) {
+    throw new Error(`Printify image upload error ${res.status}: ${JSON.stringify(data)}`);
+  }
+  return data.id; // Return the Printify image ID
+}
+
 async function createPrintifyOrder(printifyShopId, apiKey, payload) {
   const res = await fetch(`https://api.printify.com/v1/shops/${printifyShopId}/orders.json`, {
     method: 'POST',
@@ -110,6 +130,11 @@ export default async function handler(req, res) {
       continue;
     }
 
+    // Upload image to Printify first
+    const designIdProp = props.find(p => (p.name || p.key) === 'Design_ID');
+    const designId = designIdProp?.value || designIdProp?.[1] || 'design';
+    const printifyImageId = await uploadImageToPrintify(PRINTIFY_API_KEY, designUrl, `${designId}.jpg`);
+
     // Printify line item with product ID and print areas
     line_items.push({
       product_id: '69002a71cc3996561c06c45e', // Your Printify product ID
@@ -118,7 +143,7 @@ export default async function handler(req, res) {
       print_areas: {
         front: [
           {
-            src: designUrl,
+            src: printifyImageId, // Use Printify image ID instead of URL
             scale: 1,
             x: 0.5,
             y: 0.5,
