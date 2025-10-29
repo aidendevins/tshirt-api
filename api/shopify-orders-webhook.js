@@ -43,8 +43,56 @@ async function uploadImageToPrintify(apiKey, imageUrl, fileName) {
     throw new Error(`Printify image upload error ${res.status}: ${JSON.stringify(data)}`);
   }
   console.log('Printify upload response:', data);
-  // Return the preview URL or file name (not the ID!)
-  return data.preview_url || data.file_name || imageUrl;
+  return data.id; // Return the ID for creating products
+}
+
+// Create a custom product with the design
+async function createCustomProduct(shopId, apiKey, imageId, variantId, designUrl) {
+  const res = await fetch(`https://api.printify.com/v1/shops/${shopId}/products.json`, {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+      Authorization: `Bearer ${apiKey}`,
+    },
+    body: JSON.stringify({
+      title: `Custom Design - ${Date.now()}`,
+      description: `Custom design from ${designUrl.substring(0, 50)}`,
+      blueprint_id: 6, // Unisex Jersey Short Sleeve Tee
+      print_provider_id: 99, // Printify Choice
+      variants: [
+        {
+          id: variantId,
+          price: 2500, // $25 in cents
+          is_enabled: true,
+        },
+      ],
+      print_areas: [
+        {
+          variant_ids: [variantId],
+          placeholders: [
+            {
+              position: 'front',
+              images: [
+                {
+                  id: imageId,
+                  x: 0.5,
+                  y: 0.5,
+                  scale: 1,
+                  angle: 0,
+                },
+              ],
+            },
+          ],
+        },
+      ],
+    }),
+  });
+  const data = await res.json().catch(() => ({}));
+  if (!res.ok) {
+    throw new Error(`Printify product creation error ${res.status}: ${JSON.stringify(data)}`);
+  }
+  console.log('✅ Custom product created:', data);
+  return data.id;
 }
 
 async function createPrintifyOrder(printifyShopId, apiKey, payload) {
@@ -118,7 +166,7 @@ export default async function handler(req, res) {
     return res.status(500).json({ success: false, error: 'Missing Printify env vars' });
   }
 
-  // Build Printify order payload
+  // NEW APPROACH: Create custom product first, then order
   const line_items = [];
 
   for (const item of order.line_items || []) {
@@ -128,36 +176,32 @@ export default async function handler(req, res) {
     const printifyVariantId = SHOPIFY_TO_PRINTIFY_VARIANT[item.variant_id];
 
     if (!designUrl || !printifyVariantId) {
-      // Skip items that don't have required data
       continue;
     }
 
-    // Upload image to Printify first to get the image ID
     const designIdProp = props.find(p => (p.name || p.key) === 'Design_ID');
     const designId = designIdProp?.value || designIdProp?.[1] || Date.now().toString();
     
-    console.log(`Uploading design to Printify: ${designUrl}`);
+    console.log(`🎨 Uploading design to Printify: ${designUrl}`);
     const printifyImageId = await uploadImageToPrintify(PRINTIFY_API_KEY, designUrl, `design-${designId}.jpg`);
-    console.log(`Printify image ID: ${printifyImageId}`);
+    console.log(`✅ Image uploaded, ID: ${printifyImageId}`);
 
-    // Printify line item with properly formatted print_areas
-    // Using the Printify image ID in the correct structure
+    // Create custom product with the design
+    console.log(`🏭 Creating custom Printify product...`);
+    const customProductId = await createCustomProduct(
+      PRINTIFY_SHOP_ID,
+      PRINTIFY_API_KEY,
+      printifyImageId,
+      printifyVariantId,
+      designUrl
+    );
+    console.log(`✅ Custom product created: ${customProductId}`);
+
+    // Add line item using the custom product (no print_areas needed)
     line_items.push({
-      product_id: '69002a71cc3996561c06c45e', // Your Printify product ID
+      product_id: customProductId,
       variant_id: printifyVariantId,
       quantity: item.quantity || 1,
-      print_areas: {
-        front: [
-          {
-            src: printifyImageId,
-            type: 'image',
-            x: 0.5,
-            y: 0.5,
-            scale: 1,
-            angle: 0
-          }
-        ]
-      }
     });
   }
 
