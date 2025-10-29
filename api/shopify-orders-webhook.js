@@ -184,11 +184,15 @@ export default async function handler(req, res) {
     },
   };
 
+  console.log('📦 Printify payload:', JSON.stringify(payload, null, 2));
+  
   try {
     const created = await createPrintifyOrder(PRINTIFY_SHOP_ID, PRINTIFY_API_KEY, payload);
+    console.log('✅ Printify order created:', JSON.stringify(created, null, 2));
     return res.status(200).json({ success: true, created });
   } catch (err) {
-    console.error('Printify order creation failed:', err);
+    console.error('❌ Printify order creation failed:', err);
+    console.error('Error details:', err.message);
     return res.status(500).json({ success: false, error: err.message });
   }
 }
