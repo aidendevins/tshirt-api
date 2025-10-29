@@ -2,23 +2,13 @@
 // Expects Shopify orders/create webhook with line item properties containing Design_URL
 // Env required: SHOPIFY_WEBHOOK_SECRET, PRINTIFY_API_KEY, PRINTIFY_SHOP_ID
 
-async function verifyShopifyHmac(requestBody, hmacHeader, secret) {
-  const encoder = new TextEncoder();
-  const key = await crypto.subtle.importKey(
-    'raw',
-    encoder.encode(secret),
-    { name: 'HMAC', hash: 'SHA-256' },
-    false,
-    ['sign']
-  );
-  
-  const signature = await crypto.subtle.sign(
-    'HMAC',
-    key,
-    encoder.encode(requestBody)
-  );
-  
-  const digest = btoa(String.fromCharCode(...new Uint8Array(signature)));
+import crypto from 'crypto';
+
+function verifyShopifyHmac(requestBody, hmacHeader, secret) {
+  const digest = crypto
+    .createHmac('sha256', secret)
+    .update(requestBody, 'utf8')
+    .digest('base64');
   return digest === hmacHeader;
 }
 
@@ -43,60 +33,45 @@ async function createPrintifyOrder(printifyShopId, apiKey, payload) {
   return data;
 }
 
-export default async function handler(req) {
+export default async function handler(req, res) {
+  // Set CORS headers
+  res.setHeader('Access-Control-Allow-Origin', '*');
+  res.setHeader('Access-Control-Allow-Methods', 'POST, OPTIONS');
+  res.setHeader('Access-Control-Allow-Headers', 'Content-Type, X-Shopify-Hmac-Sha256, X-Shopify-Topic');
+
+  if (req.method === 'OPTIONS') {
+    return res.status(200).end();
+  }
+
   if (req.method !== 'POST') {
-    return new Response(JSON.stringify({ success: false, error: 'Method not allowed' }), { 
-      status: 405,
-      headers: { 'Content-Type': 'application/json' }
-    });
+    return res.status(405).json({ success: false, error: 'Method not allowed' });
   }
 
-  let rawBody;
-  try {
-    rawBody = await req.text();
-  } catch (err) {
-    return new Response(JSON.stringify({ success: false, error: 'Cannot read body' }), { 
-      status: 400,
-      headers: { 'Content-Type': 'application/json' }
-    });
-  }
-
-  const hmac = req.headers.get('x-shopify-hmac-sha256');
-  const topic = req.headers.get('x-shopify-topic');
+  const rawBody = JSON.stringify(req.body);
+  const hmac = req.headers['x-shopify-hmac-sha256'];
+  const topic = req.headers['x-shopify-topic'];
 
   const secret = process.env.SHOPIFY_WEBHOOK_SECRET;
   if (!secret) {
-    return new Response(JSON.stringify({ success: false, error: 'Missing SHOPIFY_WEBHOOK_SECRET' }), { 
-      status: 500,
-      headers: { 'Content-Type': 'application/json' }
-    });
+    return res.status(500).json({ success: false, error: 'Missing SHOPIFY_WEBHOOK_SECRET' });
   }
 
-  const isValid = await verifyShopifyHmac(rawBody, hmac, secret);
+  const isValid = verifyShopifyHmac(rawBody, hmac, secret);
   if (!isValid) {
-    return new Response(JSON.stringify({ success: false, error: 'Invalid HMAC' }), { 
-      status: 401,
-      headers: { 'Content-Type': 'application/json' }
-    });
+    return res.status(401).json({ success: false, error: 'Invalid HMAC' });
   }
 
   if (topic !== 'orders/create') {
     // Ignore other topics for now
-    return new Response(JSON.stringify({ success: true, message: 'Ignored topic' }), { 
-      status: 200,
-      headers: { 'Content-Type': 'application/json' }
-    });
+    return res.status(200).json({ success: true, message: 'Ignored topic' });
   }
 
-  const order = JSON.parse(rawBody);
+  const order = req.body;
 
   const PRINTIFY_API_KEY = process.env.PRINTIFY_API_KEY;
   const PRINTIFY_SHOP_ID = process.env.PRINTIFY_SHOP_ID;
   if (!PRINTIFY_API_KEY || !PRINTIFY_SHOP_ID) {
-    return new Response(JSON.stringify({ success: false, error: 'Missing Printify env vars' }), { 
-      status: 500,
-      headers: { 'Content-Type': 'application/json' }
-    });
+    return res.status(500).json({ success: false, error: 'Missing Printify env vars' });
   }
 
   // Build Printify order payload
@@ -128,10 +103,7 @@ export default async function handler(req) {
   }
 
   if (line_items.length === 0) {
-    return new Response(JSON.stringify({ success: true, message: 'No eligible items with design URL' }), { 
-      status: 200,
-      headers: { 'Content-Type': 'application/json' }
-    });
+    return res.status(200).json({ success: true, message: 'No eligible items with design URL' });
   }
 
   const payload = {
@@ -156,16 +128,10 @@ export default async function handler(req) {
 
   try {
     const created = await createPrintifyOrder(PRINTIFY_SHOP_ID, PRINTIFY_API_KEY, payload);
-    return new Response(JSON.stringify({ success: true, created }), { 
-      status: 200,
-      headers: { 'Content-Type': 'application/json' }
-    });
+    return res.status(200).json({ success: true, created });
   } catch (err) {
     console.error('Printify order creation failed:', err);
-    return new Response(JSON.stringify({ success: false, error: err.message }), { 
-      status: 500,
-      headers: { 'Content-Type': 'application/json' }
-    });
+    return res.status(500).json({ success: false, error: err.message });
   }
 }
 
