@@ -57,7 +57,7 @@ async function createCustomProduct(shopId, apiKey, imageId, variantId, designUrl
     body: JSON.stringify({
       title: `Custom Design - ${Date.now()}`,
       description: `Custom design from ${designUrl.substring(0, 50)}`,
-      blueprint_id: 6, // Unisex Jersey Short Sleeve Tee
+      blueprint_id: 12, // Unisex Jersey Short Sleeve Tee (correct ID from your shop)
       print_provider_id: 99, // Printify Choice
       variants: [
         {
