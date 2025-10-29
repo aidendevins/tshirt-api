@@ -4,6 +4,13 @@
 
 import crypto from 'crypto';
 
+// Disable body parsing to get raw body for HMAC verification
+export const config = {
+  api: {
+    bodyParser: false,
+  },
+};
+
 function verifyShopifyHmac(requestBody, hmacHeader, secret) {
   const digest = crypto
     .createHmac('sha256', secret)
@@ -33,6 +40,20 @@ async function createPrintifyOrder(printifyShopId, apiKey, payload) {
   return data;
 }
 
+// Helper to get raw body from request
+async function getRawBody(req) {
+  return new Promise((resolve, reject) => {
+    let data = '';
+    req.on('data', chunk => {
+      data += chunk;
+    });
+    req.on('end', () => {
+      resolve(data);
+    });
+    req.on('error', reject);
+  });
+}
+
 export default async function handler(req, res) {
   // Set CORS headers
   res.setHeader('Access-Control-Allow-Origin', '*');
@@ -47,7 +68,7 @@ export default async function handler(req, res) {
     return res.status(405).json({ success: false, error: 'Method not allowed' });
   }
 
-  const rawBody = JSON.stringify(req.body);
+  const rawBody = await getRawBody(req);
   const hmac = req.headers['x-shopify-hmac-sha256'];
   const topic = req.headers['x-shopify-topic'];
 
@@ -66,7 +87,7 @@ export default async function handler(req, res) {
     return res.status(200).json({ success: true, message: 'Ignored topic' });
   }
 
-  const order = req.body;
+  const order = JSON.parse(rawBody);
 
   const PRINTIFY_API_KEY = process.env.PRINTIFY_API_KEY;
   const PRINTIFY_SHOP_ID = process.env.PRINTIFY_SHOP_ID;
