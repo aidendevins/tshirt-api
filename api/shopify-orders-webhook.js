@@ -160,10 +160,36 @@ export default async function handler(req, res) {
 
   const order = JSON.parse(rawBody);
 
+  // Prevent duplicate processing by checking external_id
+  const externalId = `shopify-${order.id}`;
+  
+  // Check if order already exists in Printify
   const PRINTIFY_API_KEY = process.env.PRINTIFY_API_KEY;
   const PRINTIFY_SHOP_ID = process.env.PRINTIFY_SHOP_ID;
   if (!PRINTIFY_API_KEY || !PRINTIFY_SHOP_ID) {
     return res.status(500).json({ success: false, error: 'Missing Printify env vars' });
+  }
+
+  // Check for existing order
+  try {
+    const existingOrdersRes = await fetch(
+      `https://api.printify.com/v1/shops/${PRINTIFY_SHOP_ID}/orders.json?limit=100`,
+      {
+        headers: {
+          Authorization: `Bearer ${PRINTIFY_API_KEY}`,
+        },
+      }
+    );
+    const existingOrders = await existingOrdersRes.json().catch(() => ({ data: [] }));
+    const alreadyProcessed = existingOrders.data?.some(o => o.external_id === externalId);
+    
+    if (alreadyProcessed) {
+      console.log(`⚠️  Order ${externalId} already processed, skipping duplicate`);
+      return res.status(200).json({ success: true, message: 'Order already processed' });
+    }
+  } catch (err) {
+    console.error('Error checking existing orders:', err);
+    // Continue anyway - better to create duplicate than fail entirely
   }
 
   // NEW APPROACH: Create custom product first, then order
@@ -216,7 +242,7 @@ export default async function handler(req, res) {
   const designUrlForLabel = designUrlProp?.value || '';
 
   const payload = {
-    external_id: `shopify-${order.id}`,
+    external_id: externalId,
     label: `${order.name} | Design: ${designUrlForLabel.substring(0, 50)}...`,
     line_items,
     send_to_production: false, // manual approval
