@@ -2,16 +2,24 @@
 // Expects Shopify orders/create webhook with line item properties containing Design_URL
 // Env required: SHOPIFY_WEBHOOK_SECRET, PRINTIFY_API_KEY, PRINTIFY_SHOP_ID
 
-import crypto from 'crypto';
-
-export const config = { runtime: 'edge' };
-
-function verifyShopifyHmac(requestBody, hmacHeader, secret) {
-  const digest = crypto
-    .createHmac('sha256', secret)
-    .update(requestBody, 'utf8')
-    .digest('base64');
-  return crypto.timingSafeEqual(Buffer.from(digest), Buffer.from(hmacHeader || ''));
+async function verifyShopifyHmac(requestBody, hmacHeader, secret) {
+  const encoder = new TextEncoder();
+  const key = await crypto.subtle.importKey(
+    'raw',
+    encoder.encode(secret),
+    { name: 'HMAC', hash: 'SHA-256' },
+    false,
+    ['sign']
+  );
+  
+  const signature = await crypto.subtle.sign(
+    'HMAC',
+    key,
+    encoder.encode(requestBody)
+  );
+  
+  const digest = btoa(String.fromCharCode(...new Uint8Array(signature)));
+  return digest === hmacHeader;
 }
 
 // Map your Shopify variant IDs to Printify variant IDs
@@ -49,7 +57,8 @@ export default async function handler(req) {
     return new Response(JSON.stringify({ success: false, error: 'Missing SHOPIFY_WEBHOOK_SECRET' }), { status: 500 });
   }
 
-  if (!verifyShopifyHmac(rawBody, hmac, secret)) {
+  const isValid = await verifyShopifyHmac(rawBody, hmac, secret);
+  if (!isValid) {
     return new Response(JSON.stringify({ success: false, error: 'Invalid HMAC' }), { status: 401 });
   }
 
