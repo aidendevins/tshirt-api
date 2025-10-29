@@ -21,6 +21,7 @@ function verifyShopifyHmac(requestBody, hmacHeader, secret) {
 
 // Map your Shopify variant IDs to Printify variant IDs
 const SHOPIFY_TO_PRINTIFY_VARIANT = {
+  '52643487056237': 64332, // Vintage White / XS
   '52646156239213': 64333, // Vintage White / S
 };
 
