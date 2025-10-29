@@ -1,0 +1,18 @@
+# Learn more about configuring your app at https://shopify.dev/docs/apps/tools/cli/configuration
+
+client_id = "540b0495fc6122d47a89a9377d549c13"
+name = "X Apparel"
+application_url = "http://localhost:5173/shopify/callback"
+embedded = true
+
+[webhooks]
+api_version = "2025-10"
+
+[access_scopes]
+# Learn more at https://shopify.dev/docs/apps/tools/cli/configuration#access_scopes
+scopes = "read_cart_transforms,write_cart_transforms,read_all_cart_transforms,write_validations,write_channels,write_checkouts,read_checkouts,read_customers,write_customers,read_discounts,write_discounts,write_inventory,read_inventory,read_products,write_products"
+optional_scopes = [ ]
+use_legacy_install_flow = false
+
+[auth]
+redirect_urls = [ ]

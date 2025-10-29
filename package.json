@@ -10,6 +10,7 @@
   },
   "dependencies": {
     "@google/generative-ai": "^0.21.0",
+    "@shopify/cli": "^3.86.1",
     "@vercel/blob": "^2.0.0",
     "cors": "^2.8.5",
     "dotenv": "^16.3.1",
@@ -20,6 +21,7 @@
     "polotno": "^2.29.5",
     "react": "^19.2.0",
     "react-dom": "^19.2.0",
-    "replicate": "^0.31.1"
+    "replicate": "^0.31.1",
+    "shopify": "^3.86.1"
   }
 }

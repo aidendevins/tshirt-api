@@ -1,4 +1,5 @@
 import { useState } from 'react';
+import { signupCreator, loginCreator, validatePasswordStrength, getPasswordStrength } from '../firebase/auth';
 
 export default function CreatorLogin({ onAuthSuccess }) {
   const [isLogin, setIsLogin] = useState(true);
@@ -13,6 +14,7 @@ export default function CreatorLogin({ onAuthSuccess }) {
   const [errors, setErrors] = useState({});
   const [isLoading, setIsLoading] = useState(false);
   const [authError, setAuthError] = useState('');
+  const [passwordStrength, setPasswordStrength] = useState(0);
 
   // Form validation
   const validateForm = () => {
@@ -26,6 +28,11 @@ export default function CreatorLogin({ onAuthSuccess }) {
 
     if (!formData.password) {
       newErrors.password = 'Password is required';
+    } else if (!isLogin) {
+      const passwordValidation = validatePasswordStrength(formData.password);
+      if (!passwordValidation.isValid) {
+        newErrors.password = passwordValidation.errors[0]; // Show first error
+      }
     } else if (formData.password.length < 6) {
       newErrors.password = 'Password must be at least 6 characters';
     }
@@ -62,6 +69,11 @@ export default function CreatorLogin({ onAuthSuccess }) {
       [name]: value
     }));
     
+    // Update password strength for signup
+    if (name === 'password' && !isLogin) {
+      setPasswordStrength(getPasswordStrength(value));
+    }
+    
     // Clear error when user starts typing
     if (errors[name]) {
       setErrors(prev => ({
@@ -84,47 +96,26 @@ export default function CreatorLogin({ onAuthSuccess }) {
     setAuthError('');
 
     try {
-      // TODO: Replace with Firebase auth calls
-      const authData = {
-        email: formData.email,
-        password: formData.password,
-        ...(isLogin ? {} : {
+      let result;
+      
+      if (isLogin) {
+        result = await loginCreator(formData.email, formData.password);
+      } else {
+        result = await signupCreator(formData.email, formData.password, {
           businessName: formData.businessName,
           firstName: formData.firstName,
           lastName: formData.lastName
-        })
-      };
-
-      // Simulate API call - replace with actual Firebase auth
-      await simulateAuthCall(authData);
+        });
+      }
       
       // On success, call the parent callback
-      onAuthSuccess({
-        email: formData.email,
-        businessName: formData.businessName,
-        firstName: formData.firstName,
-        lastName: formData.lastName
-      });
+      onAuthSuccess(result.creatorData);
 
     } catch (error) {
       setAuthError(error.message || 'Authentication failed. Please try again.');
     } finally {
       setIsLoading(false);
     }
-  };
-
-  // Simulate auth call - replace with Firebase
-  const simulateAuthCall = async (authData) => {
-    return new Promise((resolve, reject) => {
-      setTimeout(() => {
-        // Simulate success for demo
-        if (authData.email && authData.password) {
-          resolve();
-        } else {
-          reject(new Error('Invalid credentials'));
-        }
-      }, 1000);
-    });
   };
 
   // Toggle between login and signup
@@ -140,6 +131,23 @@ export default function CreatorLogin({ onAuthSuccess }) {
     });
     setErrors({});
     setAuthError('');
+    setPasswordStrength(0);
+  };
+
+  // Get password strength color
+  const getPasswordStrengthColor = (strength) => {
+    if (strength <= 1) return '#ef4444';
+    if (strength <= 2) return '#f59e0b';
+    if (strength <= 3) return '#eab308';
+    return '#10b981';
+  };
+
+  // Get password strength text
+  const getPasswordStrengthText = (strength) => {
+    if (strength <= 1) return 'Very Weak';
+    if (strength <= 2) return 'Weak';
+    if (strength <= 3) return 'Fair';
+    return 'Strong';
   };
 
   return (
@@ -229,6 +237,26 @@ export default function CreatorLogin({ onAuthSuccess }) {
               placeholder="Enter your password"
             />
             {errors.password && <span className="error-text">{errors.password}</span>}
+            
+            {!isLogin && formData.password && (
+              <div className="password-strength">
+                <div className="strength-bar">
+                  <div 
+                    className="strength-fill" 
+                    style={{ 
+                      width: `${(passwordStrength / 5) * 100}%`,
+                      backgroundColor: getPasswordStrengthColor(passwordStrength)
+                    }}
+                  ></div>
+                </div>
+                <span 
+                  className="strength-text"
+                  style={{ color: getPasswordStrengthColor(passwordStrength) }}
+                >
+                  {getPasswordStrengthText(passwordStrength)}
+                </span>
+              </div>
+            )}
           </div>
 
           {!isLogin && (

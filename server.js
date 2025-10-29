@@ -23,10 +23,14 @@ app.use(express.static(__dirname));
 
 // Import and use the API handlers
 import generateSDHandler from './api/generate-sd.js';
+import shopifyOAuthRouter from './api/shopify-oauth.js';
+import shopifyCollectionsRouter from './api/shopify-collections.js';
 // import generateHandler from './api/generate.js';
 
 // API Routes
 app.post('/api/generate-sd', generateSDHandler);
+app.use('/api/shopify/oauth', shopifyOAuthRouter);
+app.use('/api/shopify', shopifyCollectionsRouter);
 // app.post('/api/generate', generateHandler);
 
 // Health check endpoint
