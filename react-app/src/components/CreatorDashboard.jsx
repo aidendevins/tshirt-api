@@ -1,21 +1,41 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
+import { fetchCreatorProducts, formatProductData } from '../services/creatorProducts';
 
 export default function CreatorDashboard({ user, onLogout }) {
   const [showCreateModal, setShowCreateModal] = useState(false);
   const [activeTab, setActiveTab] = useState('creator'); // 'creator' or 'community'
+  const [creatorProducts, setCreatorProducts] = useState([]);
+  const [communityProducts, setCommunityProducts] = useState([]);
+  const [isLoading, setIsLoading] = useState(true);
+  const [error, setError] = useState(null);
 
-  // Mock data - replace with actual API calls
-  const creatorProducts = [
-    { id: 1, name: "Summer Vibes T-Shirt", price: "$24.99", status: "Active", sales: 12, image: "/placeholder-tshirt.jpg" },
-    { id: 2, name: "Tech Logo Design", price: "$19.99", status: "Active", sales: 8, image: "/placeholder-tshirt.jpg" },
-    { id: 3, name: "Minimalist Art", price: "$22.99", status: "Draft", sales: 0, image: "/placeholder-tshirt.jpg" }
-  ];
+  // Fetch creator's products on component mount
+  useEffect(() => {
+    const loadProducts = async () => {
+      if (!user?.uid) return;
+      
+      setIsLoading(true);
+      setError(null);
+      
+      try {
+        const data = await fetchCreatorProducts(user.uid);
+        
+        if (data.error) {
+          setError(data.error);
+        } else {
+          setCreatorProducts(data.creatorProducts.map(formatProductData));
+          setCommunityProducts(data.communityProducts.map(formatProductData));
+        }
+      } catch (err) {
+        setError('Failed to load products');
+        console.error('Error loading products:', err);
+      } finally {
+        setIsLoading(false);
+      }
+    };
 
-  const communityProducts = [
-    { id: 4, name: "Fan Design #1", price: "$24.99", status: "Active", sales: 5, fanName: "Sarah M.", image: "/placeholder-tshirt.jpg" },
-    { id: 5, name: "Community Art", price: "$19.99", status: "Active", sales: 3, fanName: "Mike R.", image: "/placeholder-tshirt.jpg" },
-    { id: 6, name: "Fan Creation", price: "$22.99", status: "Pending Review", sales: 0, fanName: "Alex K.", image: "/placeholder-tshirt.jpg" }
-  ];
+    loadProducts();
+  }, [user?.uid]);
 
   const handleCreateProduct = () => {
     // TODO: Open product creation form/modal
@@ -30,14 +50,23 @@ export default function CreatorDashboard({ user, onLogout }) {
     <div className="product-card">
       <div className="product-image">
         <img src={product.image} alt={product.name} />
-        <div className="product-status">{product.status}</div>
+        <div className={`product-status ${product.status.toLowerCase()}`}>
+          {product.status}
+        </div>
       </div>
       <div className="product-info">
         <h3>{product.name}</h3>
         <p className="product-price">{product.price}</p>
-        <p className="product-sales">{product.sales} sales</p>
+        <p className="product-created">Created: {product.createdAt}</p>
         {isCommunity && (
           <p className="fan-credit">by {product.fanName}</p>
+        )}
+        {product.tags && product.tags.length > 0 && (
+          <div className="product-tags">
+            {product.tags.slice(0, 3).map(tag => (
+              <span key={tag} className="tag">#{tag}</span>
+            ))}
+          </div>
         )}
       </div>
       <div className="product-actions">
@@ -46,6 +75,8 @@ export default function CreatorDashboard({ user, onLogout }) {
       </div>
     </div>
   );
+
+  const currentProducts = activeTab === 'creator' ? creatorProducts : communityProducts;
 
   return (
     <div className="creator-dashboard">
@@ -95,34 +126,42 @@ export default function CreatorDashboard({ user, onLogout }) {
             </p>
           </div>
 
-          <div className="products-grid">
-            {activeTab === 'creator' ? (
-              creatorProducts.length > 0 ? (
-                creatorProducts.map(product => (
-                  <ProductCard key={product.id} product={product} />
+          {isLoading ? (
+            <div className="loading-state">
+              <div className="spinner"></div>
+              <p>Loading your products...</p>
+            </div>
+          ) : error ? (
+            <div className="error-state">
+              <p>❌ {error}</p>
+              <button onClick={() => window.location.reload()} className="btn-primary">
+                Try Again
+              </button>
+            </div>
+          ) : (
+            <div className="products-grid">
+              {currentProducts.length > 0 ? (
+                currentProducts.map(product => (
+                  <ProductCard key={product.id} product={product} isCommunity={activeTab === 'community'} />
                 ))
               ) : (
                 <div className="empty-state">
                   <h3>No products yet</h3>
-                  <p>Create your first product design to get started!</p>
-                  <button onClick={handleCreateProduct} className="btn-primary">
-                    Create Your First Product
-                  </button>
+                  <p>
+                    {activeTab === 'creator' 
+                      ? 'Create your first product design to get started!' 
+                      : 'Share your AI tool with fans to start receiving community designs!'
+                    }
+                  </p>
+                  {activeTab === 'creator' && (
+                    <button onClick={handleCreateProduct} className="btn-primary">
+                      Create Your First Product
+                    </button>
+                  )}
                 </div>
-              )
-            ) : (
-              communityProducts.length > 0 ? (
-                communityProducts.map(product => (
-                  <ProductCard key={product.id} product={product} isCommunity={true} />
-                ))
-              ) : (
-                <div className="empty-state">
-                  <h3>No community designs yet</h3>
-                  <p>Share your AI tool with fans to start receiving community designs!</p>
-                </div>
-              )
-            )}
-          </div>
+              )}
+            </div>
+          )}
         </div>
       </div>
 

@@ -6,7 +6,7 @@ const SHOPIFY_API_VERSION = '2025-04';
 
 // OAuth configuration
 const OAUTH_REDIRECT_URI = `${window.location.origin}/shopify/callback`;
-const OAUTH_SCOPES = 'write_products,read_products';
+const OAUTH_SCOPES = 'write_custom_collections,read_custom_collections,write_metafields,read_metafields';
 
 // Debug function to log OAuth configuration
 const logOAuthConfig = () => {
