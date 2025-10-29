@@ -131,15 +131,32 @@ export default async function handler(req, res) {
       continue;
     }
 
-    // Printify line item with product ID and print areas
-    // Use the Vercel Blob URL directly - Printify will fetch it
+    // Upload image to Printify first to get the image ID
+    const designIdProp = props.find(p => (p.name || p.key) === 'Design_ID');
+    const designId = designIdProp?.value || designIdProp?.[1] || Date.now().toString();
+    
+    console.log(`Uploading design to Printify: ${designUrl}`);
+    const printifyImageId = await uploadImageToPrintify(PRINTIFY_API_KEY, designUrl, `design-${designId}.jpg`);
+    console.log(`Printify image ID: ${printifyImageId}`);
+
+    // Printify line item with properly formatted print_areas
+    // Using the Printify image ID in the correct structure
     line_items.push({
       product_id: '69002a71cc3996561c06c45e', // Your Printify product ID
       variant_id: printifyVariantId,
       quantity: item.quantity || 1,
       print_areas: {
-        front: designUrl // Use the URL string directly, not an object
-      },
+        front: [
+          {
+            src: printifyImageId,
+            type: 'image',
+            x: 0.5,
+            y: 0.5,
+            scale: 1,
+            angle: 0
+          }
+        ]
+      }
     });
   }
 
