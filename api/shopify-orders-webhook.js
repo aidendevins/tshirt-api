@@ -42,8 +42,9 @@ async function uploadImageToPrintify(apiKey, imageUrl, fileName) {
   if (!res.ok) {
     throw new Error(`Printify image upload error ${res.status}: ${JSON.stringify(data)}`);
   }
-  // Return the full image object (contains id and file_name)
-  return data.id;
+  console.log('Printify upload response:', data);
+  // Return the preview URL or file name (not the ID!)
+  return data.preview_url || data.file_name || imageUrl;
 }
 
 async function createPrintifyOrder(printifyShopId, apiKey, payload) {
