@@ -60,7 +60,6 @@ export default async function handler(req, res) {
             mimeType: mimeType
           }
         };
-        console.log(imagePart);
         
         // Generate new image with Gemini native image generation
         const result = await model.generateContent({
@@ -114,7 +113,6 @@ export default async function handler(req, res) {
       // No image provided, use Gemini 2.5 Flash Image
       try {
         const model = genAI.getGenerativeModel({ model: "gemini-2.5-flash-image" });
-        console.log('HIT ELSE');
         
         const result = await model.generateContent({
           contents: [{
