@@ -25,10 +25,12 @@ app.use(express.static(__dirname));
 import generateSDHandler from './api/generate-sd.js';
 import shopifyCollectionsRouter from './api/shopify-collections.js';
 import shopifyOrdersWebhook from './api/shopify-orders-webhook-v2.js';
+import uploadDesignHandler from './api/upload-design.js';
 // import generateHandler from './api/generate.js';
 
 // API Routes
 app.post('/api/generate-sd', generateSDHandler);
+app.post('/api/upload-design', uploadDesignHandler);
 app.use('/api/shopify', shopifyCollectionsRouter);
 app.post('/api/shopify/orders-webhook', shopifyOrdersWebhook);
 // app.post('/api/generate', generateHandler);
@@ -38,7 +40,7 @@ app.get('/health', (req, res) => {
   res.json({ 
     status: 'OK', 
     timestamp: new Date().toISOString(),
-    endpoints: ['/api/generate-sd', '/api/generate']
+    endpoints: ['/api/generate-sd', '/api/upload-design']
   });
 });
 
@@ -68,7 +70,7 @@ app.use((err, req, res, next) => {
 app.use((req, res) => {
   res.status(404).json({ 
     error: 'Endpoint not found',
-    availableEndpoints: ['/api/generate-sd', '/api/generate', '/health']
+    availableEndpoints: ['/api/generate-sd', '/api/upload-design', '/health']
   });
 });
 
@@ -78,6 +80,7 @@ app.listen(PORT, () => {
   console.log(`📱 Frontend should be running on http://localhost:3000`);
   console.log(`🔗 API endpoints:`);
   console.log(`   - POST http://localhost:${PORT}/api/generate-sd`);
+  console.log(`   - POST http://localhost:${PORT}/api/upload-design`);
   console.log(`   - POST http://localhost:${PORT}/api/shopify/orders-webhook`);
   console.log(`   - GET  http://localhost:${PORT}/health`);
   console.log(`\n💡 Make sure you have the following environment variables set:`);
