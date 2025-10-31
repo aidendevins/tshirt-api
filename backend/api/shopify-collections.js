@@ -88,11 +88,6 @@ const createCreatorCollection = async (creatorData, collectionType, accessToken)
     const shopifyStoreUrl = process.env.SHOPIFY_STORE_URL;
     const url = `${shopifyStoreUrl}/admin/api/2025-04/custom_collections.json`;
     
-    console.log('Creating collection:', collectionTitle);
-    console.log('Request URL:', url);
-    console.log('Access token (first 10 chars):', accessToken.substring(0, 10) + '...');
-    console.log('Collection data with metafields:', JSON.stringify(collectionData, null, 2));
-    
     const response = await fetch(url, {
       method: 'POST',
       headers: {
@@ -101,8 +96,6 @@ const createCreatorCollection = async (creatorData, collectionType, accessToken)
       },
       body: JSON.stringify(collectionData)
     });
-
-    console.log('Response status:', response.status);
 
     if (!response.ok) {
       const errorData = await response.json().catch(() => ({}));
@@ -165,8 +158,6 @@ router.post('/collections', async (req, res) => {
   try {
     const { creatorData } = req.body;
     
-    console.log('Creating Shopify collections for creator:', creatorData.email);
-    
     // Use Admin API token from environment
     const adminToken = process.env.SHOPIFY_ADMIN_ACCESS_TOKEN;
     if (!adminToken) {
@@ -189,12 +180,7 @@ router.post('/collections', async (req, res) => {
       allSuccessful: creatorCollection.success && communityCollection.success
     };
 
-    if (results.allSuccessful) {
-      console.log('Successfully created both collections:', {
-        creatorId: creatorCollection.collectionId,
-        communityId: communityCollection.collectionId
-      });
-    } else {
+    if (!results.allSuccessful) {
       console.error('Failed to create some collections:', results);
     }
 
@@ -297,7 +283,6 @@ router.get('/creator-products/:creatorId', async (req, res) => {
   try {
     const { creatorId } = req.params;
 
-    console.log('creatorId', creatorId);
     const adminToken = process.env.SHOPIFY_ADMIN_ACCESS_TOKEN;
     if (!adminToken) {
       return res.status(500).json({ 
@@ -309,27 +294,17 @@ router.get('/creator-products/:creatorId', async (req, res) => {
     
     // Get all collections from Shopify
     const allCollections = await getAllCollections(adminToken);
-    console.log('allCollections', allCollections);
-    
-    // Debug: Log metafields for each collection
-    allCollections.forEach(collection => {
-      console.log(`Collection ${collection.title} metafields:`, collection.metafields);
-    });
     
     // Filter collections by creator ID in metafields
     const creatorCollections = allCollections.filter(collection => {
       // Check if collection has metafields with creator_id matching our creatorId
-      const hasCreatorId = collection.metafields && 
+      return collection.metafields && 
              collection.metafields.some(metafield => 
                metafield.namespace === 'creator' && 
                metafield.key === 'creator_id' && 
                metafield.value === creatorId
              );
-      console.log(`Collection ${collection.title} has creator ID ${creatorId}:`, hasCreatorId);
-      return hasCreatorId;
     });
-    
-    console.log('Filtered creator collections:', creatorCollections);
     
     if (creatorCollections.length === 0) {
       return res.json({
@@ -356,17 +331,11 @@ router.get('/creator-products/:creatorId', async (req, res) => {
       );
     });
     
-    console.log('Found creator designs collection:', creatorDesignsCollection?.title || 'None');
-    console.log('Found community designs collection:', communityDesignsCollection?.title || 'None');
-    
     // Fetch products from both collections
     const [creatorProducts, communityProducts] = await Promise.all([
       creatorDesignsCollection ? getProductsFromCollection(creatorDesignsCollection.id, adminToken) : [],
       communityDesignsCollection ? getProductsFromCollection(communityDesignsCollection.id, adminToken) : []
     ]);
-    
-    console.log('Creator products count:', creatorProducts.length);
-    console.log('Community products count:', communityProducts.length);
     
     res.json({
       creatorProducts: creatorProducts.map(product => ({

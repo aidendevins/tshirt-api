@@ -47,7 +47,6 @@ async function uploadImageToPrintify(apiKey, imageUrl, fileName) {
   if (!res.ok) {
     throw new Error(`Printify image upload error ${res.status}: ${JSON.stringify(data)}`);
   }
-  console.log('✅ Printify upload response:', data);
   return data.id; // Return image ID
 }
 
@@ -94,7 +93,6 @@ async function createCustomProduct(shopId, apiKey, blueprintId, printProviderId,
   if (!res.ok) {
     throw new Error(`Printify product creation error ${res.status}: ${JSON.stringify(data)}`);
   }
-  console.log('✅ Custom product created:', data);
   return data.id; // Return product ID
 }
 
@@ -125,7 +123,6 @@ async function createPrintifyOrder(shopId, apiKey, productId, variantId, quantit
   if (!res.ok) {
     throw new Error(`Printify order error ${res.status}: ${JSON.stringify(data)}`);
   }
-  console.log('✅ Printify order created:', data);
   return data;
 }
 
@@ -182,8 +179,6 @@ export default async function handler(req, res) {
       return res.status(200).json({ success: true, message: 'No design URL' });
     }
 
-    console.log(`📸 Uploading design: ${designUrl}`);
-    
     // Step 1: Upload image to Printify
     const imageId = await uploadImageToPrintify(PRINTIFY_API_KEY, designUrl, `design-${order.id}.jpg`);
     

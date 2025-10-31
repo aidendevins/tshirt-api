@@ -1,6 +1,7 @@
 import Replicate from 'replicate';
 import { GoogleGenerativeAI } from '@google/generative-ai';
 import dotenv from 'dotenv';
+
 dotenv.config();
 
 const replicate = new Replicate({
@@ -45,12 +46,9 @@ export default async function handler(req, res) {
 
     // If image is provided, use Gemini Flash 2.0 to analyze and create an enhanced prompt
     if (image) {
-      console.log('Using Gemini Flash 2.0 to analyze image and create prompt:', prompt);
-      
       try {
         // Use Gemini 2.0 Flash for fast vision capabilities
         const model = genAI.getGenerativeModel({ model: "gemini-2.5-flash-image" });
-        console.log(`Model: ${model}`);
         
         // Prepare the image data for Gemini
         const imageBuffer = base64ToBuffer(image);
@@ -62,6 +60,7 @@ export default async function handler(req, res) {
             mimeType: mimeType
           }
         };
+        console.log(imagePart);
         
         // Generate new image with Gemini native image generation
         const result = await model.generateContent({
@@ -83,7 +82,6 @@ export default async function handler(req, res) {
         });
         
         const response = await result.response;
-        console.log(`Response: ${response}`);
         const generatedImage = response.candidates[0]?.content?.parts?.find(
           part => part.inlineData
         );
@@ -104,9 +102,6 @@ export default async function handler(req, res) {
       } catch (visionError) {
         console.error('Gemini Flash 2.0 error:', visionError);
         
-        // Fallback: generate with original prompt if vision analysis fails
-        console.log('Falling back to direct generation');
-        
         res.status(200).json({
           success: false,
           error: visionError.message,
@@ -117,10 +112,9 @@ export default async function handler(req, res) {
       
     } else {
       // No image provided, use Gemini 2.5 Flash Image
-      console.log('Generating with Gemini 2.5 Flash Image', prompt);
-      
       try {
         const model = genAI.getGenerativeModel({ model: "gemini-2.5-flash-image" });
+        console.log('HIT ELSE');
         
         const result = await model.generateContent({
           contents: [{

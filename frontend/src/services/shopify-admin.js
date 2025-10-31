@@ -1,6 +1,6 @@
 // Shopify Admin API service (no OAuth required)
 const SHOPIFY_BASE_URL = import.meta.env.VITE_SHOPIFY_STORE_URL;
-const SHOPIFY_ADMIN_TOKEN = import.meta.env.VITE_SHOPIFY_ADMIN_TOKEN;
+const SHOPIFY_ADMIN_TOKEN = import.meta.env.VITE_SHOPIFY_ACCESS_TOKEN;
 const SHOPIFY_API_VERSION = '2025-04';
 
 // Helper function to make authenticated Shopify API requests using Admin token

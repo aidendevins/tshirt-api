@@ -4,13 +4,17 @@ import react from '@vitejs/plugin-react';
 export default defineConfig({
   plugins: [react()],
   server: {
-    port: 5173,
+    port: 3000,
     strictPort: true,
     proxy: {
-      // Proxy API calls if we later need them in React; current creator uses iframe
-      '/api': 'http://localhost:3000',
+      // Proxy API calls to backend server
+      '/api': 'http://localhost:5000',
     },
   },
+  build: {
+    outDir: 'dist',
+    sourcemap: true
+  }
 });
 
 

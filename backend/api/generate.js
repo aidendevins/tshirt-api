@@ -1,5 +1,6 @@
 import Replicate from 'replicate';
 import dotenv from 'dotenv';
+
 dotenv.config();
 
 const replicate = new Replicate({
@@ -42,9 +43,7 @@ export default async function handler(req, res) {
 
     // If image is provided, use Gemini Flash 2.0 to analyze and create an enhanced prompt
     if (image) {
-      console.log('Using Gemini Flash 2.0 to analyze image and create prompt:', prompt);
-      
-      try {        
+      try{        
         // Create a prompt for Gemini to analyze the image and incorporate changes
         const visionPrompt = `Analyze this image carefully and create a detailed image generation prompt that:
         1) Preserves the original style, colors, composition, and key visual elements
@@ -57,7 +56,6 @@ export default async function handler(req, res) {
         const visionResponse = await visionResult.response;
         const optimizedPrompt = visionResponse.text().trim();
         
-        console.log('Gemini Flash 2.0-enhanced prompt:', optimizedPrompt);
         
         
         // Generate new image with Stable Diffusion XL using the enhanced prompt
@@ -92,9 +90,6 @@ export default async function handler(req, res) {
         
       } catch (visionError) {
         console.error('Gemini Flash 2.0 error:', visionError);
-        
-        // Fallback: generate with original prompt if vision analysis fails
-        console.log('Falling back to direct generation');
         
         const inputConfig = {
           prompt: `${prompt}, high quality, detailed, vibrant artwork, professional design`,

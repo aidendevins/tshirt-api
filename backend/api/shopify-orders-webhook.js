@@ -42,7 +42,6 @@ async function uploadImageToPrintify(apiKey, imageUrl, fileName) {
   if (!res.ok) {
     throw new Error(`Printify image upload error ${res.status}: ${JSON.stringify(data)}`);
   }
-  console.log('Printify upload response:', data);
   return data.id; // Return the ID for creating products
 }
 
@@ -91,7 +90,6 @@ async function createCustomProduct(shopId, apiKey, imageId, variantId, designUrl
   if (!res.ok) {
     throw new Error(`Printify product creation error ${res.status}: ${JSON.stringify(data)}`);
   }
-  console.log('✅ Custom product created:', data);
   return data.id;
 }
 
@@ -184,7 +182,6 @@ export default async function handler(req, res) {
     const alreadyProcessed = existingOrders.data?.some(o => o.external_id === externalId);
     
     if (alreadyProcessed) {
-      console.log(`⚠️  Order ${externalId} already processed, skipping duplicate`);
       return res.status(200).json({ success: true, message: 'Order already processed' });
     }
   } catch (err) {
@@ -208,12 +205,9 @@ export default async function handler(req, res) {
     const designIdProp = props.find(p => (p.name || p.key) === 'Design_ID');
     const designId = designIdProp?.value || designIdProp?.[1] || Date.now().toString();
     
-    console.log(`🎨 Uploading design to Printify: ${designUrl}`);
     const printifyImageId = await uploadImageToPrintify(PRINTIFY_API_KEY, designUrl, `design-${designId}.jpg`);
-    console.log(`✅ Image uploaded, ID: ${printifyImageId}`);
 
     // Create custom product with the design
-    console.log(`🏭 Creating custom Printify product...`);
     const customProductId = await createCustomProduct(
       PRINTIFY_SHOP_ID,
       PRINTIFY_API_KEY,
@@ -221,7 +215,6 @@ export default async function handler(req, res) {
       printifyVariantId,
       designUrl
     );
-    console.log(`✅ Custom product created: ${customProductId}`);
 
     // Add line item using the custom product (no print_areas needed)
     line_items.push({
@@ -260,12 +253,9 @@ export default async function handler(req, res) {
       zip: order.shipping_address?.zip || '',
     },
   };
-
-  console.log('📦 Printify payload:', JSON.stringify(payload, null, 2));
   
   try {
     const created = await createPrintifyOrder(PRINTIFY_SHOP_ID, PRINTIFY_API_KEY, payload);
-    console.log('✅ Printify order created:', JSON.stringify(created, null, 2));
     return res.status(200).json({ success: true, created });
   } catch (err) {
     console.error('❌ Printify order creation failed:', err);

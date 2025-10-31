@@ -1,11 +1,7 @@
 import express from 'express';
 import cors from 'cors';
-import dotenv from 'dotenv';
 import { fileURLToPath } from 'url';
 import { dirname, join } from 'path';
-
-// Load environment variables
-dotenv.config();
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = dirname(__filename);
@@ -18,42 +14,31 @@ app.use(cors());
 app.use(express.json({ limit: '50mb' }));
 app.use(express.urlencoded({ extended: true, limit: '50mb' }));
 
-// Serve static files (for the frontend)
-app.use(express.static(__dirname));
-
-// Import and use the API handlers
-import generateSDHandler from './api/generate-sd.js';
-import shopifyOAuthRouter from './api/shopify-oauth.js';
-import shopifyCollectionsRouter from './api/shopify-collections.js';
-// import generateHandler from './api/generate.js';
-
-// API Routes
-app.post('/api/generate-sd', generateSDHandler);
-app.use('/api/shopify/oauth', shopifyOAuthRouter);
-app.use('/api/shopify', shopifyCollectionsRouter);
-// app.post('/api/generate', generateHandler);
+// Serve built frontend files in production
+if (process.env.NODE_ENV === 'production') {
+  app.use(express.static(join(__dirname, 'frontend/dist')));
+}
 
 // Health check endpoint
 app.get('/health', (req, res) => {
   res.json({ 
     status: 'OK', 
     timestamp: new Date().toISOString(),
-    endpoints: ['/api/generate-sd', '/api/generate']
+    environment: process.env.NODE_ENV || 'development'
   });
 });
 
-// Frontend routes
-app.get('/', (req, res) => {
-  res.sendFile(join(__dirname, 'index.html'));
-});
-
-// Test frontend route
-app.get('/test', (req, res) => {
-  res.sendFile(join(__dirname, 'test.html'));
-});
-
-// Serve static files from frontend directory (CSS, JS, images, etc.)
-app.use('/frontend', express.static(join(__dirname, 'frontend')));
+// In production, serve the React app for all non-API routes
+if (process.env.NODE_ENV === 'production') {
+  app.get('*', (req, res) => {
+    res.sendFile(join(__dirname, 'frontend/dist/index.html'));
+  });
+} else {
+  // In development, redirect to frontend dev server
+  app.get('*', (req, res) => {
+    res.redirect('http://localhost:3000');
+  });
+}
 
 // Error handling middleware
 app.use((err, req, res, next) => {
@@ -64,29 +49,14 @@ app.use((err, req, res, next) => {
   });
 });
 
-// 404 handler
-app.use((req, res) => {
-  res.status(404).json({ 
-    error: 'Endpoint not found',
-    availableEndpoints: ['/api/generate-sd', '/api/generate', '/health']
-  });
-});
-
 // Start server
 app.listen(PORT, () => {
-  console.log(`🚀 T-Shirt API Server running on http://localhost:${PORT}`);
-  console.log(`📱 Frontend available at:`);
-  console.log(`   - Main: http://localhost:${PORT}/`);
-  console.log(`   - Test: http://localhost:${PORT}/test`);
-  console.log(`   - Test Alt: http://localhost:${PORT}/frontend/test`);
-  console.log(`🔗 API endpoints:`);
-  console.log(`   - POST http://localhost:${PORT}/api/generate-sd`);
-  console.log(`   - POST http://localhost:${PORT}/api/generate`);
-  console.log(`   - GET  http://localhost:${PORT}/health`);
-  console.log(`\n💡 Make sure you have the following environment variables set:`);
-  console.log(`   - GEMINI_API_KEY`);
-  console.log(`   - REPLICATE_API_TOKEN (optional, for fallback)`);
-  console.log(`\n🌍 Server is ready to accept requests!`);
+  console.log(`🚀 T-Shirt Platform Server running on http://localhost:${PORT}`);
+  console.log(`📱 Frontend: http://localhost:3000 (dev) or http://localhost:${PORT} (prod)`);
+  console.log(`🔧 Backend: http://localhost:5000`);
+  console.log(`\n💡 To start development:`);
+  console.log(`   npm run dev`);
+  console.log(`\n🌍 Server is ready!`);
 });
 
 // Graceful shutdown

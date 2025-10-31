@@ -1,8 +1,9 @@
 import { useState, useEffect } from 'react';
+import { useNavigate } from 'react-router-dom';
 import { fetchCreatorProducts, formatProductData } from '../services/creatorProducts';
 
-export default function CreatorDashboard({ user, onLogout }) {
-  const [showCreateModal, setShowCreateModal] = useState(false);
+export default function CreatorDashboard({ user }) {
+  const navigate = useNavigate();
   const [activeTab, setActiveTab] = useState('creator'); // 'creator' or 'community'
   const [creatorProducts, setCreatorProducts] = useState([]);
   const [communityProducts, setCommunityProducts] = useState([]);
@@ -38,12 +39,7 @@ export default function CreatorDashboard({ user, onLogout }) {
   }, [user?.uid]);
 
   const handleCreateProduct = () => {
-    // TODO: Open product creation form/modal
-    setShowCreateModal(true);
-  };
-
-  const handleCloseModal = () => {
-    setShowCreateModal(false);
+    navigate('/creator/design');
   };
 
   const ProductCard = ({ product, isCommunity = false }) => (
@@ -89,9 +85,6 @@ export default function CreatorDashboard({ user, onLogout }) {
           <div className="header-actions">
             <button onClick={handleCreateProduct} className="btn-primary">
               + Create New Product
-            </button>
-            <button onClick={onLogout} className="btn-logout">
-              Logout
             </button>
           </div>
         </div>
@@ -164,26 +157,6 @@ export default function CreatorDashboard({ user, onLogout }) {
           )}
         </div>
       </div>
-
-      {/* Create Product Modal - Placeholder */}
-      {showCreateModal && (
-        <div className="modal-overlay">
-          <div className="modal-content">
-            <div className="modal-header">
-              <h2>Create New Product</h2>
-              <button onClick={handleCloseModal} className="modal-close">&times;</button>
-            </div>
-            <div className="modal-body">
-              <p>Product creation form will go here.</p>
-              <p>This will integrate with your existing test.html creator tool.</p>
-            </div>
-            <div className="modal-footer">
-              <button onClick={handleCloseModal} className="btn-secondary">Cancel</button>
-              <button className="btn-primary">Create Product</button>
-            </div>
-          </div>
-        </div>
-      )}
     </div>
   );
 }

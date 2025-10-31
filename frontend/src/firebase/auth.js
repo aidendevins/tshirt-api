@@ -92,7 +92,7 @@ export const signupCreator = async (email, password, userData) => {
     setCreatorSession(creatorData);
     
     // Check if we have valid Shopify configuration
-    if (!import.meta.env.VITE_SHOPIFY_ADMIN_TOKEN || !import.meta.env.VITE_SHOPIFY_STORE_URL) {
+    if (!import.meta.env.VITE_SHOPIFY_ACCESS_TOKEN || !import.meta.env.VITE_SHOPIFY_STORE_URL) {
       console.warn('Shopify Admin API configuration missing, skipping collection creation');
       return {
         user: user,

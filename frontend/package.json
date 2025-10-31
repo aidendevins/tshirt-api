@@ -1,12 +1,12 @@
 {
-  "name": "tshirt-react-app",
-  "version": "0.1.0",
+  "name": "tshirt-frontend",
+  "version": "1.0.0",
   "private": true,
   "type": "module",
   "scripts": {
-    "dev": "vite",
+    "dev": "vite --port 3000",
     "build": "vite build",
-    "preview": "vite preview --port 5173"
+    "preview": "vite preview --port 3001"
   },
   "dependencies": {
     "firebase": "^12.4.0",

@@ -1,142 +1,213 @@
-# 🎨 T-Shirt Design Generator API
+# T-Shirt Platform - Multi-Vendor E-commerce with AI Design Forking
 
-A powerful AI-powered t-shirt design generator with multiple AI models and a beautiful web interface.
+A comprehensive platform where creators can design t-shirts, customers can fork designs using AI (Gemini Flash 2.5), and all designs are managed through Shopify collections.
+
+## 🏗️ Architecture
+
+```
+tshirt-platform/
+├── frontend/                 # React frontend application
+│   ├── src/
+│   │   ├── components/      # React components
+│   │   ├── pages/          # Page components
+│   │   ├── services/       # API services
+│   │   ├── firebase/       # Firebase configuration
+│   │   └── utils/          # Utility functions
+│   ├── editor/             # Design editor (Polotno)
+│   └── package.json
+├── backend/                 # Express.js backend API
+│   ├── api/                # API route handlers
+│   │   ├── generate-sd.js
+│   │   ├── shopify-*.js
+│   │   └── ...
+│   ├── server.js           # Main backend server
+│   └── package.json
+├── package.json            # Root package.json with scripts
+└── server.js              # Production server
+```
 
 ## 🚀 Quick Start
 
-### Option 1: Using the startup script (Recommended)
-```bash
-./start.sh
-```
+### Prerequisites
+- Node.js 18+
+- Firebase project
+- Shopify store with Admin API access
+- Gemini API key
 
-### Option 2: Manual setup
-```bash
-# Install dependencies
-npm install
+### Development Setup
 
-# Copy environment template
-cp env.example .env
+1. **Install dependencies:**
+   ```bash
+   npm run setup
+   ```
 
-# Edit .env with your API keys
-# Required: GEMINI_API_KEY
-# Optional: REPLICATE_API_TOKEN
+2. **Set up environment variables:**
+   
+   Create `.env` files in both `frontend/` and `backend/` directories:
+   
+   **backend/.env:**
+   ```env
+   GEMINI_API_KEY=your_gemini_api_key
+   SHOPIFY_ADMIN_ACCESS_TOKEN=your_shopify_admin_token
+   SHOPIFY_STORE_URL=https://your-store.myshopify.com
+   SHOPIFY_WEBHOOK_SECRET=your_webhook_secret
+   PRINTIFY_API_KEY=your_printify_api_key
+   PRINTIFY_SHOP_ID=your_printify_shop_id
+   REPLICATE_API_TOKEN=your_replicate_token
+   ```
+   
+   **frontend/.env:**
+   ```env
+   VITE_FIREBASE_API_KEY=your_firebase_api_key
+   VITE_FIREBASE_AUTH_DOMAIN=your_project.firebaseapp.com
+   VITE_FIREBASE_PROJECT_ID=your_project_id
+   VITE_FIREBASE_STORAGE_BUCKET=your_project.appspot.com
+   VITE_FIREBASE_MESSAGING_SENDER_ID=your_sender_id
+   VITE_FIREBASE_APP_ID=your_app_id
+   VITE_SHOPIFY_ADMIN_TOKEN=your_shopify_admin_token
+   VITE_SHOPIFY_STORE_URL=https://your-store.myshopify.com
+   ```
 
-# Start the server
-npm start
-```
+3. **Start development servers:**
+   ```bash
+   npm run dev
+   ```
+   
+   Or use the convenience script:
+   ```bash
+   ./start-dev.sh
+   ```
 
-## 🔧 Environment Setup
-
-1. **Get your Gemini API key:**
-   - Visit [Google AI Studio](https://makersuite.google.com/app/apikey)
-   - Create a new API key
-   - Copy it to your `.env` file
-
-2. **Optional - Get Replicate API token:**
-   - Visit [Replicate](https://replicate.com/account/api-tokens)
-   - Create a new token
-   - Add it to your `.env` file
+This will start:
+- Frontend: http://localhost:3000
+- Backend: http://localhost:5000
 
 ## 📁 Project Structure
 
+### Frontend (`/frontend`)
+- **React 19** with Vite
+- **Firebase** for authentication and data storage
+- **React Router** for navigation
+- **Polotno** for design editing
+- **Responsive design** with modern UI
+
+### Backend (`/backend`)
+- **Express.js** API server
+- **Shopify Admin API** integration
+- **Gemini AI** for design forking
+- **Printify** for order fulfillment
+- **Webhook handling** for order processing
+
+## 🔧 Available Scripts
+
+### Root Level
+- `npm run dev` - Start both frontend and backend in development
+- `npm run build` - Build frontend for production
+- `npm run start` - Start production server
+- `npm run setup` - Install all dependencies
+- `npm run clean` - Clean all node_modules
+
+### Frontend
+- `npm run dev` - Start Vite dev server (port 3000)
+- `npm run build` - Build for production
+- `npm run preview` - Preview production build
+
+### Backend
+- `npm run dev` - Start with nodemon (port 5000)
+- `npm run start` - Start production server
+
+## 🌟 Features
+
+### For Creators
+- **Account Registration** with automatic Shopify collection creation
+- **Design Upload** and management
+- **Community Design Approval** system
+- **Dashboard** with analytics
+
+### For Customers
+- **Browse Designs** from all creators
+- **AI Design Forking** using Gemini Flash 2.5
+- **Custom Design Creation** with Polotno editor
+- **Purchase** with automatic fulfillment
+
+### For Platform
+- **Multi-vendor Management** through Shopify collections
+- **AI Integration** for design enhancement
+- **Order Processing** with Printify
+- **Community Design Workflow**
+
+## 🔄 Development Workflow
+
+1. **Frontend Development:**
+   - Make changes in `/frontend/src/`
+   - Hot reload available at http://localhost:3000
+   - API calls automatically proxied to backend
+
+2. **Backend Development:**
+   - Make changes in `/backend/api/`
+   - Server restarts automatically with nodemon
+   - API available at http://localhost:5000
+
+3. **Full Stack Testing:**
+   - Both servers run simultaneously
+   - Frontend proxies API calls to backend
+   - Real-time testing of complete workflow
+
+## 🚀 Deployment
+
+### Production Build
+```bash
+npm run build
+npm run start
 ```
-tshirt-api/
-├── api/
-│   ├── generate-sd.js    # Gemini Flash 2.0 API endpoint
-│   └── generate.js       # DALL-E 3 API endpoint
-├── server.js            # Express server for local hosting
-├── index.html           # Frontend interface
-├── package.json         # Dependencies and scripts
-├── start.sh            # Startup script
-└── env.example         # Environment variables template
-```
 
-## 🌐 API Endpoints
+### Environment Variables
+Ensure all production environment variables are set in your deployment platform.
 
-### POST `/api/generate-sd`
-- **Description**: Generate designs using Gemini Flash 2.0
-- **Body**: 
-  ```json
-  {
-    "prompt": "Your design description",
-    "image": "base64_image_data (optional)"
-  }
-  ```
+## 📝 API Endpoints
 
-### POST `/api/generate`
-- **Description**: Generate designs using DALL-E 3
-- **Body**: 
-  ```json
-  {
-    "prompt": "Your design description"
-  }
-  ```
+### Backend API (Port 5000)
+- `POST /api/generate-sd` - Generate designs with AI
+- `POST /api/shopify/orders-webhook` - Handle order webhooks
+- `GET /api/shopify/creator-products/:id` - Get creator products
+- `POST /api/shopify/collections` - Create collections
+- `GET /health` - Health check
 
-### GET `/health`
-- **Description**: Health check endpoint
-- **Response**: Server status and available endpoints
+### Frontend (Port 3000)
+- All routes handled by React Router
+- API calls proxied to backend
 
-## 🎨 Features
-
-- **Dual AI Models**: Switch between Gemini Flash 2.0 and DALL-E 3
-- **Image Upload**: Upload reference images for Gemini analysis
-- **Real-time Generation**: Live preview of generated designs
-- **Download Support**: Download generated images
-- **Responsive Design**: Works on desktop and mobile
-- **Error Handling**: Comprehensive error messages
-
-## 🔧 Development
-
-### Available Scripts
-- `npm start` - Start the server
-- `npm run dev` - Start in development mode
-- `npm run serve` - Alternative start command
-
-### Server Configuration
-- **Port**: 3000 (configurable via PORT env variable)
-- **CORS**: Enabled for all origins
-- **File Upload**: 50MB limit for images
-- **Static Files**: Serves frontend from root
-
-## 🛠️ Troubleshooting
+## 🔧 Troubleshooting
 
 ### Common Issues
+1. **Port conflicts:** Ensure ports 3000 and 5000 are available
+2. **Environment variables:** Check all required env vars are set
+3. **Dependencies:** Run `npm run setup` to install all dependencies
+4. **Firebase config:** Verify Firebase project settings
 
-1. **"No .env file found"**
-   - Run `cp env.example .env`
-   - Edit `.env` with your API keys
+### Development Tips
+- Use browser dev tools for frontend debugging
+- Check backend console for API errors
+- Use network tab to monitor API calls
+- Check Firebase console for authentication issues
 
-2. **"Please configure your API keys"**
-   - Make sure your `.env` file has valid API keys
-   - Check that `GEMINI_API_KEY` is set correctly
+## 📚 Next Steps
 
-3. **"Module not found" errors**
-   - Run `npm install` to install dependencies
+- [ ] Implement AI design forking with Gemini
+- [ ] Add community design approval workflow
+- [ ] Create customer-facing product browser
+- [ ] Add admin dashboard for platform management
+- [ ] Implement real-time notifications
+- [ ] Add analytics and reporting
 
-4. **Port already in use**
-   - Change the PORT in your `.env` file
-   - Or kill the process using port 3000
+## 🤝 Contributing
 
-### API Key Setup
-1. Get your Gemini API key from [Google AI Studio](https://makersuite.google.com/app/apikey)
-2. Add it to your `.env` file: `GEMINI_API_KEY=your_actual_key_here`
-3. Restart the server
-
-## 📱 Usage
-
-1. Open your browser to `http://localhost:3000`
-2. Choose your AI model (Gemini Flash 2.0 or DALL-E 3)
-3. Enter your design prompt
-4. Optionally upload a reference image (Gemini only)
-5. Click "Generate Design"
-6. Download your generated design
-
-## 🔒 Security Notes
-
-- Never commit your `.env` file to version control
-- Keep your API keys secure
-- The server runs on localhost by default for security
+1. Fork the repository
+2. Create a feature branch
+3. Make your changes
+4. Test thoroughly
+5. Submit a pull request
 
 ## 📄 License
 
-This project is open source and available under the MIT License.
+This project is licensed under the MIT License.
