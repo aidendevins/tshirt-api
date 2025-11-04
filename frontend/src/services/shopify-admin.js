@@ -1,24 +1,15 @@
-// Shopify Admin API service (no OAuth required)
-const SHOPIFY_BASE_URL = import.meta.env.VITE_SHOPIFY_STORE_URL;
-const SHOPIFY_ADMIN_TOKEN = import.meta.env.VITE_SHOPIFY_ACCESS_TOKEN;
-const SHOPIFY_API_VERSION = '2025-04';
+// Shopify Admin API service - routes through backend
+const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || 'http://localhost:8000';
 
-// Helper function to make authenticated Shopify API requests using Admin token
+// Helper function to make Shopify API requests via backend
 const makeShopifyRequest = async (endpoint, method = 'GET', data = null) => {
-  if (!SHOPIFY_ADMIN_TOKEN) {
-    throw new Error('Shopify Admin API token not configured');
-  }
-
-  const url = `${SHOPIFY_BASE_URL}/admin/api/${SHOPIFY_API_VERSION}/${endpoint}`;
+  const url = `${API_BASE_URL}/api/shopify/${endpoint}`;
   
-  const headers = {
-    'X-Shopify-Access-Token': SHOPIFY_ADMIN_TOKEN,
-    'Content-Type': 'application/json',
-  };
-
   const config = {
     method,
-    headers,
+    headers: {
+      'Content-Type': 'application/json',
+    },
   };
 
   if (data && (method === 'POST' || method === 'PUT')) {
@@ -40,64 +31,12 @@ const makeShopifyRequest = async (endpoint, method = 'GET', data = null) => {
   }
 };
 
-// Create a custom collection for a creator
+// Create a custom collection for a creator (routes through backend)
 export const createCreatorCollection = async (creatorData, collectionType) => {
-  try {
-    const collectionTitle = collectionType === 'creator' 
-      ? `${creatorData.businessName} - Original Designs`
-      : `${creatorData.businessName} - Community Designs`;
-    
-    const collectionDescription = collectionType === 'creator'
-      ? `Original designs created by ${creatorData.firstName} ${creatorData.lastName} from ${creatorData.businessName}`
-      : `Community designs created by fans using ${creatorData.businessName}'s AI design tool`;
-
-    const collectionData = {
-      custom_collection: {
-        title: collectionTitle,
-        body_html: `<p>${collectionDescription}</p>`,
-        published: true,
-        sort_order: 'manual',
-        // Add custom metafields to track creator info
-        metafields: [
-          {
-            namespace: 'creator',
-            key: 'creator_id',
-            value: creatorData.uid,
-            type: 'single_line_text_field'
-          },
-          {
-            namespace: 'creator',
-            key: 'creator_email',
-            value: creatorData.email,
-            type: 'single_line_text_field'
-          },
-          {
-            namespace: 'creator',
-            key: 'collection_type',
-            value: collectionType,
-            type: 'single_line_text_field'
-          }
-        ]
-      }
-    };
-
-    console.log('Creating collection:', collectionTitle);
-    const response = await makeShopifyRequest('custom_collections.json', 'POST', collectionData);
-    
-    return {
-      success: true,
-      collectionId: response.custom_collection.id,
-      collectionTitle: response.custom_collection.title,
-      collectionHandle: response.custom_collection.handle
-    };
-
-  } catch (error) {
-    console.error(`Failed to create ${collectionType} collection:`, error);
-    return {
-      success: false,
-      error: error.message
-    };
-  }
+  // This function is now handled by createCreatorCollections below
+  // Kept for backwards compatibility but not recommended for direct use
+  console.warn('createCreatorCollection is deprecated, use createCreatorCollections instead');
+  return { success: false, error: 'Use createCreatorCollections instead' };
 };
 
 // Create both collections for a new creator via backend
@@ -142,39 +81,32 @@ export const createCreatorCollections = async (creatorData) => {
   }
 };
 
-// Get collection by ID
+// Get collection by ID (routes through backend)
 export const getCollection = async (collectionId) => {
   try {
-    const response = await makeShopifyRequest(`custom_collections/${collectionId}.json`);
-    return response.custom_collection;
+    const response = await makeShopifyRequest(`collection/${collectionId}`, 'GET');
+    return response.collection;
   } catch (error) {
     console.error('Failed to get collection:', error);
     throw error;
   }
 };
 
-// Update collection
+// Update collection (routes through backend)
 export const updateCollection = async (collectionId, updates) => {
   try {
-    const collectionData = {
-      custom_collection: {
-        id: collectionId,
-        ...updates
-      }
-    };
-    
-    const response = await makeShopifyRequest(`custom_collections/${collectionId}.json`, 'PUT', collectionData);
-    return response.custom_collection;
+    const response = await makeShopifyRequest(`collection/${collectionId}`, 'PUT', { updates });
+    return response.collection;
   } catch (error) {
     console.error('Failed to update collection:', error);
     throw error;
   }
 };
 
-// Delete collection
+// Delete collection (routes through backend)
 export const deleteCollection = async (collectionId) => {
   try {
-    await makeShopifyRequest(`custom_collections/${collectionId}.json`, 'DELETE');
+    const response = await makeShopifyRequest(`collection/${collectionId}`, 'DELETE');
     return { success: true };
   } catch (error) {
     console.error('Failed to delete collection:', error);

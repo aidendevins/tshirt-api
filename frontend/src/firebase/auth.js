@@ -91,18 +91,7 @@ export const signupCreator = async (email, password, userData) => {
     // Set session first, then create collections automatically
     setCreatorSession(creatorData);
     
-    // Check if we have valid Shopify configuration
-    if (!import.meta.env.VITE_SHOPIFY_ACCESS_TOKEN || !import.meta.env.VITE_SHOPIFY_STORE_URL) {
-      console.warn('Shopify Admin API configuration missing, skipping collection creation');
-      return {
-        user: user,
-        creatorData: creatorData,
-        collectionsCreated: false,
-        collectionError: 'Shopify Admin API configuration missing'
-      };
-    }
-    
-    // Create collections automatically using Admin API
+    // Create collections automatically via backend
     try {
       console.log('Creating Shopify collections for new creator...');
       const collectionResults = await createCreatorCollections(creatorData);

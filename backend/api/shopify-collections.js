@@ -379,4 +379,124 @@ router.get('/creator-products/:creatorId', async (req, res) => {
   }
 });
 
+// Get a single collection by ID
+router.get('/collection/:collectionId', async (req, res) => {
+  try {
+    const { collectionId } = req.params;
+    const adminToken = process.env.SHOPIFY_ADMIN_ACCESS_TOKEN;
+    
+    if (!adminToken) {
+      return res.status(500).json({ error: 'Admin API token not configured' });
+    }
+
+    const shopifyStoreUrl = process.env.SHOPIFY_STORE_URL;
+    const url = `${shopifyStoreUrl}/admin/api/2025-04/custom_collections/${collectionId}.json`;
+    
+    const response = await fetch(url, {
+      method: 'GET',
+      headers: {
+        'X-Shopify-Access-Token': adminToken,
+        'Content-Type': 'application/json',
+      }
+    });
+
+    if (!response.ok) {
+      const errorData = await response.json().catch(() => ({}));
+      return res.status(response.status).json({ 
+        error: 'Failed to fetch collection',
+        details: errorData 
+      });
+    }
+
+    const data = await response.json();
+    res.json({ collection: data.custom_collection });
+
+  } catch (error) {
+    console.error('Error fetching collection:', error);
+    res.status(500).json({ error: 'Failed to fetch collection', message: error.message });
+  }
+});
+
+// Update a collection
+router.put('/collection/:collectionId', async (req, res) => {
+  try {
+    const { collectionId } = req.params;
+    const { updates } = req.body;
+    const adminToken = process.env.SHOPIFY_ADMIN_ACCESS_TOKEN;
+    
+    if (!adminToken) {
+      return res.status(500).json({ error: 'Admin API token not configured' });
+    }
+
+    const shopifyStoreUrl = process.env.SHOPIFY_STORE_URL;
+    const url = `${shopifyStoreUrl}/admin/api/2025-04/custom_collections/${collectionId}.json`;
+    
+    const response = await fetch(url, {
+      method: 'PUT',
+      headers: {
+        'X-Shopify-Access-Token': adminToken,
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({
+        custom_collection: {
+          id: collectionId,
+          ...updates
+        }
+      })
+    });
+
+    if (!response.ok) {
+      const errorData = await response.json().catch(() => ({}));
+      return res.status(response.status).json({ 
+        error: 'Failed to update collection',
+        details: errorData 
+      });
+    }
+
+    const data = await response.json();
+    res.json({ collection: data.custom_collection });
+
+  } catch (error) {
+    console.error('Error updating collection:', error);
+    res.status(500).json({ error: 'Failed to update collection', message: error.message });
+  }
+});
+
+// Delete a collection
+router.delete('/collection/:collectionId', async (req, res) => {
+  try {
+    const { collectionId } = req.params;
+    const adminToken = process.env.SHOPIFY_ADMIN_ACCESS_TOKEN;
+    
+    if (!adminToken) {
+      return res.status(500).json({ error: 'Admin API token not configured' });
+    }
+
+    const shopifyStoreUrl = process.env.SHOPIFY_STORE_URL;
+    const url = `${shopifyStoreUrl}/admin/api/2025-04/custom_collections/${collectionId}.json`;
+    
+    const response = await fetch(url, {
+      method: 'DELETE',
+      headers: {
+        'X-Shopify-Access-Token': adminToken,
+        'Content-Type': 'application/json',
+      }
+    });
+
+    if (!response.ok) {
+      const errorData = await response.json().catch(() => ({}));
+      return res.status(response.status).json({ 
+        error: 'Failed to delete collection',
+        details: errorData 
+      });
+    }
+
+    res.json({ success: true, message: 'Collection deleted successfully' });
+
+  } catch (error) {
+    console.error('Error deleting collection:', error);
+    res.status(500).json({ error: 'Failed to delete collection', message: error.message });
+  }
+});
+
 export default router;
