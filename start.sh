@@ -1,42 +1,68 @@
 #!/bin/bash
 
 # T-Shirt API Local Server Startup Script
-echo "🎨 Starting T-Shirt Design Generator API Server..."
+echo "🎨 Starting T-Shirt Design Generator..."
 
-# Check if .env file exists
-if [ ! -f .env ]; then
-    echo "⚠️  No .env file found. Creating from template..."
-    cp env.example .env
-    echo "📝 Please edit .env file with your API keys before running again."
-    echo "   Required: GEMINI_API_KEY"
-    echo "   Optional: REPLICATE_API_TOKEN"
+# Check if backend .env file exists
+if [ ! -f backend/.env ]; then
+    echo "❌ No backend/.env file found"
+    echo "📝 Please create backend/.env file with your API keys"
     exit 1
 fi
 
-# Check if node_modules exists
-if [ ! -d "node_modules" ]; then
-    echo "📦 Installing dependencies..."
-    npm install
-fi
-
-# Check for required environment variables
-if ! grep -q "GEMINI_API_KEY=your_gemini_api_key_here" .env; then
-    echo "✅ Environment variables configured"
-else
-    echo "❌ Please configure your API keys in .env file"
-    echo "   Edit .env and replace 'your_gemini_api_key_here' with your actual Gemini API key"
+# Check if frontend .env file exists
+if [ ! -f frontend/.env ]; then
+    echo "❌ No frontend/.env file found"
+    echo "📝 Please create frontend/.env file with your configuration"
     exit 1
 fi
 
-echo "🚀 Starting server..."
-echo "📱 Frontend will be available at: http://localhost:3000"
-echo "🔗 API endpoints:"
-echo "   - POST http://localhost:3000/api/generate-sd"
-echo "   - POST http://localhost:3000/api/generate"
-echo "   - GET  http://localhost:3000/health"
+# Check if backend node_modules exists
+if [ ! -d "backend/node_modules" ]; then
+    echo "📦 Installing backend dependencies..."
+    cd backend && npm install && cd ..
+fi
+
+# Check if frontend node_modules exists
+if [ ! -d "frontend/node_modules" ]; then
+    echo "📦 Installing frontend dependencies..."
+    cd frontend && npm install && cd ..
+fi
+
+echo "🚀 Starting servers..."
+echo "📱 Frontend: http://localhost:3000"
+echo "🔗 Backend API: http://localhost:8000"
+echo "🏥 Health check: http://localhost:8000/health"
 echo ""
-echo "Press Ctrl+C to stop the server"
+echo "Press Ctrl+C to stop both servers"
 echo ""
 
-# Start the server
-npm start
+# Start backend server in background
+cd backend
+npm run dev &
+BACKEND_PID=$!
+cd ..
+
+# Wait a moment for backend to start
+sleep 2
+
+# Start frontend server in background
+cd frontend
+npm run dev &
+FRONTEND_PID=$!
+cd ..
+
+# Function to cleanup on exit
+cleanup() {
+    echo ""
+    echo "🛑 Stopping servers..."
+    kill $BACKEND_PID 2>/dev/null
+    kill $FRONTEND_PID 2>/dev/null
+    exit 0
+}
+
+# Trap Ctrl+C and cleanup
+trap cleanup INT TERM
+
+# Wait for both processes
+wait

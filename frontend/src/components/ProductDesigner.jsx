@@ -2,6 +2,14 @@ import { useState, useRef, useEffect } from 'react';
 import tshirtBase from '../assets/t-front_800x800.png';
 import testDesignImage from '../assets/edit.png';
 
+// Print area restriction constants (as percentage of canvas size)
+const PRINT_AREA_CONFIG = {
+  x: 0.25,        // X position (20% from left)
+  y: 0.33,        // Y position (33% from top)
+  width: 0.60,    // Width (60% of canvas width)
+  height: 0.40    // Height (40% of canvas height)
+};
+
 export default function ProductDesigner({ onSave, onCancel }) {
   // Canvas state
   const canvasRef = useRef(null);
@@ -164,8 +172,8 @@ export default function ProductDesigner({ onSave, onCancel }) {
                       tshirtImages.template;
     
     if (tshirtImg) {
-      // Calculate dimensions to fit canvas
-      const scale = Math.min(w / tshirtImg.width, h / tshirtImg.height) * 0.95;
+      // Scale image to cover entire canvas (removes all margins)
+      const scale = Math.max(w / tshirtImg.width, h / tshirtImg.height);
       const imgWidth = tshirtImg.width * scale;
       const imgHeight = tshirtImg.height * scale;
       const imgX = (w - imgWidth) / 2;
@@ -175,10 +183,10 @@ export default function ProductDesigner({ onSave, onCancel }) {
     }
     
     // Define print area (centered on the t-shirt chest area)
-    const printAreaX = w * 0.28;
-    const printAreaY = h * 0.35;
-    const printAreaWidth = w * 0.44;
-    const printAreaHeight = h * 0.35;
+    const printAreaX = w * PRINT_AREA_CONFIG.x;
+    const printAreaY = h * PRINT_AREA_CONFIG.y;
+    const printAreaWidth = w * PRINT_AREA_CONFIG.width;
+    const printAreaHeight = h * PRINT_AREA_CONFIG.height;
     
     // Draw print area border (guide) - always visible on template view
     if (currentView === 'template') {
@@ -500,10 +508,10 @@ export default function ProductDesigner({ onSave, onCancel }) {
     const canvas = canvasRef.current;
     if (!canvas) return { x, y, width, height };
     
-    const printAreaX = canvas.width * 0.28;
-    const printAreaY = canvas.height * 0.35;
-    const printAreaWidth = canvas.width * 0.44;
-    const printAreaHeight = canvas.height * 0.35;
+    const printAreaX = canvas.width * PRINT_AREA_CONFIG.x;
+    const printAreaY = canvas.height * PRINT_AREA_CONFIG.y;
+    const printAreaWidth = canvas.width * PRINT_AREA_CONFIG.width;
+    const printAreaHeight = canvas.height * PRINT_AREA_CONFIG.height;
     
     let newX = Math.max(printAreaX, Math.min(x, printAreaX + printAreaWidth - width));
     let newY = Math.max(printAreaY, Math.min(y, printAreaY + printAreaHeight - height));
