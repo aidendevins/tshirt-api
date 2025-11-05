@@ -2,7 +2,7 @@
 
 client_id = "540b0495fc6122d47a89a9377d549c13"
 name = "X Apparel"
-application_url = "http://localhost:5173/shopify/callback"
+application_url = "https://tshirt-api-xi.vercel.app/shopify/callback"
 embedded = true
 
 [webhooks]

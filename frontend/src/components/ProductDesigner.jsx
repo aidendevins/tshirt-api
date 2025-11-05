@@ -10,6 +10,9 @@ const PRINT_AREA_CONFIG = {
   height: 0.40    // Height (40% of canvas height)
 };
 
+// API base URL
+const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || 'http://localhost:8000';
+
 export default function ProductDesigner({ onSave, onCancel }) {
   // Canvas state
   const canvasRef = useRef(null);
@@ -815,7 +818,7 @@ export default function ProductDesigner({ onSave, onCancel }) {
     setError('');
     
     try {
-      const response = await fetch('/api/generate-sd', {
+      const response = await fetch(`${API_BASE_URL}/api/generate-sd`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({

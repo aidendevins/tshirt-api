@@ -44,7 +44,7 @@ export const createCreatorCollections = async (creatorData) => {
   try {
     console.log('Creating Shopify collections for creator:', creatorData.email);
     
-    const response = await fetch('/api/shopify/collections', {
+    const response = await fetch(`${API_BASE_URL}/api/shopify/collections`, {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
