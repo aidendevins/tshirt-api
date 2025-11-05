@@ -24,6 +24,7 @@ app.use(express.static(__dirname));
 // Import and use the API handlers
 import generateSDHandler from './api/generate-sd.js';
 import shopifyCollectionsRouter from './api/shopify-collections.js';
+import createProductRouter from './api/create-product.js';
 import shopifyOrdersWebhook from './api/shopify-orders-webhook-v2.js';
 import uploadDesignHandler from './api/upload-design.js';
 // import generateHandler from './api/generate.js';
@@ -32,6 +33,7 @@ import uploadDesignHandler from './api/upload-design.js';
 app.post('/api/generate-sd', generateSDHandler);
 app.post('/api/upload-design', uploadDesignHandler);
 app.use('/api/shopify', shopifyCollectionsRouter);
+app.use('/api/shopify', createProductRouter);
 app.post('/api/shopify/orders-webhook', shopifyOrdersWebhook);
 // app.post('/api/generate', generateHandler);
 
@@ -44,18 +46,21 @@ app.get('/health', (req, res) => {
   });
 });
 
-// Frontend routes
+// Health check as root endpoint (backend is API-only)
 app.get('/', (req, res) => {
-  res.sendFile(join(__dirname, 'index.html'));
+  res.json({ 
+    message: 'T-Shirt API Backend',
+    status: 'Running',
+    endpoints: {
+      health: '/health',
+      generateDesign: 'POST /api/generate-sd',
+      uploadDesign: 'POST /api/upload-design',
+      shopifyCollections: 'POST /api/shopify/collections',
+      createProduct: 'POST /api/shopify/create-product',
+      shopifyWebhook: 'POST /api/shopify/orders-webhook'
+    }
+  });
 });
-
-// Test frontend route
-app.get('/test', (req, res) => {
-  res.sendFile(join(__dirname, 'test.html'));
-});
-
-// Serve static files from frontend directory (CSS, JS, images, etc.)
-app.use('/frontend', express.static(join(__dirname, 'frontend')));
 
 // Error handling middleware
 app.use((err, req, res, next) => {

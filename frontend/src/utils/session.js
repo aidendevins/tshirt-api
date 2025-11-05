@@ -12,6 +12,9 @@ export const setCreatorSession = (creatorData) => {
   
   const cookieValue = btoa(JSON.stringify(sessionData));
   document.cookie = `${SESSION_COOKIE_NAME}=${cookieValue}; path=/; max-age=${SESSION_DURATION / 1000}; secure; samesite=strict`;
+  
+  // Dispatch custom event to notify components of session change
+  window.dispatchEvent(new CustomEvent('creatorSessionChanged', { detail: sessionData }));
 };
 
 // Get session cookie and validate expiration
@@ -46,6 +49,9 @@ export const getCreatorSession = () => {
 // Clear session cookie
 export const clearCreatorSession = () => {
   document.cookie = `${SESSION_COOKIE_NAME}=; path=/; expires=Thu, 01 Jan 1970 00:00:00 GMT`;
+  
+  // Dispatch custom event to notify components of session change
+  window.dispatchEvent(new CustomEvent('creatorSessionChanged', { detail: null }));
 };
 
 // Check if creator is authenticated

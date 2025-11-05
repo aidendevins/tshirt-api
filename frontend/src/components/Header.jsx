@@ -1,4 +1,4 @@
-import { Link, NavLink, useNavigate } from 'react-router-dom';
+import { Link, NavLink, useNavigate, useLocation } from 'react-router-dom';
 import { useState, useEffect } from 'react';
 import { getCreatorSession } from '../utils/session';
 import { logoutCreator } from '../firebase/auth';
@@ -7,10 +7,22 @@ export default function Header() {
   const [creator, setCreator] = useState(null);
   const [dropdownOpen, setDropdownOpen] = useState(false);
   const navigate = useNavigate();
+  const location = useLocation();
 
+  // Check session on mount and whenever location changes
   useEffect(() => {
     const creatorData = getCreatorSession();
     setCreator(creatorData);
+  }, [location]);
+
+  // Listen for session changes (login/logout events)
+  useEffect(() => {
+    const handleSessionChange = (event) => {
+      setCreator(event.detail);
+    };
+
+    window.addEventListener('creatorSessionChanged', handleSessionChange);
+    return () => window.removeEventListener('creatorSessionChanged', handleSessionChange);
   }, []);
 
   const handleLogout = async () => {

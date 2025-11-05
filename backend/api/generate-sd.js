@@ -38,38 +38,44 @@ export default async function handler(req, res) {
   }
 
   try {
-    const { prompt, image } = req.body;
+    const { prompt, images } = req.body;
     
     if (!prompt || prompt.length < 3) {
       return res.status(400).json({ error: 'Please provide a detailed prompt' });
     }
 
-    // If image is provided, use Gemini Flash 2.0 to analyze and create an enhanced prompt
-    if (image) {
+    // If images are provided, use Gemini Flash with multiple images
+    if (images && images.length > 0) {
       try {
         // Use Gemini 2.0 Flash for fast vision capabilities
         const model = genAI.getGenerativeModel({ model: "gemini-2.5-flash-image" });
         
-        // Prepare the image data for Gemini
-        const imageBuffer = base64ToBuffer(image);
-        const mimeType = getMimeType(image);
+        // Prepare all image parts for Gemini
+        const imageParts = images.map((image, index) => {
+          const imageBuffer = base64ToBuffer(image);
+          const mimeType = getMimeType(image);
+          
+          return {
+            inlineData: {
+              data: imageBuffer.toString('base64'),
+              mimeType: mimeType
+            }
+          };
+        });
         
-        const imagePart = {
-          inlineData: {
-            data: imageBuffer.toString('base64'),
-            mimeType: mimeType
-          }
-        };
+        // Build prompt text that references image positions
+        const imageReferences = images.map((_, i) => `${i === 0 ? 'first' : i === 1 ? 'second' : i === 2 ? 'third' : i === 3 ? 'fourth' : 'fifth'} image`).join(', ');
+        const promptText = images.length === 1 
+          ? `Based on this image, ${prompt}. Generate a new image that incorporates these changes while preserving the original style and composition. High quality, detailed, professional.`
+          : `Based on these ${images.length} images (${imageReferences}), ${prompt}. Generate a new image that combines or incorporates elements from these images as described. High quality, detailed, professional.`;
         
         // Generate new image with Gemini native image generation
         const result = await model.generateContent({
           contents: [{
             role: 'user',
             parts: [
-              {
-                text: `Based on this image, ${prompt}. Generate a new image that incorporates these changes while preserving the original style and composition. High quality, detailed, professional.`
-              },
-              imagePart
+              { text: promptText },
+              ...imageParts
             ]
           }],
           generationConfig: {

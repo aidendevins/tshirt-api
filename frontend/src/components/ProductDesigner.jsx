@@ -1,13 +1,13 @@
 import { useState, useRef, useEffect } from 'react';
 import tshirtBase from '../assets/t-front_800x800.png';
-import testDesignImage from '../assets/edit.png';
+import { getCreatorSession } from '../utils/session';
 
 // Print area restriction constants (as percentage of canvas size)
 const PRINT_AREA_CONFIG = {
-  x: 0.25,        // X position (20% from left)
-  y: 0.33,        // Y position (33% from top)
-  width: 0.60,    // Width (60% of canvas width)
-  height: 0.40    // Height (40% of canvas height)
+  x: 0.312,        // X position (20% from left)
+  y: 0.265,        // Y position (33% from top)
+  width: 0.374,    // Width (30% of canvas width)
+  height: 0.46    // Height (40% of canvas height)
 };
 
 // API base URL
@@ -20,11 +20,11 @@ export default function ProductDesigner({ onSave, onCancel }) {
   
   // Design state
   const [designImage, setDesignImage] = useState(null);
-  const [uploadedImage, setUploadedImage] = useState(null);
-  const [uploadedFileName, setUploadedFileName] = useState('');
+  const [uploadedImages, setUploadedImages] = useState([]);  // Array of uploaded images
   const [prompt, setPrompt] = useState('');
   const [isGenerating, setIsGenerating] = useState(false);
   const [error, setError] = useState('');
+  const [notification, setNotification] = useState('');
   
   // History state
   const [designHistory, setDesignHistory] = useState([]);
@@ -69,9 +69,23 @@ export default function ProductDesigner({ onSave, onCancel }) {
   const [isTextResizing, setIsTextResizing] = useState(false);
   const [textResizeHandle, setTextResizeHandle] = useState(null);
   
+  // Sprite resizing
+  const [isSpriteResizing, setIsSpriteResizing] = useState(false);
+  const [spriteResizeHandle, setSpriteResizeHandle] = useState(null);
+  
   // T-shirt options
   const [tshirtColor, setTshirtColor] = useState('white');
   const [tshirtSize, setTshirtSize] = useState('M');
+  
+  // Multi-step flow
+  const [currentStep, setCurrentStep] = useState('design'); // 'design' or 'options'
+  
+  // Product options state
+  const [productTitle, setProductTitle] = useState('');
+  const [productDescription, setProductDescription] = useState('');
+  const [productPrice, setProductPrice] = useState('29.99');
+  const [availableColors, setAvailableColors] = useState(['white', 'black']);
+  const [availableSizes, setAvailableSizes] = useState(['S', 'M', 'L', 'XL']);
   
   // Available emojis for sprites
   const availableEmojis = ['🔥', '⚡', '💎', '⭐', '🌟', '💫', '✨', '🎨', '🎭', '🎪', '🎸', '🎤', '🎧', '🎮', '🏀', '⚽', '🏆', '👑', '💀', '🦋', '🌈', '☀️', '🌙'];
@@ -90,8 +104,8 @@ export default function ProductDesigner({ onSave, onCancel }) {
     setCtx(context);
     
     // Set canvas size
-    canvas.width = 600;
-    canvas.height = 600;
+    canvas.width = 660;
+    canvas.height = 660;
     
     // Load t-shirt template images
     const loadImage = (src) => {
@@ -105,7 +119,7 @@ export default function ProductDesigner({ onSave, onCancel }) {
     };
     
     Promise.all([
-      loadImage(tshirtBase),
+      loadImage('https://cdn.shopify.com/s/files/1/0916/8266/8909/files/t-front.png?v=1761178014'),
       loadImage('https://cdn.shopify.com/s/files/1/0916/8266/8909/files/t-front_realistic.png?v=1761181061'),
       loadImage('https://cdn.shopify.com/s/files/1/0916/8266/8909/files/t-front_with_person.png?v=1761181608'),
       loadImage('https://cdn.shopify.com/s/files/1/0916/8266/8909/files/Blank_Image.png?v=1761257355')
@@ -121,31 +135,6 @@ export default function ProductDesigner({ onSave, onCancel }) {
     drawCanvas();
   }, []);
   
-  // Auto-populate test design image for faster local testing
-  useEffect(() => {
-    if (!ctx || designImage) return;
-    const canvas = canvasRef.current;
-    if (!canvas) return;
-    
-    const img = new Image();
-    img.crossOrigin = 'anonymous';
-    img.onload = () => {
-      const printAreaX = canvas.width * 0.28;
-      const printAreaY = canvas.height * 0.35;
-      const printAreaWidth = canvas.width * 0.44;
-      const printAreaHeight = canvas.height * 0.35;
-      setDesignImage({
-        img,
-        url: testDesignImage,
-        x: printAreaX,
-        y: printAreaY,
-        width: printAreaWidth,
-        height: printAreaHeight
-      });
-    };
-    img.src = testDesignImage;
-  }, [ctx]);
-
   // Redraw canvas when state changes
   useEffect(() => {
     if (ctx && tshirtImages.template) {
@@ -167,22 +156,37 @@ export default function ProductDesigner({ onSave, onCancel }) {
     ctx.fillStyle = '#fafafa';
     ctx.fillRect(0, 0, w, h);
     
-    // Draw t-shirt template based on current view (template uses local asset)
-    const tshirtImg = currentView === 'template' ? tshirtImages.template :
-                      currentView === 'realistic' ? tshirtImages.realistic :
-                      currentView === 'person' ? tshirtImages.person :
-                      currentView === 'design-only' ? tshirtImages.designOnly :
-                      tshirtImages.template;
-    
-    if (tshirtImg) {
-      // Scale image to cover entire canvas (removes all margins)
-      const scale = Math.max(w / tshirtImg.width, h / tshirtImg.height);
-      const imgWidth = tshirtImg.width * scale;
-      const imgHeight = tshirtImg.height * scale;
-      const imgX = (w - imgWidth) / 2;
-      const imgY = (h - imgHeight) / 2;
+    // Draw t-shirt template or design-only view
+    if (currentView === 'design-only' && designImage) {
+      // Design-only view: show ONLY the generated design image on white background
+      ctx.fillStyle = '#ffffff';
+      ctx.fillRect(0, 0, w, h);
       
-      ctx.drawImage(tshirtImg, imgX, imgY, imgWidth, imgHeight);
+      // Draw the design image centered and scaled to fit with padding
+      if (designImage.img.complete) {
+        const padding = 40; // Add 40px padding
+        const availableWidth = w - (padding * 2);
+        const availableHeight = h - (padding * 2);
+        
+        const scale = Math.min(availableWidth / designImage.img.naturalWidth, availableHeight / designImage.img.naturalHeight);
+        const imgW = designImage.img.naturalWidth * scale;
+        const imgH = designImage.img.naturalHeight * scale;
+        const imgX = (w - imgW) / 2;
+        const imgY = (h - imgH) / 2;
+        
+        ctx.drawImage(designImage.img, imgX, imgY, imgW, imgH);
+      }
+    } else {
+      // Normal view: show t-shirt template
+      const tshirtImg = currentView === 'template' ? tshirtImages.template :
+                        currentView === 'realistic' ? tshirtImages.realistic :
+                        currentView === 'person' ? tshirtImages.person :
+                        tshirtImages.template;
+      
+      if (tshirtImg) {
+        // Fill entire canvas with t-shirt image (no margins)
+        ctx.drawImage(tshirtImg, 0, 0, w, h);
+      }
     }
     
     // Define print area (centered on the t-shirt chest area)
@@ -191,67 +195,70 @@ export default function ProductDesigner({ onSave, onCancel }) {
     const printAreaWidth = w * PRINT_AREA_CONFIG.width;
     const printAreaHeight = h * PRINT_AREA_CONFIG.height;
     
-    // Draw print area border (guide) - always visible on template view
-    if (currentView === 'template') {
-      ctx.strokeStyle = 'rgba(200,200,200,0.5)';
-      ctx.lineWidth = 2;
-      ctx.setLineDash([10, 10]);
-      ctx.strokeRect(printAreaX, printAreaY, printAreaWidth, printAreaHeight);
-      ctx.setLineDash([]);
-      
-      // Only show helper text before a design exists
-      if (!designImage) {
-        ctx.fillStyle = 'rgba(150,150,150,0.5)';
-        ctx.font = '14px Arial';
-        ctx.textAlign = 'center';
-        ctx.textBaseline = 'middle';
-        ctx.fillText('Your design will appear here', w / 2, printAreaY + printAreaHeight / 2 - 10);
-        ctx.fillText('(drag to reposition, resize with corners)', w / 2, printAreaY + printAreaHeight / 2 + 10);
-      }
-    }
-    
-    // Draw design image
-    if (designImage) {
-      ctx.drawImage(
-        designImage.img,
-        designImage.x,
-        designImage.y,
-        designImage.width,
-        designImage.height
-      );
-    }
-    
-    // Draw sprites
-    sprites.forEach((sprite, index) => {
-      ctx.font = `${sprite.size}px Arial`;
-      ctx.textAlign = 'left';
-      ctx.textBaseline = 'top';
-      ctx.fillText(sprite.emoji, sprite.x, sprite.y);
-      
-      // Draw selection border if selected
-      if (sprite.isSelected) {
-        ctx.strokeStyle = '#10b981';
+    // Only draw editing features if NOT in design-only view
+    if (currentView !== 'design-only') {
+      // Draw print area border (guide) - always visible on template view
+      if (currentView === 'template') {
+        ctx.strokeStyle = 'rgba(200,200,200,0.5)';
         ctx.lineWidth = 2;
-        ctx.strokeRect(sprite.x, sprite.y, sprite.width || sprite.size, sprite.height || sprite.size);
+        ctx.setLineDash([10, 10]);
+        ctx.strokeRect(printAreaX, printAreaY, printAreaWidth, printAreaHeight);
+        ctx.setLineDash([]);
         
-        // Draw resize handles
-        drawSpriteHandles(sprite);
+        // Only show helper text before a design exists
+        if (!designImage) {
+          ctx.fillStyle = 'rgba(150,150,150,0.5)';
+          ctx.font = '14px Arial';
+          ctx.textAlign = 'center';
+          ctx.textBaseline = 'middle';
+          ctx.fillText('Your design will appear here', w / 2, printAreaY + printAreaHeight / 2 - 10);
+          ctx.fillText('(drag to reposition, resize with corners)', w / 2, printAreaY + printAreaHeight / 2 + 10);
+        }
       }
-    });
-    
-    // Draw text
-    if (textElement) {
-      drawText(textElement);
       
-      // Draw text selection handles
-      if (isTextSelected) {
-        drawTextHandles();
+      // Draw design image
+      if (designImage) {
+        ctx.drawImage(
+          designImage.img,
+          designImage.x,
+          designImage.y,
+          designImage.width,
+          designImage.height
+        );
       }
-    }
-    
-    // Draw design selection handles
-    if (designImage && isDesignSelected) {
-      drawDesignHandles();
+      
+      // Draw sprites
+      sprites.forEach((sprite, index) => {
+        ctx.font = `${sprite.size}px Arial`;
+        ctx.textAlign = 'left';
+        ctx.textBaseline = 'top';
+        ctx.fillText(sprite.emoji, sprite.x, sprite.y);
+        
+        // Draw selection border if selected
+        if (sprite.isSelected) {
+          ctx.strokeStyle = '#10b981';
+          ctx.lineWidth = 2;
+          ctx.strokeRect(sprite.x, sprite.y, sprite.width || sprite.size, sprite.height || sprite.size);
+          
+          // Draw resize handles
+          drawSpriteHandles(sprite);
+        }
+      });
+      
+      // Draw text
+      if (textElement) {
+        drawText(textElement);
+        
+        // Draw text selection handles
+        if (isTextSelected) {
+          drawTextHandles();
+        }
+      }
+      
+      // Draw design selection handles
+      if (designImage && isDesignSelected) {
+        drawDesignHandles();
+      }
     }
   };
   
@@ -370,6 +377,7 @@ export default function ProductDesigner({ onSave, onCancel }) {
   const drawText = (textEl) => {
     if (!ctx) return;
     
+    // Text is always centered in its bounding box
     ctx.font = `${textEl.fontSize}px ${textEl.font}`;
     ctx.fillStyle = textEl.color;
     ctx.textAlign = 'center';
@@ -379,6 +387,7 @@ export default function ProductDesigner({ onSave, onCancel }) {
     const centerX = textEl.x + textEl.width / 2;
     const centerY = textEl.y + textEl.height / 2;
     
+    // Draw text centered in the box
     if (textEl.warpStyle === 'none') {
       ctx.fillText(text, centerX, centerY);
     } else if (textEl.warpStyle === 'arc') {
@@ -507,6 +516,23 @@ export default function ProductDesigner({ onSave, onCancel }) {
     return null;
   };
   
+  const getSpriteHandleAtPoint = (sprite, x, y) => {
+    const w = sprite.width || sprite.size;
+    const h = sprite.height || sprite.size;
+    const handles = [
+      { x: sprite.x, y: sprite.y, corner: 'tl' },
+      { x: sprite.x + w, y: sprite.y, corner: 'tr' },
+      { x: sprite.x, y: sprite.y + h, corner: 'bl' },
+      { x: sprite.x + w, y: sprite.y + h, corner: 'br' }
+    ];
+    
+    for (let handle of handles) {
+      const dist = Math.sqrt((x - handle.x) ** 2 + (y - handle.y) ** 2);
+      if (dist < 12) return handle.corner;
+    }
+    return null;
+  };
+  
   const constrainToPrintArea = (x, y, width, height) => {
     const canvas = canvasRef.current;
     if (!canvas) return { x, y, width, height };
@@ -516,10 +542,26 @@ export default function ProductDesigner({ onSave, onCancel }) {
     const printAreaWidth = canvas.width * PRINT_AREA_CONFIG.width;
     const printAreaHeight = canvas.height * PRINT_AREA_CONFIG.height;
     
-    let newX = Math.max(printAreaX, Math.min(x, printAreaX + printAreaWidth - width));
-    let newY = Math.max(printAreaY, Math.min(y, printAreaY + printAreaHeight - height));
-    let newWidth = Math.min(width, printAreaWidth);
-    let newHeight = Math.min(height, printAreaHeight);
+    // Maintain aspect ratio when constraining
+    const aspectRatio = width / height;
+    let newWidth = width;
+    let newHeight = height;
+    
+    // If image is too wide, scale down maintaining aspect ratio
+    if (newWidth > printAreaWidth) {
+      newWidth = printAreaWidth;
+      newHeight = newWidth / aspectRatio;
+    }
+    
+    // If image is too tall (after width scaling), scale down further
+    if (newHeight > printAreaHeight) {
+      newHeight = printAreaHeight;
+      newWidth = newHeight * aspectRatio;
+    }
+    
+    // Constrain position
+    let newX = Math.max(printAreaX, Math.min(x, printAreaX + printAreaWidth - newWidth));
+    let newY = Math.max(printAreaY, Math.min(y, printAreaY + printAreaHeight - newHeight));
     
     return { x: newX, y: newY, width: newWidth, height: newHeight };
   };
@@ -533,11 +575,32 @@ export default function ProductDesigner({ onSave, onCancel }) {
     
     // Check sprite interaction first
     for (let i = sprites.length - 1; i >= 0; i--) {
-      if (isPointInSprite(sprites[i], pos.x, pos.y)) {
+      const sprite = sprites[i];
+      
+      // Check if clicking on a resize handle of selected sprite
+      if (sprite.isSelected) {
+        const spriteHandle = getSpriteHandleAtPoint(sprite, pos.x, pos.y);
+        if (spriteHandle) {
+          setIsSpriteResizing(true);
+          setSpriteResizeHandle(spriteHandle);
+          setDragStart({ x: pos.x, y: pos.y });
+          setStartDimensions({ 
+            x: sprite.x, 
+            y: sprite.y, 
+            width: sprite.width || sprite.size, 
+            height: sprite.height || sprite.size 
+          });
+          setSelectedLayer('sprite-' + i);
+          return;
+        }
+      }
+      
+      // Check if clicking inside sprite
+      if (isPointInSprite(sprite, pos.x, pos.y)) {
         setIsDesignSelected(false);
         setIsTextSelected(false);
         setSprites(sprites.map((s, idx) => ({ ...s, isSelected: idx === i })));
-        setDragStart({ x: pos.x - sprites[i].x, y: pos.y - sprites[i].y });
+        setDragStart({ x: pos.x - sprite.x, y: pos.y - sprite.y });
         setIsDragging(true);
         setSelectedLayer('sprite-' + i);
         return;
@@ -610,6 +673,99 @@ export default function ProductDesigner({ onSave, onCancel }) {
     const canvas = canvasRef.current;
     if (!canvas) return;
     
+    // Handle sprite resizing - maintain aspect ratio (1:1 for emojis)
+    if (isSpriteResizing && selectedLayer?.startsWith('sprite-')) {
+      const spriteIndex = parseInt(selectedLayer.split('-')[1]);
+      const newSprites = [...sprites];
+      const sprite = newSprites[spriteIndex];
+      
+      const dx = pos.x - dragStart.x;
+      const dy = pos.y - dragStart.y;
+      
+      // Emojis are always square (1:1 aspect ratio)
+      const aspectRatio = 1;
+      
+      // Calculate scale based on diagonal movement
+      let scale = 1;
+      if (spriteResizeHandle === 'br') {
+        scale = Math.max(
+          (startDimensions.width + dx) / startDimensions.width,
+          (startDimensions.height + dy) / startDimensions.height
+        );
+      } else if (spriteResizeHandle === 'bl') {
+        scale = Math.max(
+          (startDimensions.width - dx) / startDimensions.width,
+          (startDimensions.height + dy) / startDimensions.height
+        );
+      } else if (spriteResizeHandle === 'tr') {
+        scale = Math.max(
+          (startDimensions.width + dx) / startDimensions.width,
+          (startDimensions.height - dy) / startDimensions.height
+        );
+      } else if (spriteResizeHandle === 'tl') {
+        scale = Math.max(
+          (startDimensions.width - dx) / startDimensions.width,
+          (startDimensions.height - dy) / startDimensions.height
+        );
+      }
+      
+      // Apply scale while maintaining aspect ratio
+      let newWidth = startDimensions.width * scale;
+      let newHeight = newWidth / aspectRatio; // Always square for emojis
+      
+      // Calculate new position based on which corner is being dragged
+      let newX = startDimensions.x;
+      let newY = startDimensions.y;
+      
+      if (spriteResizeHandle.includes('l')) {
+        newX = startDimensions.x + startDimensions.width - newWidth;
+      }
+      if (spriteResizeHandle.includes('t')) {
+        newY = startDimensions.y + startDimensions.height - newHeight;
+      }
+      
+      // Minimum size
+      if (newWidth > 20 && newHeight > 20) {
+        // Constrain to print area
+        const canvas = canvasRef.current;
+        const printAreaX = canvas.width * PRINT_AREA_CONFIG.x;
+        const printAreaY = canvas.height * PRINT_AREA_CONFIG.y;
+        const printAreaWidth = canvas.width * PRINT_AREA_CONFIG.width;
+        const printAreaHeight = canvas.height * PRINT_AREA_CONFIG.height;
+        const printAreaRight = printAreaX + printAreaWidth;
+        const printAreaBottom = printAreaY + printAreaHeight;
+        
+        // Constrain dimensions to fit within print area
+        if (newX < printAreaX) {
+          newWidth = newWidth - (printAreaX - newX);
+          newHeight = newWidth; // Keep square
+          newX = printAreaX;
+        }
+        if (newY < printAreaY) {
+          newHeight = newHeight - (printAreaY - newY);
+          newWidth = newHeight; // Keep square
+          newY = printAreaY;
+        }
+        if (newX + newWidth > printAreaRight) {
+          newWidth = printAreaRight - newX;
+          newHeight = newWidth; // Keep square
+        }
+        if (newY + newHeight > printAreaBottom) {
+          newHeight = printAreaBottom - newY;
+          newWidth = newHeight; // Keep square
+        }
+        
+        sprite.x = newX;
+        sprite.y = newY;
+        sprite.width = newWidth;
+        sprite.height = newHeight;
+        sprite.size = newWidth; // Update size for consistency
+        
+        setSprites(newSprites);
+      }
+      return;
+    }
+    
     // Handle sprite dragging
     if (isDragging && selectedLayer?.startsWith('sprite-')) {
       const spriteIndex = parseInt(selectedLayer.split('-')[1]);
@@ -629,29 +785,96 @@ export default function ProductDesigner({ onSave, onCancel }) {
       return;
     }
     
-    // Handle text resizing
+    // Handle text resizing - maintain aspect ratio
     if (isTextResizing && textElement) {
       const dx = pos.x - dragStart.x;
       const dy = pos.y - dragStart.y;
       
-      let newWidth = startDimensions.width;
-      let newHeight = startDimensions.height;
+      const aspectRatio = textElement.aspectRatio || (startDimensions.width / startDimensions.height);
+      
+      // Calculate scale based on diagonal movement
+      let scale = 1;
+      if (textResizeHandle === 'br') {
+        scale = Math.max(
+          (startDimensions.width + dx) / startDimensions.width,
+          (startDimensions.height + dy) / startDimensions.height
+        );
+      } else if (textResizeHandle === 'bl') {
+        scale = Math.max(
+          (startDimensions.width - dx) / startDimensions.width,
+          (startDimensions.height + dy) / startDimensions.height
+        );
+      } else if (textResizeHandle === 'tr') {
+        scale = Math.max(
+          (startDimensions.width + dx) / startDimensions.width,
+          (startDimensions.height - dy) / startDimensions.height
+        );
+      } else if (textResizeHandle === 'tl') {
+        scale = Math.max(
+          (startDimensions.width - dx) / startDimensions.width,
+          (startDimensions.height - dy) / startDimensions.height
+        );
+      }
+      
+      // Apply scale while maintaining aspect ratio
+      let newWidth = startDimensions.width * scale;
+      let newHeight = newWidth / aspectRatio;
+      
+      // Calculate new position based on which corner is being dragged
       let newX = startDimensions.x;
       let newY = startDimensions.y;
       
-      if (textResizeHandle.includes('r')) newWidth += dx;
-      if (textResizeHandle.includes('l')) { newWidth -= dx; newX += dx; }
-      if (textResizeHandle.includes('b')) newHeight += dy;
-      if (textResizeHandle.includes('t')) { newHeight -= dy; newY += dy; }
+      if (textResizeHandle.includes('l')) {
+        newX = startDimensions.x + startDimensions.width - newWidth;
+      }
+      if (textResizeHandle.includes('t')) {
+        newY = startDimensions.y + startDimensions.height - newHeight;
+      }
       
+      // Minimum size
       if (newWidth > 50 && newHeight > 20) {
-        const constrained = constrainToPrintArea(newX, newY, newWidth, newHeight);
+        // Constrain to print area
+        const canvas = canvasRef.current;
+        const printAreaX = canvas.width * PRINT_AREA_CONFIG.x;
+        const printAreaY = canvas.height * PRINT_AREA_CONFIG.y;
+        const printAreaWidth = canvas.width * PRINT_AREA_CONFIG.width;
+        const printAreaHeight = canvas.height * PRINT_AREA_CONFIG.height;
+        const printAreaRight = printAreaX + printAreaWidth;
+        const printAreaBottom = printAreaY + printAreaHeight;
+        
+        // Constrain dimensions to fit within print area
+        if (newX < printAreaX) {
+          newWidth = newWidth - (printAreaX - newX);
+          newHeight = newWidth / aspectRatio;
+          newX = printAreaX;
+        }
+        if (newY < printAreaY) {
+          newHeight = newHeight - (printAreaY - newY);
+          newWidth = newHeight * aspectRatio;
+          newY = printAreaY;
+        }
+        if (newX + newWidth > printAreaRight) {
+          newWidth = printAreaRight - newX;
+          newHeight = newWidth / aspectRatio;
+        }
+        if (newY + newHeight > printAreaBottom) {
+          newHeight = printAreaBottom - newY;
+          newWidth = newHeight * aspectRatio;
+        }
+        
+        // Scale font size proportionally from original size
+        const originalWidth = textElement.originalWidth || startDimensions.width;
+        const originalFontSize = textElement.originalFontSize || 48;
+        const scaleFactor = newWidth / originalWidth;
+        const newFontSize = originalFontSize * scaleFactor;
+        
         setTextElement({ 
           ...textElement, 
-          x: constrained.x, 
-          y: constrained.y, 
-          width: constrained.width, 
-          height: constrained.height 
+          x: newX, 
+          y: newY, 
+          width: newWidth, 
+          height: newHeight,
+          fontSize: newFontSize
         });
       }
       return;
@@ -671,26 +894,32 @@ export default function ProductDesigner({ onSave, onCancel }) {
       return;
     }
     
-    // Handle design resizing
+    // Handle design resizing - maintain aspect ratio
     if (isResizing && designImage) {
       const dx = pos.x - dragStart.x;
       const dy = pos.y - dragStart.y;
       
+      // Lock aspect ratio - calculate new dimensions based on width change
+      const aspectRatio = startDimensions.width / startDimensions.height;
       let newWidth = startDimensions.width;
-      let newHeight = startDimensions.height;
       let newX = startDimensions.x;
       let newY = startDimensions.y;
       
-      if (resizeHandle.includes('r')) newWidth += dx;
-      if (resizeHandle.includes('l')) { newWidth -= dx; newX += dx; }
-      if (resizeHandle.includes('b')) newHeight += dy;
-      if (resizeHandle.includes('t')) { newHeight -= dy; newY += dy; }
-      
-      // Maintain aspect ratio
-      const aspectRatio = startDimensions.width / startDimensions.height;
-      if (Math.abs(newWidth / newHeight - aspectRatio) > 0.1) {
-        newHeight = newWidth / aspectRatio;
+      // Determine resize based on which handle is being dragged
+      if (resizeHandle.includes('r')) {
+        newWidth = startDimensions.width + dx;
+      } else if (resizeHandle.includes('l')) {
+        newWidth = startDimensions.width - dx;
+        newX = startDimensions.x + dx;
+      } else if (resizeHandle.includes('t')) {
+        newWidth = startDimensions.width - (dy * aspectRatio);
+        newY = startDimensions.y + dy;
+      } else if (resizeHandle.includes('b')) {
+        newWidth = startDimensions.width + (dy * aspectRatio);
       }
+      
+      // Always calculate height from width to maintain aspect ratio
+      const newHeight = newWidth / aspectRatio;
       
       if (newWidth > 50 && newHeight > 50) {
         const constrained = constrainToPrintArea(newX, newY, newWidth, newHeight);
@@ -748,6 +977,7 @@ export default function ProductDesigner({ onSave, onCancel }) {
     setIsResizing(false);
     setIsTextDragging(false);
     setIsTextResizing(false);
+    setIsSpriteResizing(false);
     setSelectedLayer(null);
   };
   
@@ -796,7 +1026,7 @@ export default function ProductDesigner({ onSave, onCancel }) {
       canvas.removeEventListener('mouseup', handleMouseUp);
       canvas.removeEventListener('mouseleave', handleMouseUp);
     };
-  }, [designImage, textElement, sprites, isDesignSelected, isTextSelected, isDragging, isResizing, isTextDragging, isTextResizing, currentView]);
+  }, [designImage, textElement, sprites, isDesignSelected, isTextSelected, isDragging, isResizing, isTextDragging, isTextResizing, isSpriteResizing, currentView]);
   
   // Attach keyboard event listener
   useEffect(() => {
@@ -809,8 +1039,8 @@ export default function ProductDesigner({ onSave, onCancel }) {
   
   // Handle AI generation
   const handleGenerate = async () => {
-    if (!prompt.trim() && !uploadedImage) {
-      setError('Please enter a prompt or upload an image');
+    if (!prompt.trim() && uploadedImages.length === 0) {
+      setError('Please enter a prompt or upload at least one image');
       return;
     }
     
@@ -823,7 +1053,7 @@ export default function ProductDesigner({ onSave, onCancel }) {
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           prompt: prompt || 'A t-shirt design',
-          image: uploadedImage
+          images: uploadedImages.map(img => img.data)  // Send array of base64 images
         })
       });
       
@@ -836,18 +1066,25 @@ export default function ProductDesigner({ onSave, onCancel }) {
       img.crossOrigin = 'anonymous';
       img.onload = () => {
         const canvas = canvasRef.current;
-        const printAreaX = canvas.width * 0.28;
-        const printAreaY = canvas.height * 0.35;
-        const printAreaWidth = canvas.width * 0.44;
-        const printAreaHeight = canvas.height * 0.35;
+        const printAreaX = canvas.width * PRINT_AREA_CONFIG.x;
+        const printAreaY = canvas.height * PRINT_AREA_CONFIG.y;
+        const printAreaWidth = canvas.width * PRINT_AREA_CONFIG.width;
+        
+        // Calculate height based on image aspect ratio
+        const aspectRatio = img.naturalWidth / img.naturalHeight;
+        const designWidth = printAreaWidth;
+        const designHeight = designWidth / aspectRatio;
+        
+        // Constrain to fit within print area (maintains aspect ratio)
+        const constrained = constrainToPrintArea(printAreaX, printAreaY, designWidth, designHeight);
         
         const newDesignImage = {
           img,
           url: data.imageUrl,
-          x: printAreaX,
-          y: printAreaY,
-          width: printAreaWidth,
-          height: printAreaHeight
+          x: constrained.x,
+          y: constrained.y,
+          width: constrained.width,
+          height: constrained.height
         };
         
         setDesignImage(newDesignImage);
@@ -875,41 +1112,129 @@ export default function ProductDesigner({ onSave, onCancel }) {
     }
   };
   
-  // Handle image upload
+  // Show notification that auto-dismisses after 8 seconds with fade-out
+  const showNotification = (message) => {
+    setNotification(message);
+    
+    // Start fade-out animation 500ms before removing
+    setTimeout(() => {
+      const notificationEl = document.querySelector('.upload-notification');
+      if (notificationEl) {
+        notificationEl.classList.add('fade-out');
+      }
+    }, 7500);
+    
+    // Remove notification after fade-out completes
+    setTimeout(() => setNotification(''), 8000);
+  };
+
+  // Handle image upload (supports multiple images)
   const handleImageUpload = (e) => {
-    const file = e.target.files?.[0];
-    if (!file) return;
+    const files = Array.from(e.target.files || []);
+    if (files.length === 0) return;
     
-    setUploadedFileName(file.name);
+    // Validate all files are images
+    const invalidFiles = files.filter(f => !f.type.startsWith('image/'));
+    if (invalidFiles.length > 0) {
+      setError('Please upload only image files');
+      return;
+    }
     
-    const reader = new FileReader();
-    reader.onload = (event) => {
-      setUploadedImage(event.target.result);
-    };
-    reader.readAsDataURL(file);
+    // Limit to 5 images
+    if (uploadedImages.length + files.length > 5) {
+      setError('Maximum 5 images allowed');
+      return;
+    }
+    
+    console.log(`Uploading ${files.length} image(s)`);
+    
+    let successCount = 0;
+    const totalFiles = files.length;
+    
+    // Process all files
+    files.forEach((file, index) => {
+      console.log('File type:', file.type);
+      console.log('File size:', file.size);
+      
+      const reader = new FileReader();
+      reader.onload = (event) => {
+        const imageData = event.target.result;
+        console.log('Image uploaded:', file.name);
+        
+        // Check if this is actually a HEIC file (common on iPhones)
+        const base64Data = imageData.split(',')[1];
+        const decodedStart = atob(base64Data.substring(0, 40));
+        
+        if (decodedStart.includes('heic') || decodedStart.includes('heif')) {
+          setError(`${file.name}: HEIC/HEIF format not supported. Please convert to JPG or PNG first.`);
+          return;
+        }
+        
+        // Create a temporary image to test if it loads
+        const testImg = new Image();
+        testImg.onload = () => {
+          console.log('Test image loaded successfully, dimensions:', testImg.width, 'x', testImg.height);
+          
+          // Add to uploaded images array
+          setUploadedImages(prev => {
+            const newImages = [...prev, {
+              data: imageData,
+              name: file.name,
+              width: testImg.width,
+              height: testImg.height
+            }];
+            
+            // Show notification when all files are processed
+            successCount++;
+            if (successCount === totalFiles) {
+              showNotification(`${totalFiles} image${totalFiles > 1 ? 's' : ''} uploaded successfully!`);
+            }
+            
+            return newImages;
+          });
+        };
+        testImg.onerror = (err) => {
+          console.error('Test image failed to load:', err);
+          setError(`${file.name}: Browser cannot display this image format. Please use JPG, PNG, or WebP.`);
+        };
+        testImg.src = imageData;
+      };
+      reader.onerror = (error) => {
+        console.error('Error reading file:', error);
+        setError(`Failed to read ${file.name}`);
+      };
+      reader.readAsDataURL(file);
+    });
   };
   
-  // Remove uploaded image
-  const handleRemoveUploadedImage = () => {
-    setUploadedImage(null);
-    setUploadedFileName('');
+  // Remove a specific uploaded image by index
+  const handleRemoveUploadedImage = (indexToRemove) => {
+    setUploadedImages(prev => prev.filter((_, index) => index !== indexToRemove));
   };
   
   // Load design from history
   const handleLoadFromHistory = (historyItem, index) => {
     const canvas = canvasRef.current;
-    const printAreaX = canvas.width * 0.28;
-    const printAreaY = canvas.height * 0.35;
-    const printAreaWidth = canvas.width * 0.44;
-    const printAreaHeight = canvas.height * 0.35;
+    const printAreaX = canvas.width * PRINT_AREA_CONFIG.x;
+    const printAreaY = canvas.height * PRINT_AREA_CONFIG.y;
+    const printAreaWidth = canvas.width * PRINT_AREA_CONFIG.width;
+    
+    // Calculate height based on image aspect ratio
+    const img = historyItem.image;
+    const aspectRatio = img.naturalWidth / img.naturalHeight;
+    const designWidth = printAreaWidth;
+    const designHeight = designWidth / aspectRatio;
+    
+    // Constrain to fit within print area (maintains aspect ratio)
+    const constrained = constrainToPrintArea(printAreaX, printAreaY, designWidth, designHeight);
     
     setDesignImage({
       img: historyItem.image,
       url: historyItem.url,
-      x: printAreaX,
-      y: printAreaY,
-      width: printAreaWidth,
-      height: printAreaHeight
+      x: constrained.x,
+      y: constrained.y,
+      width: constrained.width,
+      height: constrained.height
     });
     
     setCurrentHistoryIndex(index);
@@ -920,39 +1245,69 @@ export default function ProductDesigner({ onSave, onCancel }) {
     if (!textInput.trim()) return;
     
     const canvas = canvasRef.current;
+    const printAreaX = canvas.width * PRINT_AREA_CONFIG.x;
+    const printAreaY = canvas.height * PRINT_AREA_CONFIG.y;
+    const printAreaWidth = canvas.width * PRINT_AREA_CONFIG.width;
+    const printAreaHeight = canvas.height * PRINT_AREA_CONFIG.height;
+    
+    // Default font size
+    const defaultFontSize = 48;
+    
+    // Measure text at default size
     const measurementCtx = canvas.getContext('2d');
-    measurementCtx.font = `${fontSize}px ${textFont}`;
+    measurementCtx.font = `${defaultFontSize}px ${textFont}`;
     const measuredWidth = measurementCtx.measureText(textInput).width;
+    
+    // Calculate text box dimensions
+    // Width matches print area width, height based on font size with padding
+    const textBoxWidth = printAreaWidth;
+    const textBoxHeight = defaultFontSize * 1.5; // Add padding around text
+    
+    // Center text box in print area
+    const textBoxX = printAreaX;
+    const textBoxY = printAreaY + (printAreaHeight - textBoxHeight) / 2;
+    
     const newText = {
       text: textInput,
       font: textFont,
       color: textColor,
-      fontSize: fontSize,
+      fontSize: defaultFontSize,
+      originalFontSize: defaultFontSize, // Store original font size for scaling
       warpStyle: textWarpStyle,
-      x: canvas.width * 0.25,
-      y: canvas.height * 0.5,
-      width: Math.max(measuredWidth, canvas.width * 0.3),
-      height: fontSize
+      x: textBoxX,
+      y: textBoxY,
+      width: textBoxWidth,
+      height: textBoxHeight,
+      originalWidth: textBoxWidth, // Store original width for scaling
+      aspectRatio: textBoxWidth / textBoxHeight // Store original aspect ratio
     };
     
     setTextElement(newText);
     setShowTextEditor(false);
+    setIsTextSelected(true);
   };
   
   // Handle sprite addition
   const handleAddSprite = (emoji) => {
     const canvas = canvasRef.current;
+    const printAreaX = canvas.width * PRINT_AREA_CONFIG.x;
+    const printAreaY = canvas.width * PRINT_AREA_CONFIG.y;
+    
     const newSprite = {
       emoji,
       size: 60,
-      x: canvas.width * 0.4,
-      y: canvas.height * 0.4,
+      x: printAreaX + 20,
+      y: printAreaY + 20,
       width: 60,
       height: 60,
-      isSelected: false
+      aspectRatio: 1, // Emojis are always square
+      isSelected: true // Auto-select newly added sprite
     };
     
-    setSprites([...sprites, newSprite]);
+    // Deselect other elements
+    setIsDesignSelected(false);
+    setIsTextSelected(false);
+    setSprites([...sprites.map(s => ({ ...s, isSelected: false })), newSprite]);
   };
   
   // Save design
@@ -962,32 +1317,111 @@ export default function ProductDesigner({ onSave, onCancel }) {
       return;
     }
     
-    const canvas = canvasRef.current;
-    const designData = {
-      imageUrl: canvas.toDataURL('image/png'),
-      tshirtColor,
-      tshirtSize,
-      price: 29.99,
-      timestamp: new Date().toISOString()
-    };
+    // Validate required fields
+    if (!productTitle.trim()) {
+      setError('Please enter a product title');
+      return;
+    }
     
-    onSave(designData);
+    if (!productPrice || parseFloat(productPrice) <= 0) {
+      setError('Please enter a valid price');
+      return;
+    }
+    
+    if (availableColors.length === 0) {
+      setError('Please select at least one color');
+      return;
+    }
+    
+    if (availableSizes.length === 0) {
+      setError('Please select at least one size');
+      return;
+    }
+    
+    try {
+      // Show loading state
+      setIsGenerating(true);
+      setError('');
+      
+      // Get creator session data
+      const creatorSession = getCreatorSession();
+      if (!creatorSession) {
+        setError('Session expired. Please log in again.');
+        setIsGenerating(false);
+        return;
+      }
+      
+      const canvas = canvasRef.current;
+      const designData = {
+        imageUrl: canvas.toDataURL('image/png'),
+        title: productTitle,
+        description: productDescription,
+        price: parseFloat(productPrice),
+        availableColors,
+        availableSizes,
+        timestamp: new Date().toISOString()
+      };
+      
+      // Call backend API to create product
+      const response = await fetch(`${API_BASE_URL}/api/shopify/create-product`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          productData: designData,
+          creatorId: creatorSession.uid
+        })
+      });
+      
+      if (!response.ok) {
+        const errorData = await response.json();
+        throw new Error(errorData.message || 'Failed to create product');
+      }
+      
+      const result = await response.json();
+      
+      // Success! Show notification and call callback
+      console.log('Product created successfully:', result);
+      
+      // Call the original onSave callback with result
+      onSave(result);
+      
+    } catch (error) {
+      console.error('Error creating product:', error);
+      setError(error.message || 'Failed to create product. Please try again.');
+      setIsGenerating(false);
+    }
   };
   
+  const handleProceedToOptions = () => {
+    if (!designImage && !textElement && sprites.length === 0) {
+      setError('Please add a design before proceeding');
+      return;
+    }
+    setCurrentStep('options');
+  };
+  
+  const handleBackToDesign = () => {
+    setCurrentStep('design');
+  };
+
   return (
-    <div className="product-designer">
-      <div className="designer-layout">
-        {/* Canvas Viewer */}
-        <div className="canvas-section canvas-card">
+    <div className={`product-designer step-${currentStep}`}>
+      <div className={`designer-layout ${currentStep === 'options' ? 'options-view' : ''}`}>
+        {/* Canvas Viewer - moves to right in options view */}
+        <div className={`canvas-section canvas-card ${currentStep === 'options' ? 'canvas-right' : ''}`}>
           <div className="tshirt-viewer">
             <div className="canvas-container">
-              {/* History Toggle Button */}
-              <button
-                className={`design-history-toggle ${showHistory ? 'active' : ''}`}
-                onClick={() => setShowHistory(!showHistory)}
-              >
-                History
-              </button>
+              {/* History Toggle Button - only show in design step */}
+              {currentStep === 'design' && (
+                <button
+                  className={`design-history-toggle ${showHistory ? 'active' : ''}`}
+                  onClick={() => setShowHistory(!showHistory)}
+                >
+                  History
+                </button>
+              )}
               
               {/* Design History Sidebar */}
               {showHistory && (
@@ -1018,120 +1452,125 @@ export default function ProductDesigner({ onSave, onCancel }) {
           </div>
           
           {/* Image Selector Thumbnails */}
-          <div className="image-selector">
-            <button
-              className={`thumbnail-btn ${currentView === 'template' ? 'active' : ''}`}
-              onClick={() => setCurrentView('template')}
-              title="Template View"
-            >
-              <img src={tshirtBase} alt="Template" />
-            </button>
-            <button
-              className={`thumbnail-btn ${currentView === 'realistic' ? 'active' : ''}`}
-              onClick={() => setCurrentView('realistic')}
-              title="Realistic View"
-            >
-              <img src="https://cdn.shopify.com/s/files/1/0916/8266/8909/files/t-front_realistic.png?v=1761181061" alt="Realistic" />
-            </button>
-            <button
-              className={`thumbnail-btn ${currentView === 'design-only' ? 'active' : ''}`}
-              onClick={() => setCurrentView('design-only')}
-              title="Design Only"
-              disabled={!designImage}
-              style={{ opacity: designImage ? 1 : 0.4 }}
-            >
-              <img src={designImage?.url || "https://cdn.shopify.com/s/files/1/0916/8266/8909/files/Blank_Image.png?v=1761257355"} alt="Design Only" />
-            </button>
-            <button
-              className={`thumbnail-btn ${currentView === 'person' ? 'active' : ''}`}
-              onClick={() => setCurrentView('person')}
-              title="Model View"
-            >
-              <img src="https://cdn.shopify.com/s/files/1/0916/8266/8909/files/t-front_with_person.png?v=1761181608" alt="On Model" />
-            </button>
-          </div>
+          {/* View Thumbnails - only show in design step */}
+          {currentStep === 'design' && (
+            <div className="image-selector">
+              <button
+                className={`thumbnail-btn ${currentView === 'template' ? 'active' : ''}`}
+                onClick={() => setCurrentView('template')}
+                title="Template View"
+              >
+                <img src={tshirtBase} alt="Template" />
+              </button>
+              <button
+                className={`thumbnail-btn ${currentView === 'realistic' ? 'active' : ''}`}
+                onClick={() => setCurrentView('realistic')}
+                title="Realistic View"
+              >
+                <img src="https://cdn.shopify.com/s/files/1/0916/8266/8909/files/t-front_realistic.png?v=1761181061" alt="Realistic" />
+              </button>
+              <button
+                className={`thumbnail-btn ${currentView === 'design-only' ? 'active' : ''}`}
+                onClick={() => designImage && setCurrentView('design-only')}
+                title={designImage ? "Design Only" : "Generate a design first"}
+                disabled={!designImage}
+                style={{ opacity: designImage ? 1 : 0.4, cursor: designImage ? 'pointer' : 'not-allowed' }}
+              >
+                <img src={designImage?.url || "https://cdn.shopify.com/s/files/1/0916/8266/8909/files/Blank_Image.png?v=1761257355"} alt={designImage ? "Design Only" : "Generate Design"} />
+              </button>
+              <button
+                className={`thumbnail-btn ${currentView === 'person' ? 'active' : ''}`}
+                onClick={() => setCurrentView('person')}
+                title="Model View"
+              >
+                <img src="https://cdn.shopify.com/s/files/1/0916/8266/8909/files/t-front_with_person.png?v=1761181608" alt="On Model" />
+              </button>
+            </div>
+          )}
           
-          {/* Instructions */}
-          <div className="instructions">
-            <strong>💡 How to use:</strong>
-            • Drag your design to reposition it<br />
-            • Use corner handles to resize<br />
-            • Design stays within print boundaries<br />
-            • Click thumbnails to preview different views
-          </div>
+          {/* Instructions - only show in design step */}
+          {currentStep === 'design' && (
+            <div className="instructions">
+              <strong>💡 How to use:</strong>
+              • Drag your design to reposition it<br />
+              • Use corner handles to resize<br />
+              • Design stays within print boundaries<br />
+              • Click thumbnails to preview different views
+            </div>
+          )}
         </div>
         
-        {/* Controls */}
-        <div className="controls-section">
-          {/* T-Shirt Options */}
-          <div className="control-group card">
-            <label className="control-label">T-Shirt Options</label>
-            
-            <div className="option-group">
-              <span className="option-label">Color</span>
-              <div className="options-row">
-                {colors.map(color => (
-                  <button
-                    key={color}
-                    className={`option-btn ${tshirtColor === color ? 'selected' : ''}`}
-                    onClick={() => setTshirtColor(color)}
-                  >
-                    {color}
-                  </button>
-                ))}
-              </div>
-            </div>
-            
-            <div className="option-group">
-              <span className="option-label">Size</span>
-              <div className="options-row">
-                {sizes.map(size => (
-                  <button
-                    key={size}
-                    className={`option-btn ${tshirtSize === size ? 'selected' : ''}`}
-                    onClick={() => setTshirtSize(size)}
-                  >
-                    {size}
-                  </button>
-                ))}
-              </div>
-            </div>
-          </div>
-          
-          {/* AI Generation */}
+        {/* Controls - Design Step */}
+        {currentStep === 'design' && (
+          <div className="controls-section">
+            {/* AI Generation */}
           <div className="control-group generator-card">
-            <div className="card-header">
-              <h3 className="card-title">AI Design Generator</h3>
-              <label className="upload-indicator" htmlFor="image-upload">
-                <span className={uploadedImage ? 'image-added' : ''}>
-                  {uploadedImage ? '✓ Image Added' : '+ Upload Image'}
-                </span>
-              </label>
+            <div className="generator-header">
+              <h3 className="generator-title">Design Generator</h3>
+              <div className="upload-controls">
+                <div className="banner-area">
+                  {notification && (
+                    <div className="upload-notification">
+                      {notification}
+                    </div>
+                  )}
+                  {error && (
+                    <div className="upload-error">
+                      {error}
+                      <button 
+                        className="error-dismiss-inline"
+                        onClick={() => setError('')}
+                        aria-label="Dismiss error"
+                      >
+                        ✕
+                      </button>
+                    </div>
+                  )}
+                </div>
+                <label className="upload-indicator" htmlFor="image-upload">
+                  <span>
+                    + {uploadedImages.length > 0 ? 'Add More Images' : 'Upload Images'}
+                  </span>
+                </label>
+              </div>
               <input
                 type="file"
                 id="image-upload"
                 accept="image/*"
+                multiple
                 onChange={handleImageUpload}
                 style={{ display: 'none' }}
               />
             </div>
             
-            {uploadedImage && (
-              <div className="image-preview-card">
-                <img src={uploadedImage} alt="Upload" className="preview-image" />
-                <div className="preview-info">
-                  <strong>Uploaded Image</strong>
-                  <p>{uploadedFileName}</p>
-                </div>
-                <button className="btn-remove" onClick={handleRemoveUploadedImage}>
-                  Remove
-                </button>
+            {uploadedImages.length > 0 && (
+              <div className="uploaded-images-container">
+                {uploadedImages.map((image, index) => (
+                  <div key={index} className="image-preview-card">
+                    <div className="image-number">{index + 1}</div>
+                    <img 
+                      src={image.data} 
+                      alt={image.name} 
+                      className="preview-image"
+                    />
+                    <div className="preview-info">
+                      <strong>Image {index + 1}</strong>
+                      <p>{image.name}</p>
+                      <small>{image.width} × {image.height}</small>
+                    </div>
+                    <button className="btn-remove" onClick={() => handleRemoveUploadedImage(index)}>
+                      ✕
+                    </button>
+                  </div>
+                ))}
               </div>
             )}
             
             <textarea
               className="prompt-field"
-              placeholder="Describe your t-shirt design..."
+              placeholder={uploadedImages.length > 0 
+                ? "Describe your design... (reference 'first image', 'second image', etc.)" 
+                : "Describe your t-shirt design..."}
               value={prompt}
               onChange={(e) => setPrompt(e.target.value)}
             />
@@ -1153,8 +1592,6 @@ export default function ProductDesigner({ onSave, onCancel }) {
                 </>
               )}
             </button>
-            
-            {error && <div className="error-box visible">{error}</div>}
           </div>
           
           {/* Text Editor */}
@@ -1194,15 +1631,6 @@ export default function ProductDesigner({ onSave, onCancel }) {
                     value={textColor}
                     onChange={(e) => setTextColor(e.target.value)}
                     className="color-picker"
-                  />
-                  
-                  <input
-                    type="range"
-                    min="20"
-                    max="120"
-                    value={fontSize}
-                    onChange={(e) => setFontSize(Number(e.target.value))}
-                    className="size-slider"
                   />
                 </div>
                 
@@ -1254,14 +1682,172 @@ export default function ProductDesigner({ onSave, onCancel }) {
           
           {/* Save Actions */}
           <div className="actions-group">
-            <button className="btn btn-primary btn-save" onClick={handleSave}>
-              💾 Save Product
+            <button className="btn btn-primary btn-save" onClick={handleProceedToOptions}>
+              Choose Clothing Options →
             </button>
             <button className="btn btn-secondary" onClick={onCancel}>
               Cancel
             </button>
           </div>
         </div>
+        )}
+        
+        {/* Product Options - Options Step */}
+        {currentStep === 'options' && (
+          <div className="options-section">
+            <div className="options-header">
+              <button className="btn-back" onClick={handleBackToDesign}>
+                ← Back to Design
+              </button>
+              <h2>Product Options</h2>
+            </div>
+            
+            {/* Preview Card with Thumbnails */}
+            <div className="option-card preview-card">
+              <h3 className="option-card-title">Design Preview</h3>
+              <p className="option-card-description">Preview how your design will look</p>
+              
+              <div className="preview-thumbnails">
+                <button
+                  className={`preview-thumbnail ${currentView === 'template' ? 'active' : ''}`}
+                  onClick={() => setCurrentView('template')}
+                  title="Template View"
+                >
+                  <img src={tshirtBase} alt="Template" />
+                  <span className="thumbnail-label">Template</span>
+                </button>
+                <button
+                  className={`preview-thumbnail ${currentView === 'realistic' ? 'active' : ''}`}
+                  onClick={() => setCurrentView('realistic')}
+                  title="Realistic View"
+                >
+                  <img src="https://cdn.shopify.com/s/files/1/0916/8266/8909/files/t-front_realistic.png?v=1761181061" alt="Realistic" />
+                  <span className="thumbnail-label">Realistic</span>
+                </button>
+                <button
+                  className={`preview-thumbnail ${currentView === 'design-only' ? 'active' : ''}`}
+                  onClick={() => designImage && setCurrentView('design-only')}
+                  title={designImage ? "Design Only" : "Generate a design first"}
+                  disabled={!designImage}
+                  style={{ opacity: designImage ? 1 : 0.4, cursor: designImage ? 'pointer' : 'not-allowed' }}
+                >
+                  <img src={designImage?.url || "https://cdn.shopify.com/s/files/1/0916/8266/8909/files/Blank_Image.png?v=1761257355"} alt={designImage ? "Design Only" : "Generate Design"} />
+                  <span className="thumbnail-label">Design</span>
+                </button>
+                <button
+                  className={`preview-thumbnail ${currentView === 'person' ? 'active' : ''}`}
+                  onClick={() => setCurrentView('person')}
+                  title="Model View"
+                >
+                  <img src="https://cdn.shopify.com/s/files/1/0916/8266/8909/files/t-front_with_person.png?v=1761181608" alt="On Model" />
+                  <span className="thumbnail-label">On Model</span>
+                </button>
+              </div>
+            </div>
+            
+            <div className="options-content">
+              {/* Product Details */}
+              <div className="option-card">
+                <h3 className="option-card-title">Product Details</h3>
+                
+                <div className="form-group">
+                  <label className="form-label">Product Title *</label>
+                  <input
+                    type="text"
+                    className="form-input"
+                    placeholder="e.g., Awesome T-Shirt Design"
+                    value={productTitle}
+                    onChange={(e) => setProductTitle(e.target.value)}
+                  />
+                </div>
+                
+                <div className="form-group">
+                  <label className="form-label">Description</label>
+                  <textarea
+                    className="form-textarea"
+                    placeholder="Describe your product..."
+                    rows="4"
+                    value={productDescription}
+                    onChange={(e) => setProductDescription(e.target.value)}
+                  />
+                </div>
+                
+                <div className="form-group">
+                  <label className="form-label">Price (USD) *</label>
+                  <input
+                    type="number"
+                    className="form-input"
+                    placeholder="29.99"
+                    step="0.01"
+                    min="0"
+                    value={productPrice}
+                    onChange={(e) => setProductPrice(e.target.value)}
+                  />
+                </div>
+              </div>
+              
+              {/* Available Colors */}
+              <div className="option-card">
+                <h3 className="option-card-title">Available Colors</h3>
+                <p className="option-card-description">Select which colors customers can choose from</p>
+                
+                <div className="checkbox-grid">
+                  {colors.map(color => (
+                    <label key={color} className="checkbox-label">
+                      <input
+                        type="checkbox"
+                        checked={availableColors.includes(color)}
+                        onChange={(e) => {
+                          if (e.target.checked) {
+                            setAvailableColors([...availableColors, color]);
+                          } else {
+                            setAvailableColors(availableColors.filter(c => c !== color));
+                          }
+                        }}
+                      />
+                      <span className="checkbox-text">{color.charAt(0).toUpperCase() + color.slice(1)}</span>
+                    </label>
+                  ))}
+                </div>
+              </div>
+              
+              {/* Available Sizes */}
+              <div className="option-card">
+                <h3 className="option-card-title">Available Sizes</h3>
+                <p className="option-card-description">Select which sizes customers can choose from</p>
+                
+                <div className="checkbox-grid">
+                  {sizes.map(size => (
+                    <label key={size} className="checkbox-label">
+                      <input
+                        type="checkbox"
+                        checked={availableSizes.includes(size)}
+                        onChange={(e) => {
+                          if (e.target.checked) {
+                            setAvailableSizes([...availableSizes, size]);
+                          } else {
+                            setAvailableSizes(availableSizes.filter(s => s !== size));
+                          }
+                        }}
+                      />
+                      <span className="checkbox-text">{size}</span>
+                    </label>
+                  ))}
+                </div>
+              </div>
+              
+              {/* Launch Actions */}
+              <div className="launch-actions">
+                <button className="btn btn-primary btn-launch" onClick={handleSave}>
+                  🚀 Launch Product
+                </button>
+                <button className="btn btn-secondary" onClick={handleBackToDesign}>
+                  Back to Design
+                </button>
+              </div>
+            </div>
+          </div>
+        )}
       </div>
     </div>
   );
