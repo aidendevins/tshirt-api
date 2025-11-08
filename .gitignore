@@ -16,6 +16,9 @@ pids
 coverage/
 *.lcov
 
+# deprecated files
+old/
+
 # nyc test coverage
 .nyc_output
 

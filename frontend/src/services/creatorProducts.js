@@ -29,6 +29,7 @@ export const formatProductData = (product) => {
     price: `$${parseFloat(product.price).toFixed(2)}`,
     status: product.status === 'active' ? 'Active' : 'Draft',
     image: product.image,
+    images: product.images || [], // Include all product images for carousel
     handle: product.handle,
     createdAt: new Date(product.createdAt).toLocaleDateString(),
     vendor: product.vendor,

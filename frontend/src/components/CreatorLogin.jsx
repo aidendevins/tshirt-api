@@ -31,7 +31,7 @@ export default function CreatorLogin({ onAuthSuccess }) {
     } else if (!isLogin) {
       const passwordValidation = validatePasswordStrength(formData.password);
       if (!passwordValidation.isValid) {
-        newErrors.password = passwordValidation.errors[0]; // Show first error
+        newErrors.password = passwordValidation.errors[0];
       }
     } else if (formData.password.length < 6) {
       newErrors.password = 'Password must be at least 6 characters';
@@ -69,12 +69,10 @@ export default function CreatorLogin({ onAuthSuccess }) {
       [name]: value
     }));
     
-    // Update password strength for signup
     if (name === 'password' && !isLogin) {
       setPasswordStrength(getPasswordStrength(value));
     }
     
-    // Clear error when user starts typing
     if (errors[name]) {
       setErrors(prev => ({
         ...prev,
@@ -108,7 +106,6 @@ export default function CreatorLogin({ onAuthSuccess }) {
         });
       }
       
-      // On success, call the parent callback
       onAuthSuccess(result.creatorData);
 
     } catch (error) {
@@ -151,146 +148,171 @@ export default function CreatorLogin({ onAuthSuccess }) {
   };
 
   return (
-    <div className="creator-login">
-      <div className="auth-card">
-        <div className="auth-header">
-          <h2>{isLogin ? 'Creator Login' : 'Creator Sign Up'}</h2>
-          <p>{isLogin ? 'Sign in to access the creator tools' : 'Create your creator account'}</p>
-        </div>
-
-        <form onSubmit={handleSubmit} className="auth-form">
-          {authError && (
-            <div className="error-message auth-error">
-              {authError}
-            </div>
-          )}
-
-          {!isLogin && (
-            <>
-              <div className="form-group">
-                <label htmlFor="firstName">First Name</label>
-                <input
-                  type="text"
-                  id="firstName"
-                  name="firstName"
-                  value={formData.firstName}
-                  onChange={handleInputChange}
-                  className={errors.firstName ? 'error' : ''}
-                  placeholder="Enter your first name"
-                />
-                {errors.firstName && <span className="error-text">{errors.firstName}</span>}
-              </div>
-
-              <div className="form-group">
-                <label htmlFor="lastName">Last Name</label>
-                <input
-                  type="text"
-                  id="lastName"
-                  name="lastName"
-                  value={formData.lastName}
-                  onChange={handleInputChange}
-                  className={errors.lastName ? 'error' : ''}
-                  placeholder="Enter your last name"
-                />
-                {errors.lastName && <span className="error-text">{errors.lastName}</span>}
-              </div>
-
-              <div className="form-group">
-                <label htmlFor="businessName">Business Name</label>
-                <input
-                  type="text"
-                  id="businessName"
-                  name="businessName"
-                  value={formData.businessName}
-                  onChange={handleInputChange}
-                  className={errors.businessName ? 'error' : ''}
-                  placeholder="Enter your business name"
-                />
-                {errors.businessName && <span className="error-text">{errors.businessName}</span>}
-              </div>
-            </>
-          )}
-
-          <div className="form-group">
-            <label htmlFor="email">Email</label>
-            <input
-              type="email"
-              id="email"
-              name="email"
-              value={formData.email}
-              onChange={handleInputChange}
-              className={errors.email ? 'error' : ''}
-              placeholder="Enter your email"
-            />
-            {errors.email && <span className="error-text">{errors.email}</span>}
+    <div className="min-h-screen gradient-bg flex items-center justify-center px-4 py-20">
+      <div className="w-full max-w-md">
+        <div className="glass-card p-8 space-y-6">
+          {/* Header */}
+          <div className="text-center space-y-2">
+            <h2 className="text-3xl font-bold text-white">
+              {isLogin ? 'Creator Login' : 'Creator Sign Up'}
+            </h2>
+            <p className="text-white/60">
+              {isLogin ? 'Sign in to access the creator tools' : 'Create your creator account'}
+            </p>
           </div>
 
-          <div className="form-group">
-            <label htmlFor="password">Password</label>
-            <input
-              type="password"
-              id="password"
-              name="password"
-              value={formData.password}
-              onChange={handleInputChange}
-              className={errors.password ? 'error' : ''}
-              placeholder="Enter your password"
-            />
-            {errors.password && <span className="error-text">{errors.password}</span>}
-            
-            {!isLogin && formData.password && (
-              <div className="password-strength">
-                <div className="strength-bar">
-                  <div 
-                    className="strength-fill" 
-                    style={{ 
-                      width: `${(passwordStrength / 5) * 100}%`,
-                      backgroundColor: getPasswordStrengthColor(passwordStrength)
-                    }}
-                  ></div>
-                </div>
-                <span 
-                  className="strength-text"
-                  style={{ color: getPasswordStrengthColor(passwordStrength) }}
-                >
-                  {getPasswordStrengthText(passwordStrength)}
-                </span>
+          {/* Form */}
+          <form onSubmit={handleSubmit} className="space-y-4">
+            {authError && (
+              <div className="bg-red-500/10 border border-red-500/30 rounded-2xl p-4 text-red-300 text-sm">
+                {authError}
               </div>
             )}
-          </div>
 
-          {!isLogin && (
-            <div className="form-group">
-              <label htmlFor="confirmPassword">Confirm Password</label>
+            {!isLogin && (
+              <>
+                <div className="space-y-2">
+                  <label htmlFor="firstName" className="block text-sm font-medium text-white/80">
+                    First Name
+                  </label>
+                  <input
+                    type="text"
+                    id="firstName"
+                    name="firstName"
+                    value={formData.firstName}
+                    onChange={handleInputChange}
+                    className={`glass-input w-full ${errors.firstName ? 'border-red-500/50' : ''}`}
+                    placeholder="Enter your first name"
+                  />
+                  {errors.firstName && <p className="text-red-300 text-xs mt-1">{errors.firstName}</p>}
+                </div>
+
+                <div className="space-y-2">
+                  <label htmlFor="lastName" className="block text-sm font-medium text-white/80">
+                    Last Name
+                  </label>
+                  <input
+                    type="text"
+                    id="lastName"
+                    name="lastName"
+                    value={formData.lastName}
+                    onChange={handleInputChange}
+                    className={`glass-input w-full ${errors.lastName ? 'border-red-500/50' : ''}`}
+                    placeholder="Enter your last name"
+                  />
+                  {errors.lastName && <p className="text-red-300 text-xs mt-1">{errors.lastName}</p>}
+                </div>
+
+                <div className="space-y-2">
+                  <label htmlFor="businessName" className="block text-sm font-medium text-white/80">
+                    Business Name
+                  </label>
+                  <input
+                    type="text"
+                    id="businessName"
+                    name="businessName"
+                    value={formData.businessName}
+                    onChange={handleInputChange}
+                    className={`glass-input w-full ${errors.businessName ? 'border-red-500/50' : ''}`}
+                    placeholder="Enter your business name"
+                  />
+                  {errors.businessName && <p className="text-red-300 text-xs mt-1">{errors.businessName}</p>}
+                </div>
+              </>
+            )}
+
+            <div className="space-y-2">
+              <label htmlFor="email" className="block text-sm font-medium text-white/80">
+                Email
+              </label>
+              <input
+                type="email"
+                id="email"
+                name="email"
+                value={formData.email}
+                onChange={handleInputChange}
+                className={`glass-input w-full ${errors.email ? 'border-red-500/50' : ''}`}
+                placeholder="Enter your email"
+              />
+              {errors.email && <p className="text-red-300 text-xs mt-1">{errors.email}</p>}
+            </div>
+
+            <div className="space-y-2">
+              <label htmlFor="password" className="block text-sm font-medium text-white/80">
+                Password
+              </label>
               <input
                 type="password"
-                id="confirmPassword"
-                name="confirmPassword"
-                value={formData.confirmPassword}
+                id="password"
+                name="password"
+                value={formData.password}
                 onChange={handleInputChange}
-                className={errors.confirmPassword ? 'error' : ''}
-                placeholder="Confirm your password"
+                className={`glass-input w-full ${errors.password ? 'border-red-500/50' : ''}`}
+                placeholder="Enter your password"
               />
-              {errors.confirmPassword && <span className="error-text">{errors.confirmPassword}</span>}
+              {errors.password && <p className="text-red-300 text-xs mt-1">{errors.password}</p>}
+              
+              {!isLogin && formData.password && (
+                <div className="space-y-2 mt-2">
+                  <div className="h-1 bg-white/10 rounded-full overflow-hidden">
+                    <div 
+                      className="h-full transition-all duration-300" 
+                      style={{ 
+                        width: `${(passwordStrength / 5) * 100}%`,
+                        backgroundColor: getPasswordStrengthColor(passwordStrength)
+                      }}
+                    ></div>
+                  </div>
+                  <span 
+                    className="text-xs font-medium"
+                    style={{ color: getPasswordStrengthColor(passwordStrength) }}
+                  >
+                    {getPasswordStrengthText(passwordStrength)}
+                  </span>
+                </div>
+              )}
             </div>
-          )}
 
-          <button 
-            type="submit" 
-            className="btn-auth"
-            disabled={isLoading}
-          >
-            {isLoading ? 'Processing...' : (isLogin ? 'Sign In' : 'Create Account')}
-          </button>
-        </form>
+            {!isLogin && (
+              <div className="space-y-2">
+                <label htmlFor="confirmPassword" className="block text-sm font-medium text-white/80">
+                  Confirm Password
+                </label>
+                <input
+                  type="password"
+                  id="confirmPassword"
+                  name="confirmPassword"
+                  value={formData.confirmPassword}
+                  onChange={handleInputChange}
+                  className={`glass-input w-full ${errors.confirmPassword ? 'border-red-500/50' : ''}`}
+                  placeholder="Confirm your password"
+                />
+                {errors.confirmPassword && <p className="text-red-300 text-xs mt-1">{errors.confirmPassword}</p>}
+              </div>
+            )}
 
-        <div className="auth-footer">
-          <p>
-            {isLogin ? "Don't have an account?" : "Already have an account?"}
-            <button type="button" onClick={toggleMode} className="link-button">
-              {isLogin ? 'Sign up' : 'Sign in'}
+            <button 
+              type="submit" 
+              className="w-full btn-primary mt-6"
+              disabled={isLoading}
+            >
+              {isLoading ? 'Processing...' : (isLogin ? 'Sign In' : 'Create Account')}
             </button>
-          </p>
+          </form>
+
+          {/* Footer */}
+          <div className="text-center pt-4 border-t border-white/10">
+            <p className="text-white/60 text-sm">
+              {isLogin ? "Don't have an account?" : "Already have an account?"}
+              <button 
+                type="button" 
+                onClick={toggleMode} 
+                className="ml-2 text-purple-bright hover:text-purple-light font-medium transition-colors"
+              >
+                {isLogin ? 'Sign up' : 'Sign in'}
+              </button>
+            </p>
+          </div>
         </div>
       </div>
     </div>

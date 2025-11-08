@@ -1,16 +1,48 @@
 import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { fetchCreatorProducts, formatProductData } from '../services/creatorProducts';
+import Sidebar from './Sidebar';
 
 export default function CreatorDashboard({ user }) {
   const navigate = useNavigate();
-  const [activeTab, setActiveTab] = useState('creator'); // 'creator' or 'community'
   const [creatorProducts, setCreatorProducts] = useState([]);
-  const [communityProducts, setCommunityProducts] = useState([]);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState(null);
 
-  // Fetch creator's products on component mount
+  // Sample product templates for "Create your first product" section
+  const productTemplates = [
+    {
+      id: 1,
+      name: 'Cotton Heritage Unisex Premium Hoodie',
+      price: 'From $26.95',
+      image: 'https://images.unsplash.com/photo-1556821840-3a63f95609a7?w=400&h=400&fit=crop'
+    },
+    {
+      id: 2,
+      name: 'Comfort Colors Garment-Dyed Heavyweight T-Shirt',
+      price: 'From $15.40',
+      image: 'https://images.unsplash.com/photo-1521572163474-6864f9cf17ab?w=400&h=400&fit=crop'
+    },
+    {
+      id: 3,
+      name: 'Gildan Heavyweight T-Shirt',
+      price: 'From $9.50',
+      image: 'https://images.unsplash.com/photo-1583743814966-8936f5b7be1a?w=400&h=400&fit=crop'
+    },
+    {
+      id: 4,
+      name: 'Bella+Canvas Supersoft T-Shirt',
+      price: 'From $11.75',
+      image: 'https://images.unsplash.com/photo-1576566588028-4147f3842f27?w=400&h=400&fit=crop'
+    },
+    {
+      id: 5,
+      name: 'Independent Trading Co. Midweight Hoodie',
+      price: 'From $31.57',
+      image: 'https://images.unsplash.com/photo-1620799140408-edc6dcb6d633?w=400&h=400&fit=crop'
+    }
+  ];
+
   useEffect(() => {
     const loadProducts = async () => {
       if (!user?.uid) return;
@@ -25,7 +57,6 @@ export default function CreatorDashboard({ user }) {
           setError(data.error);
         } else {
           setCreatorProducts(data.creatorProducts.map(formatProductData));
-          setCommunityProducts(data.communityProducts.map(formatProductData));
         }
       } catch (err) {
         setError('Failed to load products');
@@ -42,121 +73,239 @@ export default function CreatorDashboard({ user }) {
     navigate('/creator/design');
   };
 
-  const ProductCard = ({ product, isCommunity = false }) => (
-    <div className="product-card">
-      <div className="product-image">
-        <img src={product.image} alt={product.name} />
-        <div className={`product-status ${product.status.toLowerCase()}`}>
-          {product.status}
+  const ProductCard = ({ product, isCommunity = false }) => {
+    const [currentImageIndex, setCurrentImageIndex] = useState(0);
+    
+    // Handle multiple images or fallback to single image
+    // Shopify returns images as an array of image objects with 'src' property
+    const images = product.images && Array.isArray(product.images) 
+      ? product.images.map(img => typeof img === 'string' ? img : (img.src || img))
+      : (product.image ? [product.image] : []);
+    const currentImage = images[currentImageIndex] || product.image;
+    const hasMultipleImages = images.length > 1;
+    
+    const nextImage = () => {
+      setCurrentImageIndex((prev) => (prev + 1) % images.length);
+    };
+    
+    const prevImage = () => {
+      setCurrentImageIndex((prev) => (prev - 1 + images.length) % images.length);
+    };
+    
+    return (
+      <div className="glass-card p-0 overflow-hidden hover:shadow-glow-lg transition-all duration-300 hover:scale-105">
+        <div className="relative aspect-square group">
+          <img src={currentImage} alt={product.name} className="w-full h-full object-cover" />
+          
+          {/* Image Navigation Buttons */}
+          {hasMultipleImages && (
+            <>
+              <button
+                onClick={(e) => {
+                  e.stopPropagation();
+                  prevImage();
+                }}
+                className="absolute left-2 top-1/2 -translate-y-1/2 w-8 h-8 bg-black/50 hover:bg-black/70 backdrop-blur-sm rounded-full flex items-center justify-center text-white opacity-0 group-hover:opacity-100 transition-opacity"
+                title="Previous image"
+              >
+                <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7" />
+                </svg>
+              </button>
+              
+              <button
+                onClick={(e) => {
+                  e.stopPropagation();
+                  nextImage();
+                }}
+                className="absolute right-2 top-1/2 -translate-y-1/2 w-8 h-8 bg-black/50 hover:bg-black/70 backdrop-blur-sm rounded-full flex items-center justify-center text-white opacity-0 group-hover:opacity-100 transition-opacity"
+                title="Next image"
+              >
+                <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
+                </svg>
+              </button>
+              
+              {/* Image Counter */}
+              <div className="absolute bottom-2 right-2 px-2 py-1 bg-black/50 backdrop-blur-sm rounded-full text-xs text-white">
+                {currentImageIndex + 1} / {images.length}
+              </div>
+            </>
+          )}
+          
+          {/* Status Badge */}
+          <div className={`absolute top-4 right-4 px-3 py-1 rounded-full text-xs font-semibold backdrop-blur-md ${
+            product.status.toLowerCase() === 'active' 
+              ? 'bg-green-500/30 border border-green-500/50 text-green-300' 
+              : 'bg-yellow-500/30 border border-yellow-500/50 text-yellow-300'
+          }`}>
+            {product.status}
+          </div>
+        </div>
+        <div className="p-6 space-y-4">
+          <div>
+            <h3 className="text-xl font-bold text-white mb-2">{product.name}</h3>
+            <p className="text-2xl font-bold text-gradient">{product.price}</p>
+            <p className="text-sm text-white/60 mt-1">Created: {product.createdAt}</p>
+            {isCommunity && (
+              <p className="text-sm text-purple-bright italic mt-1">by {product.fanName}</p>
+            )}
+          </div>
+          {product.tags && product.tags.length > 0 && (
+            <div className="flex flex-wrap gap-2">
+              {product.tags.slice(0, 3).map(tag => (
+                <span key={tag} className="px-3 py-1 bg-white/5 backdrop-blur-sm border border-white/10 rounded-full text-xs text-white/70">
+                  #{tag}
+                </span>
+              ))}
+            </div>
+          )}
+          <div className="flex gap-2 pt-2">
+            <button className="flex-1 glass-button py-2 text-sm">Edit</button>
+            <button className="flex-1 btn-danger py-2 text-sm">Delete</button>
+          </div>
         </div>
       </div>
-      <div className="product-info">
-        <h3>{product.name}</h3>
-        <p className="product-price">{product.price}</p>
-        <p className="product-created">Created: {product.createdAt}</p>
-        {isCommunity && (
-          <p className="fan-credit">by {product.fanName}</p>
-        )}
-        {product.tags && product.tags.length > 0 && (
-          <div className="product-tags">
-            {product.tags.slice(0, 3).map(tag => (
-              <span key={tag} className="tag">#{tag}</span>
-            ))}
-          </div>
-        )}
-      </div>
-      <div className="product-actions">
-        <button className="btn-secondary">Edit</button>
-        <button className="btn-danger">Delete</button>
-      </div>
-    </div>
-  );
+    );
+  };
 
-  const currentProducts = activeTab === 'creator' ? creatorProducts : communityProducts;
+  const hasProducts = creatorProducts.length > 0;
 
   return (
-    <div className="creator-dashboard">
-      <div className="dashboard-header">
-        <div className="header-content">
-          <div className="welcome-section">
-            <h1>Welcome back, {user?.firstName || 'Creator'}!</h1>
-            <p>Manage your products and community designs</p>
-          </div>
-          <div className="header-actions">
-            <button onClick={handleCreateProduct} className="btn-primary">
-              + Create New Product
-            </button>
-          </div>
-        </div>
-      </div>
-
-      <div className="dashboard-content">
-        <div className="dashboard-tabs">
-          <button 
-            className={`tab-button ${activeTab === 'creator' ? 'active' : ''}`}
-            onClick={() => setActiveTab('creator')}
-          >
-            Your Designs ({creatorProducts.length})
-          </button>
-          <button 
-            className={`tab-button ${activeTab === 'community' ? 'active' : ''}`}
-            onClick={() => setActiveTab('community')}
-          >
-            Community Designs ({communityProducts.length})
-          </button>
-        </div>
-
-        <div className="products-section">
-          <div className="section-header">
-            <h2>
-              {activeTab === 'creator' ? 'Your Product Designs' : 'Community Designs'}
-            </h2>
-            <p>
-              {activeTab === 'creator' 
-                ? 'Products you\'ve designed and submitted' 
-                : 'Designs created by your fans using the AI tool'
-              }
-            </p>
-          </div>
-
-          {isLoading ? (
-            <div className="loading-state">
-              <div className="spinner"></div>
-              <p>Loading your products...</p>
+    <div className="flex min-h-screen gradient-bg">
+      <Sidebar />
+      
+      {/* Main Content */}
+      <main className="ml-64 flex-1 p-8">
+        {isLoading ? (
+          <div className="flex items-center justify-center min-h-screen">
+            <div className="glass-card p-12 text-center">
+              <div className="w-16 h-16 border-4 border-purple-bright/30 border-t-purple-bright rounded-full animate-spin mx-auto mb-4"></div>
+              <p className="text-white/60">Loading your products...</p>
             </div>
-          ) : error ? (
-            <div className="error-state">
-              <p>❌ {error}</p>
+          </div>
+        ) : error ? (
+          <div className="flex items-center justify-center min-h-screen">
+            <div className="glass-card p-12 text-center space-y-4">
+              <p className="text-red-300 text-lg">❌ {error}</p>
               <button onClick={() => window.location.reload()} className="btn-primary">
                 Try Again
               </button>
             </div>
-          ) : (
-            <div className="products-grid">
-              {currentProducts.length > 0 ? (
-                currentProducts.map(product => (
-                  <ProductCard key={product.id} product={product} isCommunity={activeTab === 'community'} />
-                ))
-              ) : (
-                <div className="empty-state">
-                  <h3>No products yet</h3>
-                  <p>
-                    {activeTab === 'creator' 
-                      ? 'Create your first product design to get started!' 
-                      : 'Share your AI tool with fans to start receiving community designs!'
-                    }
-                  </p>
-                  {activeTab === 'creator' && (
-                    <button onClick={handleCreateProduct} className="btn-primary">
-                      Create Your First Product
-                    </button>
-                  )}
-                </div>
-              )}
-            </div>
-          )}
-        </div>
-      </div>
+          </div>
+        ) : (
+          <>
+            {!hasProducts ? (
+              /* Show "Create your first product" splash when no products */
+              <div className="glass-card p-8">
+                    <div className="flex items-start justify-between mb-6">
+                      <div>
+                        <h1 className="text-3xl font-bold text-white mb-2">
+                          You're just a few steps away from launch!
+                        </h1>
+                        <p className="text-white/60">0% complete</p>
+                      </div>
+                      <button className="text-white/60 hover:text-white text-sm flex items-center gap-2">
+                        <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                        </svg>
+                        Skip all
+                      </button>
+                    </div>
+
+                    {/* Progress Bar */}
+                    <div className="h-2 bg-white/10 rounded-full overflow-hidden mb-8">
+                      <div className="h-full bg-gradient-to-r from-green-500 to-emerald-500 w-0"></div>
+                    </div>
+
+                    {/* Step 1: Create your first product */}
+                    <div className="space-y-4">
+                      <div className="flex items-center justify-between">
+                        <div className="flex items-center gap-3">
+                          <div className="w-8 h-8 rounded-full bg-white/10 flex items-center justify-center text-white font-semibold">
+                            1
+                          </div>
+                          <h2 className="text-xl font-semibold text-white">Create your first product</h2>
+                        </div>
+                        <div className="flex gap-3">
+                          <button className="glass-button">Browse all</button>
+                          <button onClick={handleCreateProduct} className="btn-primary">
+                            Create product
+                          </button>
+                        </div>
+                      </div>
+
+                      {/* Product Templates Grid */}
+                      <div className="grid grid-cols-5 gap-4 mt-6">
+                        {productTemplates.map((template) => (
+                          <div 
+                            key={template.id}
+                            className="glass-card p-0 overflow-hidden hover:shadow-glow transition-all duration-300 cursor-pointer group"
+                            onClick={handleCreateProduct}
+                          >
+                            <div className="aspect-square bg-white/5 overflow-hidden">
+                              <img 
+                                src={template.image} 
+                                alt={template.name}
+                                className="w-full h-full object-cover group-hover:scale-110 transition-transform duration-300"
+                              />
+                            </div>
+                            <div className="p-3">
+                              <h3 className="text-sm font-medium text-white mb-1 line-clamp-2">
+                                {template.name}
+                              </h3>
+                              <p className="text-xs text-purple-bright font-semibold">
+                                {template.price}
+                              </p>
+                            </div>
+                          </div>
+                        ))}
+                      </div>
+
+                      {/* Step 2 */}
+                      <div className="flex items-center gap-3 mt-8 pt-6 border-t border-white/10">
+                        <div className="w-8 h-8 rounded-full bg-white/10 flex items-center justify-center text-white/60 font-semibold">
+                          2
+                        </div>
+                        <h2 className="text-lg text-white/60">Customize the look of your site</h2>
+                      </div>
+                    </div>
+                  </div>
+                ) : (
+                  /* Show "Your Products" carousel when products exist */
+                  <div className="space-y-8">
+                    <div className="glass-card p-8">
+                      <div className="flex items-center justify-between mb-6">
+                        <div>
+                          <h1 className="text-3xl font-bold text-white mb-2">Your Products</h1>
+                          <p className="text-white/60">{creatorProducts.length} product{creatorProducts.length !== 1 ? 's' : ''} designed</p>
+                        </div>
+                        <div className="flex gap-3">
+                          <button onClick={() => navigate('/creator/products')} className="glass-button">
+                            View All
+                          </button>
+                          <button onClick={handleCreateProduct} className="btn-primary">
+                            + Create New Product
+                          </button>
+                        </div>
+                      </div>
+
+                      {/* Horizontal Scrollable Product Carousel */}
+                      <div className="relative">
+                        <div className="flex gap-6 overflow-x-auto pb-4 scrollbar-thin scrollbar-thumb-white/10 scrollbar-track-transparent hover:scrollbar-thumb-white/20">
+                          {creatorProducts.map(product => (
+                            <div key={product.id} className="flex-shrink-0 w-80">
+                              <ProductCard product={product} isCommunity={false} />
+                            </div>
+                          ))}
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+                )}
+          </>
+        )}
+      </main>
     </div>
   );
 }

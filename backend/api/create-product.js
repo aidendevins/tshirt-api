@@ -109,12 +109,14 @@ const createShopifyProduct = async (productData, creatorId) => {
           }
         ],
         variants: variants,
-        images: [
-          {
-            attachment: productData.imageUrl.split(',')[1], // Base64 data without prefix
-            filename: `${productData.title.replace(/\s+/g, '-')}.png`
-          }
-        ],
+        images: productData.images ? productData.images.map((img, index) => ({
+          attachment: img.data.split(',')[1], // Base64 data without prefix
+          filename: `${productData.title.replace(/\s+/g, '-')}-${img.view || index}.png`,
+          alt: `${productData.title} - ${img.view || `View ${index + 1}`}`
+        })) : [{
+          attachment: productData.imageUrl ? productData.imageUrl.split(',')[1] : '', // Fallback for old format
+          filename: `${productData.title.replace(/\s+/g, '-')}.png`
+        }],
         metafields: [
           {
             namespace: 'custom',
@@ -204,9 +206,15 @@ router.post('/create-product', async (req, res) => {
     }
 
     // Validate required product fields
-    if (!productData.title || !productData.price || !productData.imageUrl) {
+    if (!productData.title || !productData.price) {
       return res.status(400).json({ 
-        error: 'Missing required product fields: title, price, or imageUrl' 
+        error: 'Missing required product fields: title or price' 
+      });
+    }
+
+    if (!productData.images && !productData.imageUrl) {
+      return res.status(400).json({ 
+        error: 'Missing product images' 
       });
     }
 

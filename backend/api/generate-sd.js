@@ -1,12 +1,8 @@
-import Replicate from 'replicate';
 import { GoogleGenerativeAI } from '@google/generative-ai';
 import dotenv from 'dotenv';
+import { getAdminDb, FieldValue } from '../firebase-admin.js';
 
 dotenv.config();
-
-const replicate = new Replicate({
-  auth: process.env.REPLICATE_API_TOKEN
-});
 
 const genAI = new GoogleGenerativeAI(process.env.GEMINI_API_KEY);
 
@@ -38,10 +34,57 @@ export default async function handler(req, res) {
   }
 
   try {
-    const { prompt, images } = req.body;
+    const { prompt, images, creatorId } = req.body;
     
     if (!prompt || prompt.length < 3) {
       return res.status(400).json({ error: 'Please provide a detailed prompt' });
+    }
+
+    // Track token usage if creatorId is provided
+    let creatorData = null;
+    let creatorRef = null;
+    
+    if (creatorId) {
+      try {
+        const adminDb = getAdminDb();
+        if (!adminDb) {
+          // Firebase not configured, skip token tracking
+          console.log('⚠️  Skipping token tracking - Firebase not configured');
+        } else {
+          creatorRef = adminDb.collection('creators').doc(creatorId);
+          const creatorDoc = await creatorRef.get();
+        
+        if (creatorDoc.exists) {
+          creatorData = creatorDoc.data();
+          const currentMonth = new Date().toISOString().slice(0, 7);
+          
+          // Reset monthly counter if new month
+          if (creatorData.tokenUsage?.lastResetDate !== currentMonth) {
+            await creatorRef.update({
+              'tokenUsage.monthlyUsed': 0,
+              'tokenUsage.lastResetDate': currentMonth
+            });
+            creatorData.tokenUsage.monthlyUsed = 0;
+          }
+          
+          // Check if under limit (default to unlimited)
+          const monthlyLimit = creatorData.tokenLimits?.monthly || 999999999;
+          const monthlyUsed = creatorData.tokenUsage?.monthlyUsed || 0;
+          
+          // Only enforce limit if it's not the unlimited value
+          if (monthlyLimit < 999999999 && monthlyUsed >= monthlyLimit) {
+            return res.status(429).json({ 
+              error: 'Monthly token limit reached. Please contact support.',
+              limit: monthlyLimit,
+              used: monthlyUsed
+            });
+          }
+        }
+        }
+      } catch (error) {
+        console.error('Error checking token limits:', error);
+        // Continue without token tracking if there's an error
+      }
     }
 
     // If images are provided, use Gemini Flash with multiple images
@@ -97,11 +140,27 @@ export default async function handler(req, res) {
         
         const base64Image = `data:${generatedImage.inlineData.mimeType};base64,${generatedImage.inlineData.data}`;
         
+        // Track token usage
+        const tokensUsed = response.usageMetadata?.totalTokenCount || 0;
+        if (creatorRef && tokensUsed > 0) {
+          try {
+            await creatorRef.update({
+              'tokenUsage.totalUsed': FieldValue.increment(tokensUsed),
+              'tokenUsage.monthlyUsed': FieldValue.increment(tokensUsed),
+              'tokenUsage.byOperation.imageGeneration': FieldValue.increment(tokensUsed)
+            });
+            console.log(`✅ Tracked ${tokensUsed} tokens for creator ${creatorId}`);
+          } catch (error) {
+            console.error('Error updating token usage:', error);
+          }
+        }
+        
         res.status(200).json({
           success: true,
           imageUrl: base64Image,
           prompt: prompt,
-          model: 'gemini-2.0-flash-imagen'
+          model: 'gemini-2.0-flash-imagen',
+          tokensUsed: tokensUsed
         });
         
       } catch (visionError) {
@@ -147,11 +206,27 @@ export default async function handler(req, res) {
         
         const base64Image = `data:${generatedImage.inlineData.mimeType};base64,${generatedImage.inlineData.data}`;
         
+        // Track token usage
+        const tokensUsed = response.usageMetadata?.totalTokenCount || 0;
+        if (creatorRef && tokensUsed > 0) {
+          try {
+            await creatorRef.update({
+              'tokenUsage.totalUsed': FieldValue.increment(tokensUsed),
+              'tokenUsage.monthlyUsed': FieldValue.increment(tokensUsed),
+              'tokenUsage.byOperation.imageGeneration': FieldValue.increment(tokensUsed)
+            });
+            console.log(`✅ Tracked ${tokensUsed} tokens for creator ${creatorId}`);
+          } catch (error) {
+            console.error('Error updating token usage:', error);
+          }
+        }
+        
         res.status(200).json({
           success: true,
           imageUrl: base64Image,
           prompt: prompt,
-          model: 'gemini-2.5-flash-image'
+          model: 'gemini-2.5-flash-image',
+          tokensUsed: tokensUsed
         });
         
       } catch (error) {

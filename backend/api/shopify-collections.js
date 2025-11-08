@@ -344,6 +344,7 @@ router.get('/creator-products/:creatorId', async (req, res) => {
         handle: product.handle,
         price: product.variants?.[0]?.price || '0.00',
         image: product.images?.[0]?.src || '/placeholder-tshirt.jpg',
+        images: product.images?.map(img => img.src) || [], // Include all image URLs
         status: product.status,
         createdAt: product.created_at,
         updatedAt: product.updated_at,
@@ -357,6 +358,7 @@ router.get('/creator-products/:creatorId', async (req, res) => {
         handle: product.handle,
         price: product.variants?.[0]?.price || '0.00',
         image: product.images?.[0]?.src || '/placeholder-tshirt.jpg',
+        images: product.images?.map(img => img.src) || [], // Include all image URLs
         status: product.status,
         createdAt: product.created_at,
         updatedAt: product.updated_at,
