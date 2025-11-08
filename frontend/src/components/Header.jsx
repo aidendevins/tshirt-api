@@ -39,19 +39,39 @@ export default function Header() {
 
   return (
     <header className="fixed top-0 left-0 right-0 z-50 px-4 py-6">
-      <nav className="max-w-6xl mx-auto glass-navbar px-8 py-4">
+      <nav className="max-w-7xl mx-auto glass-navbar px-8 py-4">
         <div className="flex items-center justify-between">
-          {/* Logo */}
-          <Link to="/" className="text-2xl font-bold text-gradient">
-            TShirt Studio
-          </Link>
+          {/* Logo with Admin Badge */}
+          <div className="flex items-center gap-3">
+            <Link to="/" className="text-2xl font-bold text-gradient">
+              TShirt Studio
+            </Link>
+            {creator && (
+              <span className="italic text-[#C3F35A] text-lg">creator</span>
+            )}
+          </div>
 
-          {/* Desktop Navigation */}
-          <div className="hidden md:flex items-center space-x-8">
-            <NavLink to="/" end className="text-white/80 hover:text-white transition-colors duration-300">
-              Home
+          {/* Center Navigation Links */}
+          <div className="hidden md:flex items-center justify-center flex-1 space-x-8">
+            <NavLink to="/features" className="text-white/80 hover:text-white transition-colors duration-300">
+              Features
             </NavLink>
-            
+            <NavLink to="/learn" className="text-white/80 hover:text-white transition-colors duration-300">
+              Learn
+            </NavLink>
+            <NavLink to="/explore" className="text-white/80 hover:text-white transition-colors duration-300">
+              Explore
+            </NavLink>
+            <NavLink to="/trending" className="text-white/80 hover:text-white transition-colors duration-300">
+              Trending
+            </NavLink>
+            <NavLink to="/contact" className="text-white/80 hover:text-white transition-colors duration-300">
+              Contact
+            </NavLink>
+          </div>
+
+          {/* Right Side - Login/Profile */}
+          <div className="hidden md:flex items-center space-x-4">
             {!creator ? (
               <>
                 <Link 
@@ -148,9 +168,23 @@ export default function Header() {
         {isMenuOpen && (
           <div className="md:hidden mt-4 pt-4 border-t border-white/10">
             <div className="flex flex-col space-y-4">
-              <NavLink to="/" end className="text-white/80 hover:text-white transition-colors duration-300">
-                Home
+              <NavLink to="/features" className="text-white/80 hover:text-white transition-colors duration-300">
+                Features
               </NavLink>
+              <NavLink to="/learn" className="text-white/80 hover:text-white transition-colors duration-300">
+                Learn
+              </NavLink>
+              <NavLink to="/explore" className="text-white/80 hover:text-white transition-colors duration-300">
+                Explore
+              </NavLink>
+              <NavLink to="/trending" className="text-white/80 hover:text-white transition-colors duration-300">
+                Trending
+              </NavLink>
+              <NavLink to="/contact" className="text-white/80 hover:text-white transition-colors duration-300">
+                Contact
+              </NavLink>
+              
+              <div className="pt-4 border-t border-white/10"></div>
               
               {!creator ? (
                 <>
