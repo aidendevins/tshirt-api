@@ -1,12 +1,42 @@
 import { useState, useEffect, useRef } from 'react';
 import { getCreatorSession } from '../utils/session';
+import tFrontImg from '../assets/t-front.png';
+import tBackImg from '../assets/t-back.png';
+import tSleeveImg from '../assets/t-sleeve.png';
+import tNeckLabelImg from '../assets/t-necklabel.png';
 
 // Print area restriction constants
 const PRINT_AREA_CONFIG = {
-  x: 0.312,
-  y: 0.265,
-  width: 0.374,
-  height: 0.46
+  'front': {
+    x: 0.332,
+    y: 0.228,
+    width: 0.344,
+    height: 0.453
+  },
+  'back': {
+    x: 0.332,
+    y: 0.161,
+    width: 0.344,
+    height: 0.453
+  },
+  'leftSleeve': {
+    x: 0.423,
+    y: 0.434,
+    width: 0.163,
+    height: 0.173
+  },
+  'rightSleeve': {
+    x: 0.423,
+    y: 0.434,
+    width: 0.163,
+    height: 0.173
+  },
+  'neckLabel': {
+    x: 0.365,
+    y: 0.308,
+    width: 0.278,
+    height: 0.295
+  }
 };
 
 const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || 'http://localhost:8000';
@@ -18,8 +48,14 @@ export default function ProductDesigner({ onSave, onCancel }) {
   const [canvasImageUrl, setCanvasImageUrl] = useState('');
   const fileInputRef = useRef(null);
   
-  // Design state
-  const [designImage, setDesignImage] = useState(null);
+  // Design state - separate design for each view
+  const [designImages, setDesignImages] = useState({
+    front: null,
+    back: null,
+    leftSleeve: null,
+    rightSleeve: null,
+    neckLabel: null
+  });
   const [uploadedImages, setUploadedImages] = useState([]);
   const [uploadedFiles, setUploadedFiles] = useState([]);
   const [prompt, setPrompt] = useState('');
@@ -29,16 +65,16 @@ export default function ProductDesigner({ onSave, onCancel }) {
   
   // History state
   const [designHistory, setDesignHistory] = useState([]);
-  const [showHistory, setShowHistory] = useState(false);
   const [currentHistoryIndex, setCurrentHistoryIndex] = useState(-1);
   
   // View state
-  const [currentView, setCurrentView] = useState('template');
+  const [currentView, setCurrentView] = useState('front');
   const [tshirtImages, setTshirtImages] = useState({
-    template: null,
-    realistic: null,
-    person: null,
-    designOnly: null
+    front: null,
+    back: null,
+    leftSleeve: null,
+    rightSleeve: null,
+    neckLabel: null
   });
   
   // Text state
@@ -123,12 +159,13 @@ export default function ProductDesigner({ onSave, onCancel }) {
     };
     
     Promise.all([
-      loadImage('https://cdn.shopify.com/s/files/1/0916/8266/8909/files/t-front.png?v=1761178014'),
-      loadImage('https://cdn.shopify.com/s/files/1/0916/8266/8909/files/t-front_realistic.png?v=1761181061'),
-      loadImage('https://cdn.shopify.com/s/files/1/0916/8266/8909/files/t-front_with_person.png?v=1761181608'),
-      loadImage('https://cdn.shopify.com/s/files/1/0916/8266/8909/files/Blank_Image.png?v=1761257355')
-    ]).then(([template, realistic, person, designOnly]) => {
-      setTshirtImages({ template, realistic, person, designOnly });
+      loadImage(tFrontImg),
+      loadImage(tBackImg),
+      loadImage(tSleeveImg),
+      loadImage(tSleeveImg),  // Use same image for both sleeves
+      loadImage(tNeckLabelImg)
+    ]).then(([front, back, leftSleeve, rightSleeve, neckLabel]) => {
+      setTshirtImages({ front, back, leftSleeve, rightSleeve, neckLabel });
     });
     
     drawCanvas();
@@ -136,14 +173,14 @@ export default function ProductDesigner({ onSave, onCancel }) {
   
   // Redraw canvas when state changes
   useEffect(() => {
-    if (ctx && tshirtImages.template) {
+    if (ctx && tshirtImages.front) {
       drawCanvas();
     }
-  }, [designImage, textElement, sprites, currentView, ctx, tshirtImages, isDesignSelected, isTextSelected]);
+  }, [designImages, textElement, sprites, currentView, ctx, tshirtImages, isDesignSelected, isTextSelected]);
   
   // Redraw canvas when returning to design step
   useEffect(() => {
-    if (currentStep === 'design' && ctx && tshirtImages.template) {
+    if (currentStep === 'design' && ctx && tshirtImages.front) {
       // Small delay to ensure DOM is ready
       const timer = setTimeout(() => {
         drawCanvas();
@@ -155,7 +192,7 @@ export default function ProductDesigner({ onSave, onCancel }) {
   // Save state for undo
   const saveState = () => {
     const state = {
-      designImage: designImage ? { ...designImage, img: designImage.img } : null,
+      designImages: { ...designImages },
       textElement: textElement ? { ...textElement } : null,
       sprites: sprites.map(s => ({ ...s }))
     };
@@ -170,7 +207,7 @@ export default function ProductDesigner({ onSave, onCancel }) {
     const prevState = newUndoStack.pop();
     
     const currentState = {
-      designImage: designImage ? { ...designImage, img: designImage.img } : null,
+      designImages: { ...designImages },
       textElement: textElement ? { ...textElement } : null,
       sprites: sprites.map(s => ({ ...s }))
     };
@@ -178,7 +215,7 @@ export default function ProductDesigner({ onSave, onCancel }) {
     setRedoStack([...redoStack, currentState]);
     setUndoStack(newUndoStack);
     
-    setDesignImage(prevState.designImage);
+    setDesignImages(prevState.designImages);
     setTextElement(prevState.textElement);
     setSprites(prevState.sprites);
   };
@@ -190,7 +227,7 @@ export default function ProductDesigner({ onSave, onCancel }) {
     const nextState = newRedoStack.pop();
     
     const currentState = {
-      designImage: designImage ? { ...designImage, img: designImage.img } : null,
+      designImages: { ...designImages },
       textElement: textElement ? { ...textElement } : null,
       sprites: sprites.map(s => ({ ...s }))
     };
@@ -198,7 +235,7 @@ export default function ProductDesigner({ onSave, onCancel }) {
     setUndoStack([...undoStack, currentState]);
     setRedoStack(newRedoStack);
     
-    setDesignImage(nextState.designImage);
+    setDesignImages(nextState.designImages);
     setTextElement(nextState.textElement);
     setSprites(nextState.sprites);
   };
@@ -214,85 +251,69 @@ export default function ProductDesigner({ onSave, onCancel }) {
     ctx.fillStyle = '#fafafa';
     ctx.fillRect(0, 0, w, h);
     
-    if (currentView === 'design-only' && designImage) {
-      ctx.fillStyle = '#ffffff';
-      ctx.fillRect(0, 0, w, h);
+    // Draw t-shirt background based on current view
+    const tshirtImg = currentView === 'front' ? tshirtImages.front :
+                      currentView === 'back' ? tshirtImages.back :
+                      currentView === 'leftSleeve' ? tshirtImages.leftSleeve :
+                      currentView === 'rightSleeve' ? tshirtImages.rightSleeve :
+                      currentView === 'neckLabel' ? tshirtImages.neckLabel :
+                      tshirtImages.front;
+    
+    if (tshirtImg) {
+      ctx.drawImage(tshirtImg, 0, 0, w, h);
+    }
+    
+    const printAreaX = w * PRINT_AREA_CONFIG[currentView].x;
+    const printAreaY = w * PRINT_AREA_CONFIG[currentView].y;
+    const printAreaWidth = w * PRINT_AREA_CONFIG[currentView].width;
+    const printAreaHeight = w * PRINT_AREA_CONFIG[currentView].height;
+    
+    // Get the design for the current view
+    const currentDesignImage = designImages[currentView];
+    
+    // Draw print area guides on all views
+    ctx.strokeStyle = 'rgba(200,200,200,0.5)';
+    ctx.lineWidth = 2;
+    ctx.setLineDash([10, 10]);
+    ctx.strokeRect(printAreaX, printAreaY, printAreaWidth, printAreaHeight);
+    ctx.setLineDash([]);
+    
+    if (!currentDesignImage) {
+      ctx.fillStyle = 'rgba(150,150,150,0.5)';
+      ctx.font = '14px Arial';
+      ctx.textAlign = 'center';
+      ctx.textBaseline = 'middle';
+      ctx.fillText('Your design will', w / 2 + 2, printAreaY + printAreaHeight / 2 - 10);
+      ctx.fillText('appear here', w / 2 + 2, printAreaY + printAreaHeight / 2 + 10);
+    }
+    
+    if (currentDesignImage) {
+      ctx.drawImage(currentDesignImage.img, currentDesignImage.x, currentDesignImage.y, currentDesignImage.width, currentDesignImage.height);
+    }
+    
+    sprites.forEach((sprite) => {
+      ctx.font = `${sprite.size}px Arial`;
+      ctx.textAlign = 'left';
+      ctx.textBaseline = 'top';
+      ctx.fillText(sprite.emoji, sprite.x, sprite.y);
       
-      if (designImage.img.complete) {
-        const padding = 40;
-        const availableWidth = w - (padding * 2);
-        const availableHeight = h - (padding * 2);
-        
-        const scale = Math.min(availableWidth / designImage.img.naturalWidth, availableHeight / designImage.img.naturalHeight);
-        const imgW = designImage.img.naturalWidth * scale;
-        const imgH = designImage.img.naturalHeight * scale;
-        const imgX = (w - imgW) / 2;
-        const imgY = (h - imgH) / 2;
-        
-        ctx.drawImage(designImage.img, imgX, imgY, imgW, imgH);
+      if (sprite.isSelected) {
+        ctx.strokeStyle = '#10b981';
+        ctx.lineWidth = 2;
+        ctx.strokeRect(sprite.x, sprite.y, sprite.width || sprite.size, sprite.height || sprite.size);
+        drawSpriteHandles(sprite);
       }
-    } else {
-      const tshirtImg = currentView === 'template' ? tshirtImages.template :
-                        currentView === 'realistic' ? tshirtImages.realistic :
-                        currentView === 'person' ? tshirtImages.person :
-                        tshirtImages.template;
-      
-      if (tshirtImg) {
-        ctx.drawImage(tshirtImg, 0, 0, w, h);
+    });
+    
+    if (textElement) {
+      drawText(textElement);
+      if (isTextSelected) {
+        drawTextHandles();
       }
     }
     
-    const printAreaX = w * PRINT_AREA_CONFIG.x;
-    const printAreaY = w * PRINT_AREA_CONFIG.y;
-    const printAreaWidth = w * PRINT_AREA_CONFIG.width;
-    const printAreaHeight = w * PRINT_AREA_CONFIG.height;
-    
-    if (currentView !== 'design-only') {
-      if (currentView === 'template') {
-        ctx.strokeStyle = 'rgba(200,200,200,0.5)';
-        ctx.lineWidth = 2;
-        ctx.setLineDash([10, 10]);
-        ctx.strokeRect(printAreaX, printAreaY, printAreaWidth, printAreaHeight);
-        ctx.setLineDash([]);
-        
-        if (!designImage) {
-          ctx.fillStyle = 'rgba(150,150,150,0.5)';
-          ctx.font = '14px Arial';
-          ctx.textAlign = 'center';
-          ctx.textBaseline = 'middle';
-          ctx.fillText('Your design will appear here', w / 2, printAreaY + printAreaHeight / 2 - 10);
-          ctx.fillText('(drag to reposition, resize with corners)', w / 2, printAreaY + printAreaHeight / 2 + 10);
-        }
-      }
-      
-      if (designImage) {
-        ctx.drawImage(designImage.img, designImage.x, designImage.y, designImage.width, designImage.height);
-      }
-      
-      sprites.forEach((sprite) => {
-        ctx.font = `${sprite.size}px Arial`;
-        ctx.textAlign = 'left';
-        ctx.textBaseline = 'top';
-        ctx.fillText(sprite.emoji, sprite.x, sprite.y);
-        
-        if (sprite.isSelected) {
-          ctx.strokeStyle = '#10b981';
-          ctx.lineWidth = 2;
-          ctx.strokeRect(sprite.x, sprite.y, sprite.width || sprite.size, sprite.height || sprite.size);
-          drawSpriteHandles(sprite);
-        }
-      });
-      
-      if (textElement) {
-        drawText(textElement);
-        if (isTextSelected) {
-          drawTextHandles();
-        }
-      }
-      
-      if (designImage && isDesignSelected) {
-        drawDesignHandles();
-      }
+    if (currentDesignImage && isDesignSelected) {
+      drawDesignHandles();
     }
     
     // Update canvas image URL for display
@@ -389,17 +410,18 @@ export default function ProductDesigner({ onSave, onCancel }) {
   };
   
   const drawDesignHandles = () => {
-    if (!designImage || !ctx) return;
+    const currentDesignImage = designImages[currentView];
+    if (!currentDesignImage || !ctx) return;
     
     ctx.strokeStyle = '#60a5fa';
     ctx.lineWidth = 2;
-    ctx.strokeRect(designImage.x, designImage.y, designImage.width, designImage.height);
+    ctx.strokeRect(currentDesignImage.x, currentDesignImage.y, currentDesignImage.width, currentDesignImage.height);
     
     const handles = [
-      { x: designImage.x, y: designImage.y },
-      { x: designImage.x + designImage.width, y: designImage.y },
-      { x: designImage.x, y: designImage.y + designImage.height },
-      { x: designImage.x + designImage.width, y: designImage.y + designImage.height }
+      { x: currentDesignImage.x, y: currentDesignImage.y },
+      { x: currentDesignImage.x + currentDesignImage.width, y: currentDesignImage.y },
+      { x: currentDesignImage.x, y: currentDesignImage.y + currentDesignImage.height },
+      { x: currentDesignImage.x + currentDesignImage.width, y: currentDesignImage.y + currentDesignImage.height }
     ];
     
     ctx.fillStyle = '#60a5fa';
@@ -489,11 +511,12 @@ export default function ProductDesigner({ onSave, onCancel }) {
   };
   
   const isPointInDesign = (x, y) => {
-    if (!designImage) return false;
-    return x >= designImage.x && 
-           x <= designImage.x + designImage.width &&
-           y >= designImage.y && 
-           y <= designImage.y + designImage.height;
+    const currentDesignImage = designImages[currentView];
+    if (!currentDesignImage) return false;
+    return x >= currentDesignImage.x && 
+           x <= currentDesignImage.x + currentDesignImage.width &&
+           y >= currentDesignImage.y && 
+           y <= currentDesignImage.y + currentDesignImage.height;
   };
   
   const isPointInText = (x, y) => {
@@ -511,13 +534,14 @@ export default function ProductDesigner({ onSave, onCancel }) {
   };
   
   const getHandleAtPoint = (x, y) => {
-    if (!designImage) return null;
+    const currentDesignImage = designImages[currentView];
+    if (!currentDesignImage) return null;
     
     const handles = [
-      { x: designImage.x, y: designImage.y, corner: 'tl' },
-      { x: designImage.x + designImage.width, y: designImage.y, corner: 'tr' },
-      { x: designImage.x, y: designImage.y + designImage.height, corner: 'bl' },
-      { x: designImage.x + designImage.width, y: designImage.y + designImage.height, corner: 'br' }
+      { x: currentDesignImage.x, y: currentDesignImage.y, corner: 'tl' },
+      { x: currentDesignImage.x + currentDesignImage.width, y: currentDesignImage.y, corner: 'tr' },
+      { x: currentDesignImage.x, y: currentDesignImage.y + currentDesignImage.height, corner: 'bl' },
+      { x: currentDesignImage.x + currentDesignImage.width, y: currentDesignImage.y + currentDesignImage.height, corner: 'br' }
     ];
     
     for (let handle of handles) {
@@ -566,10 +590,10 @@ export default function ProductDesigner({ onSave, onCancel }) {
     const canvas = canvasRef.current;
     if (!canvas) return { x, y, width, height };
     
-    const printAreaX = canvas.width * PRINT_AREA_CONFIG.x;
-    const printAreaY = canvas.height * PRINT_AREA_CONFIG.y;
-    const printAreaWidth = canvas.width * PRINT_AREA_CONFIG.width;
-    const printAreaHeight = canvas.height * PRINT_AREA_CONFIG.height;
+    const printAreaX = canvas.width * PRINT_AREA_CONFIG[currentView].x;
+    const printAreaY = canvas.height * PRINT_AREA_CONFIG[currentView].y;
+    const printAreaWidth = canvas.width * PRINT_AREA_CONFIG[currentView].width;
+    const printAreaHeight = canvas.height * PRINT_AREA_CONFIG[currentView].height;
     
     const aspectRatio = width / height;
     let newWidth = width;
@@ -592,8 +616,8 @@ export default function ProductDesigner({ onSave, onCancel }) {
   };
   
   const handleMouseDown = (e) => {
-    if (currentView === 'design-only') return;
-    if (!designImage && !textElement && sprites.length === 0) return;
+    const currentDesignImage = designImages[currentView];
+    if (!currentDesignImage && !textElement && sprites.length === 0) return;
     
     const pos = getMousePos(e);
     
@@ -663,10 +687,10 @@ export default function ProductDesigner({ onSave, onCancel }) {
         setResizeHandle(handle);
         setDragStart({ x: pos.x, y: pos.y });
         setStartDimensions({ 
-          x: designImage.x, 
-          y: designImage.y, 
-          width: designImage.width, 
-          height: designImage.height 
+          x: currentDesignImage.x, 
+          y: currentDesignImage.y, 
+          width: currentDesignImage.width, 
+          height: currentDesignImage.height 
         });
         return;
       }
@@ -680,10 +704,10 @@ export default function ProductDesigner({ onSave, onCancel }) {
       setIsDragging(true);
       setDragStart({ x: pos.x, y: pos.y });
       setStartDimensions({ 
-        x: designImage.x, 
-        y: designImage.y, 
-        width: designImage.width, 
-        height: designImage.height 
+        x: currentDesignImage.x, 
+        y: currentDesignImage.y, 
+        width: currentDesignImage.width, 
+        height: currentDesignImage.height 
       });
     } else {
       setIsDesignSelected(false);
@@ -694,24 +718,28 @@ export default function ProductDesigner({ onSave, onCancel }) {
   
   const handleMouseMove = (e) => {
     const pos = getMousePos(e);
+    const currentDesignImage = designImages[currentView];
     
-    if (isDragging && isDesignSelected && designImage) {
+    if (isDragging && isDesignSelected && currentDesignImage) {
       const dx = pos.x - dragStart.x;
       const dy = pos.y - dragStart.y;
       
       const constrained = constrainToPrintArea(
         startDimensions.x + dx,
         startDimensions.y + dy,
-        designImage.width,
-        designImage.height
+        currentDesignImage.width,
+        currentDesignImage.height
       );
       
-      setDesignImage({
-        ...designImage,
-        x: constrained.x,
-        y: constrained.y
+      setDesignImages({
+        ...designImages,
+        [currentView]: {
+          ...currentDesignImage,
+          x: constrained.x,
+          y: constrained.y
+        }
       });
-    } else if (isResizing && designImage) {
+    } else if (isResizing && currentDesignImage) {
       const dx = pos.x - dragStart.x;
       const dy = pos.y - dragStart.y;
       
@@ -742,12 +770,15 @@ export default function ProductDesigner({ onSave, onCancel }) {
       
       const constrained = constrainToPrintArea(newX, newY, newWidth, newHeight);
       
-      setDesignImage({
-        ...designImage,
-        x: constrained.x,
-        y: constrained.y,
-        width: constrained.width,
-        height: constrained.height
+      setDesignImages({
+        ...designImages,
+        [currentView]: {
+          ...currentDesignImage,
+          x: constrained.x,
+          y: constrained.y,
+          width: constrained.width,
+          height: constrained.height
+        }
       });
     } else if (isTextDragging && textElement) {
       const dx = pos.x - dragStart.x;
@@ -847,9 +878,9 @@ export default function ProductDesigner({ onSave, onCancel }) {
       img.crossOrigin = 'anonymous';
       img.onload = () => {
         const canvas = canvasRef.current;
-        const printAreaX = canvas.width * PRINT_AREA_CONFIG.x;
-        const printAreaY = canvas.height * PRINT_AREA_CONFIG.y;
-        const printAreaWidth = canvas.width * PRINT_AREA_CONFIG.width;
+        const printAreaX = canvas.width * PRINT_AREA_CONFIG[currentView].x;
+        const printAreaY = canvas.height * PRINT_AREA_CONFIG[currentView].y;
+        const printAreaWidth = canvas.width * PRINT_AREA_CONFIG[currentView].width;
         
         // Calculate height based on image aspect ratio
         const aspectRatio = img.naturalWidth / img.naturalHeight;
@@ -868,7 +899,10 @@ export default function ProductDesigner({ onSave, onCancel }) {
           height: constrained.height
         };
         
-        setDesignImage(newDesignImage);
+        setDesignImages({
+          ...designImages,
+          [currentView]: newDesignImage
+        });
         
         // Add to history (keep max 5 items)
         const historyItem = {
@@ -987,21 +1021,39 @@ export default function ProductDesigner({ onSave, onCancel }) {
     img.onload = () => {
       saveState();
       const canvas = canvasRef.current;
-      const printAreaX = canvas.width * PRINT_AREA_CONFIG.x;
-      const printAreaY = canvas.height * PRINT_AREA_CONFIG.y;
-      const printAreaWidth = canvas.width * PRINT_AREA_CONFIG.width;
-      const printAreaHeight = canvas.height * PRINT_AREA_CONFIG.height;
+      const printAreaX = canvas.width * PRINT_AREA_CONFIG[currentView].x;
+      const printAreaY = canvas.height * PRINT_AREA_CONFIG[currentView].y;
+      const printAreaWidth = canvas.width * PRINT_AREA_CONFIG[currentView].width;
+      const printAreaHeight = canvas.height * PRINT_AREA_CONFIG[currentView].height;
+      
+      // Calculate dimensions based on image aspect ratio
+      const aspectRatio = img.naturalWidth / img.naturalHeight;
+      let designWidth = printAreaWidth;
+      let designHeight = designWidth / aspectRatio;
+      
+      // If height exceeds print area, scale down based on height
+      if (designHeight > printAreaHeight) {
+        designHeight = printAreaHeight;
+        designWidth = designHeight * aspectRatio;
+      }
+      
+      // Center the design within the print area
+      const designX = printAreaX + (printAreaWidth - designWidth) / 2;
+      const designY = printAreaY + (printAreaHeight - designHeight) / 2;
       
       const newDesign = {
         img,
         url: item.url || item.image,
-        x: printAreaX,
-        y: printAreaY,
-        width: printAreaWidth,
-        height: printAreaHeight
+        x: designX,
+        y: designY,
+        width: designWidth,
+        height: designHeight
       };
       
-      setDesignImage(newDesign);
+      setDesignImages({
+        ...designImages,
+        [currentView]: newDesign
+      });
       setCurrentHistoryIndex(index);
       if (item.prompt) {
         setPrompt(item.prompt);
@@ -1023,64 +1075,47 @@ export default function ProductDesigner({ onSave, onCancel }) {
     ctx.fillStyle = '#fafafa';
     ctx.fillRect(0, 0, w, h);
     
-    // Draw based on view type
-    if (view === 'design-only' && designImage) {
-      ctx.fillStyle = '#ffffff';
-      ctx.fillRect(0, 0, w, h);
+    // Draw t-shirt background
+    const tshirtImg = view === 'front' ? tshirtImages.front :
+                      view === 'back' ? tshirtImages.back :
+                      view === 'leftSleeve' ? tshirtImages.leftSleeve :
+                      view === 'rightSleeve' ? tshirtImages.rightSleeve :
+                      view === 'neckLabel' ? tshirtImages.neckLabel :
+                      tshirtImages.front;
+    
+    if (tshirtImg) {
+      ctx.drawImage(tshirtImg, 0, 0, w, h);
+    }
+    
+    // Draw design on the shirt (use the design for this specific view)
+    const viewDesign = designImages[view];
+    if (viewDesign) {
+      ctx.drawImage(viewDesign.img, viewDesign.x, viewDesign.y, viewDesign.width, viewDesign.height);
+    }
+    
+    // Draw sprites (no selection handles)
+    sprites.forEach((sprite) => {
+      ctx.font = `${sprite.size}px Arial`;
+      ctx.textAlign = 'left';
+      ctx.textBaseline = 'top';
+      ctx.fillText(sprite.emoji, sprite.x, sprite.y);
+    });
+    
+    // Draw text (no selection handles)
+    if (textElement) {
+      ctx.font = `${textElement.size}px ${textElement.font}`;
+      ctx.fillStyle = textElement.color;
+      ctx.textAlign = 'center';
+      ctx.textBaseline = 'middle';
       
-      if (designImage.img.complete) {
-        const padding = 40;
-        const availableWidth = w - (padding * 2);
-        const availableHeight = h - (padding * 2);
-        
-        const scale = Math.min(availableWidth / designImage.img.naturalWidth, availableHeight / designImage.img.naturalHeight);
-        const imgW = designImage.img.naturalWidth * scale;
-        const imgH = designImage.img.naturalHeight * scale;
-        const imgX = (w - imgW) / 2;
-        const imgY = (h - imgH) / 2;
-        
-        ctx.drawImage(designImage.img, imgX, imgY, imgW, imgH);
-      }
-    } else {
-      // Draw t-shirt background
-      const tshirtImg = view === 'template' ? tshirtImages.template :
-                        view === 'realistic' ? tshirtImages.realistic :
-                        view === 'person' ? tshirtImages.person :
-                        tshirtImages.template;
-      
-      if (tshirtImg) {
-        ctx.drawImage(tshirtImg, 0, 0, w, h);
-      }
-      
-      // Draw design on the shirt
-      if (designImage) {
-        ctx.drawImage(designImage.img, designImage.x, designImage.y, designImage.width, designImage.height);
-      }
-      
-      // Draw sprites (no selection handles)
-      sprites.forEach((sprite) => {
-        ctx.font = `${sprite.size}px Arial`;
-        ctx.textAlign = 'left';
-        ctx.textBaseline = 'top';
-        ctx.fillText(sprite.emoji, sprite.x, sprite.y);
-      });
-      
-      // Draw text (no selection handles)
-      if (textElement) {
-        ctx.font = `${textElement.size}px ${textElement.font}`;
-        ctx.fillStyle = textElement.color;
-        ctx.textAlign = 'center';
-        ctx.textBaseline = 'middle';
-        
-        if (textElement.warpStyle === 'arc') {
-          drawArcText(textElement.text, textElement.x, textElement.y, textElement.size);
-        } else if (textElement.warpStyle === 'wave') {
-          drawWaveText(textElement.text, textElement.x, textElement.y, textElement.size);
-        } else if (textElement.warpStyle === 'circle') {
-          drawCircleText(textElement.text, textElement.x, textElement.y, textElement.size);
-        } else {
-          ctx.fillText(textElement.text, textElement.x, textElement.y);
-        }
+      if (textElement.warpStyle === 'arc') {
+        drawArcText(textElement.text, textElement.x, textElement.y, textElement.size);
+      } else if (textElement.warpStyle === 'wave') {
+        drawWaveText(textElement.text, textElement.x, textElement.y, textElement.size);
+      } else if (textElement.warpStyle === 'circle') {
+        drawCircleText(textElement.text, textElement.x, textElement.y, textElement.size);
+      } else {
+        ctx.fillText(textElement.text, textElement.x, textElement.y);
       }
     }
     
@@ -1094,7 +1129,9 @@ export default function ProductDesigner({ onSave, onCancel }) {
   };
 
   const handleNext = async () => {
-    if (!designImage) {
+    // Check if at least one view has a design
+    const hasAnyDesign = Object.values(designImages).some(design => design !== null);
+    if (!hasAnyDesign) {
       setError('Please create a design first');
       return;
     }
@@ -1104,37 +1141,41 @@ export default function ProductDesigner({ onSave, onCancel }) {
       setIsGenerating(true);
       setError('');
       
-      console.log('📸 Capturing all 4 views in background...');
+      console.log('📸 Capturing all 5 views in background...');
       
       // Capture each view directly without changing UI state
-      const templateImage = drawCanvasView('template');
-      console.log('✓ Template captured');
+      const frontImage = drawCanvasView('front');
+      console.log('✓ Front captured');
       
-      const realisticImage = drawCanvasView('realistic');
-      console.log('✓ Realistic captured');
+      const backImage = drawCanvasView('back');
+      console.log('✓ Back captured');
       
-      const designOnlyImage = drawCanvasView('design-only');
-      console.log('✓ Design-only captured');
+      const leftSleeveImage = drawCanvasView('leftSleeve');
+      console.log('✓ Left sleeve captured');
       
-      const modelImage = drawCanvasView('person');
-      console.log('✓ Model captured');
+      const rightSleeveImage = drawCanvasView('rightSleeve');
+      console.log('✓ Right sleeve captured');
+      
+      const neckLabelImage = drawCanvasView('neckLabel');
+      console.log('✓ Neck label captured');
       
       // Verify all images were captured
-      if (!templateImage || !realisticImage || !designOnlyImage || !modelImage) {
+      if (!frontImage || !backImage || !leftSleeveImage || !rightSleeveImage || !neckLabelImage) {
         throw new Error('Failed to capture one or more views');
       }
       
       // Store all captured images
       setCachedViewImages({
-        template: templateImage,
-        realistic: realisticImage,
-        designOnly: designOnlyImage,
-        model: modelImage
+        front: frontImage,
+        back: backImage,
+        leftSleeve: leftSleeveImage,
+        rightSleeve: rightSleeveImage,
+        neckLabel: neckLabelImage
       });
       
-      console.log('✅ All 4 views captured and cached!');
+      console.log('✅ All 5 views captured and cached!');
       
-      // Reset canvas back to template view (redraw with current state)
+      // Reset canvas back to front view (redraw with current state)
       drawCanvas();
       
       // Transition to options step
@@ -1205,10 +1246,11 @@ export default function ProductDesigner({ onSave, onCancel }) {
       console.log('🚀 Launching product with cached images...');
       const designData = {
         images: [
-          { data: cachedViewImages.template, view: 'template' },
-          { data: cachedViewImages.realistic, view: 'realistic' },
-          { data: cachedViewImages.designOnly, view: 'design-only' },
-          { data: cachedViewImages.model, view: 'model' }
+          { data: cachedViewImages.front, view: 'front' },
+          { data: cachedViewImages.back, view: 'back' },
+          { data: cachedViewImages.leftSleeve, view: 'leftSleeve' },
+          { data: cachedViewImages.rightSleeve, view: 'rightSleeve' },
+          { data: cachedViewImages.neckLabel, view: 'neckLabel' }
         ],
         title: productTitle,
         description: productDescription,
@@ -1406,52 +1448,63 @@ export default function ProductDesigner({ onSave, onCancel }) {
 
               <div className="mt-6 flex items-center gap-4">
                 <button
-                  onClick={() => setCurrentView('template')}
+                  onClick={() => setCurrentView('front')}
                   className={`glass-card p-2 rounded-xl transition-all hover:shadow-glow ${
-                    currentView === 'template' ? 'ring-2 ring-purple-bright shadow-glow' : ''
+                    currentView === 'front' ? 'ring-2 ring-purple-bright shadow-glow' : ''
                   }`}
                 >
                   <div className="w-20 h-20 bg-white/5 rounded-lg flex items-center justify-center overflow-hidden">
-                    {tshirtImages.template && <img src="https://cdn.shopify.com/s/files/1/0916/8266/8909/files/t-front.png?v=1761178014" alt="Template" className="w-full h-full object-contain" />}
+                    {tshirtImages.front && <img src={tFrontImg} alt="Front" className="w-full h-full object-contain" />}
                   </div>
-                  <p className="text-xs text-white/80 text-center mt-2">Template</p>
+                  <p className="text-xs text-white/80 text-center mt-2">Front</p>
                 </button>
                 
                 <button
-                  onClick={() => setCurrentView('realistic')}
+                  onClick={() => setCurrentView('back')}
                   className={`glass-card p-2 rounded-xl transition-all hover:shadow-glow ${
-                    currentView === 'realistic' ? 'ring-2 ring-purple-bright shadow-glow' : ''
+                    currentView === 'back' ? 'ring-2 ring-purple-bright shadow-glow' : ''
                   }`}
                 >
                   <div className="w-20 h-20 bg-white/5 rounded-lg flex items-center justify-center overflow-hidden">
-                    {tshirtImages.realistic && <img src="https://cdn.shopify.com/s/files/1/0916/8266/8909/files/t-front_realistic.png?v=1761181061" alt="Realistic" className="w-full h-full object-contain" />}
+                    {tshirtImages.back && <img src={tBackImg} alt="Back" className="w-full h-full object-contain" />}
                   </div>
-                  <p className="text-xs text-white/80 text-center mt-2">Realistic</p>
+                  <p className="text-xs text-white/80 text-center mt-2">Back</p>
                 </button>
                 
                 <button
-                  onClick={() => designImage && setCurrentView('design-only')}
-                  disabled={!designImage}
+                  onClick={() => setCurrentView('leftSleeve')}
                   className={`glass-card p-2 rounded-xl transition-all hover:shadow-glow ${
-                    currentView === 'design-only' ? 'ring-2 ring-purple-bright shadow-glow' : ''
-                  } ${!designImage ? 'opacity-40 cursor-not-allowed' : ''}`}
-                >
-                  <div className="w-20 h-20 bg-white/5 rounded-lg flex items-center justify-center overflow-hidden">
-                    {designImage ? <img src={designImage.url} alt="Design" className="w-full h-full object-contain" /> : <span className="text-white/40 text-xs">No design</span>}
-                  </div>
-                  <p className="text-xs text-white/80 text-center mt-2">Design Only</p>
-                </button>
-                
-                <button
-                  onClick={() => setCurrentView('person')}
-                  className={`glass-card p-2 rounded-xl transition-all hover:shadow-glow ${
-                    currentView === 'person' ? 'ring-2 ring-purple-bright shadow-glow' : ''
+                    currentView === 'leftSleeve' ? 'ring-2 ring-purple-bright shadow-glow' : ''
                   }`}
                 >
                   <div className="w-20 h-20 bg-white/5 rounded-lg flex items-center justify-center overflow-hidden">
-                    {tshirtImages.person && <img src="https://cdn.shopify.com/s/files/1/0916/8266/8909/files/t-front_with_person.png?v=1761181608" alt="Person" className="w-full h-full object-contain" />}
+                    {tshirtImages.leftSleeve && <img src={tSleeveImg} alt="Left Sleeve" className="w-full h-full object-contain" />}
                   </div>
-                  <p className="text-xs text-white/80 text-center mt-2">Model</p>
+                  <p className="text-xs text-white/80 text-center mt-2">Left Sleeve</p>
+                </button>
+                
+                <button
+                  onClick={() => setCurrentView('rightSleeve')}
+                  className={`glass-card p-2 rounded-xl transition-all hover:shadow-glow ${
+                    currentView === 'rightSleeve' ? 'ring-2 ring-purple-bright shadow-glow' : ''
+                  }`}
+                >
+                  <div className="w-20 h-20 bg-white/5 rounded-lg flex items-center justify-center overflow-hidden">
+                    {tshirtImages.rightSleeve && <img src={tSleeveImg} alt="Right Sleeve" className="w-full h-full object-contain" />}
+                  </div>
+                  <p className="text-xs text-white/80 text-center mt-2">Right Sleeve</p>
+                </button>
+                
+                <button
+                  onClick={() => setCurrentView('neckLabel')}
+                  className={`glass-card p-2 rounded-xl transition-all hover:shadow-glow ${
+                    currentView === 'neckLabel' ? 'ring-2 ring-purple-bright shadow-glow' : ''
+                  }`}
+                >
+                  <div className="w-20 h-20 bg-white/5 rounded-lg flex items-center justify-center overflow-hidden">
+                    {tshirtImages.neckLabel && <img src={tNeckLabelImg} alt="Neck Label" className="w-full h-full object-contain" />}
+                  </div>
+                  <p className="text-xs text-white/80 text-center mt-2">Neck Label</p>
                 </button>
               </div>
             </div>
@@ -1546,39 +1599,29 @@ export default function ProductDesigner({ onSave, onCancel }) {
                 </button>
               </div>
 
-              <div className="mb-6">
-                <button
-                  onClick={() => setShowHistory(!showHistory)}
-                  className="w-full glass-button py-3 flex items-center justify-between"
-                >
-                  <span>Design History ({designHistory.length})</span>
-                  <svg 
-                    className={`w-5 h-5 transition-transform ${showHistory ? 'rotate-180' : ''}`} 
-                    fill="none" 
-                    stroke="currentColor" 
-                    viewBox="0 0 24 24"
-                  >
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
-                  </svg>
-                </button>
-                
-                {showHistory && designHistory.length > 0 && (
-                  <div className="mt-4 space-y-2 max-h-64 overflow-y-auto">
+              {designHistory.length > 0 && (
+                <div className="mb-6">
+                  <h3 className="text-sm font-medium text-white/80 mb-3">Design History ({designHistory.length})</h3>
+                  <div className="flex gap-3 overflow-x-auto pb-2 scrollbar-thin">
                     {designHistory.map((item, index) => (
-                      <div 
-                        key={item.timestamp} 
-                        className={`glass-card p-3 rounded-lg hover:shadow-glow transition-all cursor-pointer ${
-                          currentHistoryIndex === index ? 'ring-2 ring-purple-bright' : ''
-                        }`}
+                      <button
+                        key={item.timestamp}
                         onClick={() => handleLoadFromHistory(item, index)}
+                        className={`flex-shrink-0 glass-card p-1 rounded-lg overflow-hidden hover:shadow-glow transition-all ${
+                          currentHistoryIndex === index ? 'ring-2 ring-purple-bright shadow-glow' : ''
+                        }`}
+                        title={item.prompt || 'Design'}
                       >
-                        <p className="text-sm text-white/80 truncate mb-2">{item.prompt}</p>
-                        <img src={item.image} alt="History" className="w-full h-20 object-cover rounded" />
-                      </div>
+                        <img 
+                          src={item.image} 
+                          alt={`History ${index + 1}`} 
+                          className="w-20 h-20 object-cover rounded"
+                        />
+                      </button>
                     ))}
                   </div>
-                )}
-              </div>
+                </div>
+              )}
 
               {notification && (
                 <div className="glass-card p-4 rounded-lg bg-green-500/20 border-green-500/30 mb-4">
@@ -1764,62 +1807,75 @@ export default function ProductDesigner({ onSave, onCancel }) {
                 {/* Preview Thumbnails */}
                 <div className="glass-card p-6 rounded-2xl">
                   <h3 className="text-lg font-bold text-white mb-4">View Options</h3>
-                  <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
+                  <div className="grid grid-cols-2 md:grid-cols-3 gap-3">
                     <button
-                      onClick={() => setCurrentView('template')}
+                      onClick={() => setCurrentView('front')}
                       className={`p-3 rounded-lg border-2 transition-all ${
-                        currentView === 'template' ? 'border-purple-bright bg-purple-bright/10 shadow-glow' : 'border-white/10 hover:border-white/30'
+                        currentView === 'front' ? 'border-purple-bright bg-purple-bright/10 shadow-glow' : 'border-white/10 hover:border-white/30'
                       }`}
                     >
                       <img 
-                        src="https://cdn.shopify.com/s/files/1/0916/8266/8909/files/t-front.png?v=1761178014" 
-                        alt="Template" 
+                        src={tFrontImg} 
+                        alt="Front" 
                         className="w-full h-20 object-contain rounded mb-2" 
                       />
-                      <span className="text-xs text-white/80">Template</span>
+                      <span className="text-xs text-white/80">Front</span>
                     </button>
                     
                     <button
-                      onClick={() => setCurrentView('realistic')}
+                      onClick={() => setCurrentView('back')}
                       className={`p-3 rounded-lg border-2 transition-all ${
-                        currentView === 'realistic' ? 'border-purple-bright bg-purple-bright/10 shadow-glow' : 'border-white/10 hover:border-white/30'
+                        currentView === 'back' ? 'border-purple-bright bg-purple-bright/10 shadow-glow' : 'border-white/10 hover:border-white/30'
                       }`}
                     >
                       <img 
-                        src="https://cdn.shopify.com/s/files/1/0916/8266/8909/files/t-front_realistic.png?v=1761181061" 
-                        alt="Realistic" 
+                        src={tBackImg} 
+                        alt="Back" 
                         className="w-full h-20 object-contain rounded mb-2" 
                       />
-                      <span className="text-xs text-white/80">Realistic</span>
+                      <span className="text-xs text-white/80">Back</span>
                     </button>
                     
                     <button
-                      onClick={() => designImage && setCurrentView('design-only')}
-                      disabled={!designImage}
+                      onClick={() => setCurrentView('leftSleeve')}
                       className={`p-3 rounded-lg border-2 transition-all ${
-                        currentView === 'design-only' ? 'border-purple-bright bg-purple-bright/10 shadow-glow' : 'border-white/10 hover:border-white/30'
-                      } ${!designImage ? 'opacity-40 cursor-not-allowed' : ''}`}
-                    >
-                      <img 
-                        src={designImage?.url || "https://cdn.shopify.com/s/files/1/0916/8266/8909/files/Blank_Image.png?v=1761257355"} 
-                        alt="Design Only" 
-                        className="w-full h-20 object-contain rounded mb-2" 
-                      />
-                      <span className="text-xs text-white/80">Design Only</span>
-                    </button>
-                    
-                    <button
-                      onClick={() => setCurrentView('person')}
-                      className={`p-3 rounded-lg border-2 transition-all ${
-                        currentView === 'person' ? 'border-purple-bright bg-purple-bright/10 shadow-glow' : 'border-white/10 hover:border-white/30'
+                        currentView === 'leftSleeve' ? 'border-purple-bright bg-purple-bright/10 shadow-glow' : 'border-white/10 hover:border-white/30'
                       }`}
                     >
                       <img 
-                        src="https://cdn.shopify.com/s/files/1/0916/8266/8909/files/t-front_with_person.png?v=1761181608" 
-                        alt="Model" 
+                        src={tSleeveImg} 
+                        alt="Left Sleeve" 
                         className="w-full h-20 object-contain rounded mb-2" 
                       />
-                      <span className="text-xs text-white/80">Model</span>
+                      <span className="text-xs text-white/80">Left Sleeve</span>
+                    </button>
+                    
+                    <button
+                      onClick={() => setCurrentView('rightSleeve')}
+                      className={`p-3 rounded-lg border-2 transition-all ${
+                        currentView === 'rightSleeve' ? 'border-purple-bright bg-purple-bright/10 shadow-glow' : 'border-white/10 hover:border-white/30'
+                      }`}
+                    >
+                      <img 
+                        src={tSleeveImg} 
+                        alt="Right Sleeve" 
+                        className="w-full h-20 object-contain rounded mb-2" 
+                      />
+                      <span className="text-xs text-white/80">Right Sleeve</span>
+                    </button>
+                    
+                    <button
+                      onClick={() => setCurrentView('neckLabel')}
+                      className={`p-3 rounded-lg border-2 transition-all ${
+                        currentView === 'neckLabel' ? 'border-purple-bright bg-purple-bright/10 shadow-glow' : 'border-white/10 hover:border-white/30'
+                      }`}
+                    >
+                      <img 
+                        src={tNeckLabelImg} 
+                        alt="Neck Label" 
+                        className="w-full h-20 object-contain rounded mb-2" 
+                      />
+                      <span className="text-xs text-white/80">Neck Label</span>
                     </button>
                   </div>
                 </div>

@@ -176,7 +176,7 @@ export default function CreatorDashboard({ user }) {
       <Sidebar />
       
       {/* Main Content */}
-      <main className="ml-64 flex-1 p-8">
+      <main className="ml-64 flex-1 p-8 max-w-full overflow-x-hidden">
         {isLoading ? (
           <div className="flex items-center justify-center min-h-screen">
             <div className="glass-card p-12 text-center">
@@ -274,7 +274,7 @@ export default function CreatorDashboard({ user }) {
                 ) : (
                   /* Show "Your Products" carousel when products exist */
                   <div className="space-y-8">
-                    <div className="glass-card p-8">
+                    <div className="glass-card p-8 max-w-full">
                       <div className="flex items-center justify-between mb-6">
                         <div>
                           <h1 className="text-3xl font-bold text-white mb-2">Your Products</h1>
@@ -291,8 +291,8 @@ export default function CreatorDashboard({ user }) {
                       </div>
 
                       {/* Horizontal Scrollable Product Carousel */}
-                      <div className="relative">
-                        <div className="flex gap-6 overflow-x-auto pb-4 scrollbar-thin scrollbar-thumb-white/10 scrollbar-track-transparent hover:scrollbar-thumb-white/20">
+                      <div className="relative -mx-8">
+                        <div className="flex gap-6 overflow-x-auto px-8 pb-4 scrollbar-thin">
                           {creatorProducts.map(product => (
                             <div key={product.id} className="flex-shrink-0 w-80">
                               <ProductCard product={product} isCommunity={false} />
