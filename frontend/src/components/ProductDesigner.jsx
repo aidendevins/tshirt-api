@@ -1,5 +1,5 @@
 import { useState, useEffect, useRef } from 'react';
-import { getCreatorSession } from '../utils/session';
+import { getCreatorSession, setPrintifyVariants, getPrintifyVariants } from '../utils/session';
 import tFrontImg from '../assets/t-front.png';
 import tBackImg from '../assets/t-back.png';
 import tSleeveImg from '../assets/t-sleeve.png';
@@ -143,11 +143,22 @@ export default function ProductDesigner({ onSave, onCancel }) {
   const [productTitle, setProductTitle] = useState('');
   const [productDescription, setProductDescription] = useState('');
   const [productPrice, setProductPrice] = useState('29.99');
-  const [availableColors, setAvailableColors] = useState(['white', 'black']);
+  const [availableColors, setAvailableColors] = useState([]);
   const [availableSizes, setAvailableSizes] = useState(['S', 'M', 'L', 'XL']);
+  
+  // Dynamic colors from Printify variants
+  const [printifyColors, setPrintifyColors] = useState([]);
+  const [colorSearchTerm, setColorSearchTerm] = useState('');
+  const [showColorDropdown, setShowColorDropdown] = useState(false);
   
   // Cached images - captured when user clicks "Next"
   const [cachedViewImages, setCachedViewImages] = useState(null);
+  
+  // Mockup carousel state
+  const [showMockupCarousel, setShowMockupCarousel] = useState(false);
+  const [mockupImages, setMockupImages] = useState([]);
+  const [printifyProductId, setPrintifyProductId] = useState(null);
+  const [currentMockupIndex, setCurrentMockupIndex] = useState(0);
   
   // Current view's text and sprites (convenience accessors)
   const textElement = textElements[currentView];
@@ -275,6 +286,22 @@ export default function ProductDesigner({ onSave, onCancel }) {
     window.addEventListener('keydown', handleKeyDown);
     return () => window.removeEventListener('keydown', handleKeyDown);
   }, [currentStep, isTextSelected, isDesignSelected, selectedLayer, textElement, designImages, sprites, currentView]);
+  
+  // Load colors from Printify variants when moving to options step
+  useEffect(() => {
+    if (currentStep === 'options') {
+      const variantsData = getPrintifyVariants();
+      if (variantsData && variantsData.variants) {
+        // Extract unique colors from variants
+        const uniqueColors = [...new Set(
+          variantsData.variants.map(variant => variant.options.color)
+        )].sort();
+        
+        console.log('📊 Extracted unique colors from Printify variants:', uniqueColors.length);
+        setPrintifyColors(uniqueColors);
+      }
+    }
+  }, [currentStep]);
   
   // Save state for undo
   const saveState = () => {
@@ -615,7 +642,7 @@ export default function ProductDesigner({ onSave, onCancel }) {
     }
   };
   
-  const drawArcText = (text, cx, cy, fontSize) => {
+  const drawArcText = (text, cx, cy, fontSize, context = ctx) => {
     const radius = 100;
     const angleRange = Math.PI;
     const startAngle = -Math.PI / 2 - angleRange / 2;
@@ -625,15 +652,15 @@ export default function ProductDesigner({ onSave, onCancel }) {
       const x = cx + radius * Math.cos(angle);
       const y = cy + radius * Math.sin(angle);
       
-      ctx.save();
-      ctx.translate(x, y);
-      ctx.rotate(angle + Math.PI / 2);
-      ctx.fillText(text[i], 0, 0);
-      ctx.restore();
+      context.save();
+      context.translate(x, y);
+      context.rotate(angle + Math.PI / 2);
+      context.fillText(text[i], 0, 0);
+      context.restore();
     }
   };
   
-  const drawWaveText = (text, cx, cy, fontSize) => {
+  const drawWaveText = (text, cx, cy, fontSize, context = ctx) => {
     const amplitude = 20;
     const frequency = 0.5;
     const charWidth = fontSize * 0.6;
@@ -642,11 +669,11 @@ export default function ProductDesigner({ onSave, onCancel }) {
     for (let i = 0; i < text.length; i++) {
       const x = cx - totalWidth / 2 + i * charWidth;
       const y = cy + Math.sin(i * frequency) * amplitude;
-      ctx.fillText(text[i], x, y);
+      context.fillText(text[i], x, y);
     }
   };
   
-  const drawCircleText = (text, cx, cy, fontSize) => {
+  const drawCircleText = (text, cx, cy, fontSize, context = ctx) => {
     const radius = 80;
     const angleStep = (Math.PI * 2) / text.length;
     
@@ -655,11 +682,11 @@ export default function ProductDesigner({ onSave, onCancel }) {
       const x = cx + radius * Math.cos(angle);
       const y = cy + radius * Math.sin(angle);
       
-      ctx.save();
-      ctx.translate(x, y);
-      ctx.rotate(angle + Math.PI / 2);
-      ctx.fillText(text[i], 0, 0);
-      ctx.restore();
+      context.save();
+      context.translate(x, y);
+      context.rotate(angle + Math.PI / 2);
+      context.fillText(text[i], 0, 0);
+      context.restore();
     }
   };
   
@@ -1669,7 +1696,97 @@ export default function ProductDesigner({ onSave, onCancel }) {
     img.src = item.url || item.image;
   };
   
-  // Helper function to draw a specific view directly on canvas without changing state
+  // Helper function to draw ONLY the design (no t-shirt template) for Printify
+  // Scaled up to Printify's print area dimensions (3951x4800px @ 300dpi)
+  const drawDesignOnlyView = (view) => {
+    if (!canvasRef.current) return null;
+    
+    // Create a high-resolution canvas for Printify
+    const printifyWidth = 4500;  // High-res width
+    const printifyHeight = 5400; // High-res height  
+    const scale = printifyWidth / 660; // Scale factor from editor canvas
+    
+    const hiResCanvas = document.createElement('canvas');
+    hiResCanvas.width = printifyWidth;
+    hiResCanvas.height = printifyHeight;
+    const tempCtx = hiResCanvas.getContext('2d');
+    
+    // Clear canvas with transparent background
+    tempCtx.clearRect(0, 0, printifyWidth, printifyHeight);
+    
+    // Get the print area for this view (scaled up)
+    const printArea = PRINT_AREA_CONFIG[view];
+    const printAreaX = printifyWidth * printArea.x;
+    const printAreaY = printifyHeight * printArea.y;
+    const printAreaWidth = printifyWidth * printArea.width;
+    const printAreaHeight = printifyHeight * printArea.height;
+    
+    // Draw design on transparent canvas (use the design for this specific view, scaled up)
+    const viewDesign = designImages[view];
+    if (viewDesign) {
+      tempCtx.drawImage(
+        viewDesign.img, 
+        viewDesign.x * scale, 
+        viewDesign.y * scale, 
+        viewDesign.width * scale, 
+        viewDesign.height * scale
+      );
+    }
+    
+    // Draw sprites for this view (scaled up)
+    const viewSprites = spritesPerView[view];
+    viewSprites.forEach((sprite) => {
+      tempCtx.font = `${sprite.size * scale}px Arial`;
+      tempCtx.textAlign = 'left';
+      tempCtx.textBaseline = 'top';
+      tempCtx.fillText(sprite.emoji, sprite.x * scale, sprite.y * scale);
+    });
+    
+    // Draw text for this view (scaled up)
+    const viewText = textElements[view];
+    if (viewText) {
+      tempCtx.font = `${viewText.size * scale}px ${viewText.font}`;
+      tempCtx.fillStyle = viewText.color;
+      tempCtx.textAlign = 'center';
+      tempCtx.textBaseline = 'middle';
+      
+      if (viewText.warpStyle === 'arc') {
+        // Scale coordinates and size for arc text
+        drawArcText(viewText.text, viewText.x * scale, viewText.y * scale, viewText.size * scale, tempCtx);
+      } else if (viewText.warpStyle === 'wave') {
+        // Scale coordinates and size for wave text
+        drawWaveText(viewText.text, viewText.x * scale, viewText.y * scale, viewText.size * scale, tempCtx);
+      } else if (viewText.warpStyle === 'circle') {
+        // Scale coordinates and size for circle text
+        drawCircleText(viewText.text, viewText.x * scale, viewText.y * scale, viewText.size * scale, tempCtx);
+      } else {
+        // Use text's maxWidth if available, otherwise use print area width (scaled)
+        const maxWidth = viewText.maxWidth ? viewText.maxWidth * scale : printAreaWidth;
+        
+        // Wrap text if needed
+        const lines = wrapText(viewText.text, maxWidth, tempCtx);
+        const lineHeight = viewText.size * scale * 1.2;
+        const totalHeight = lines.length * lineHeight;
+        const startY = (viewText.y * scale) - (totalHeight / 2) + (lineHeight / 2);
+        
+        // Draw each line centered
+        lines.forEach((line, index) => {
+          const y = startY + (index * lineHeight);
+          tempCtx.fillText(line, viewText.x * scale, y);
+        });
+      }
+    }
+    
+    // Capture and return the high-resolution image
+    try {
+      return hiResCanvas.toDataURL('image/png');
+    } catch (e) {
+      console.error('Error capturing design-only canvas:', e);
+      return null;
+    }
+  };
+  
+  // Helper function to draw a specific view directly on canvas without changing state (with t-shirt)
   const drawCanvasView = (view) => {
     if (!ctx || !canvasRef.current) return null;
     
@@ -1798,6 +1915,32 @@ export default function ProductDesigner({ onSave, onCancel }) {
       
       console.log('✅ All 5 views captured and cached!');
       
+      // Fetch Printify variants from backend and store in session cookie
+      console.log('🔄 Fetching Printify variants from backend...');
+      console.log('📍 API URL:', `${API_BASE_URL}/api/printify/variants`);
+      try {
+        const response = await fetch(`${API_BASE_URL}/api/printify/variants`, {
+          method: 'GET',
+          headers: {
+            'Content-Type': 'application/json'
+          }
+        });
+        
+        if (response.ok) {
+          const variantsData = await response.json();
+          setPrintifyVariants(variantsData);
+          console.log('✅ Printify variants fetched and stored in session cookie');
+          console.log('📦 Variants data:', variantsData);
+        } else {
+          console.error('❌ Failed to fetch Printify variants:', response.status, response.statusText);
+          const errorText = await response.text();
+          console.error('❌ Error details:', errorText);
+        }
+      } catch (printifyError) {
+        console.error('❌ Error fetching Printify variants:', printifyError);
+        // Don't block the user from proceeding if Printify API fails
+      }
+      
       // Reset canvas back to front view (redraw with current state)
       drawCanvas();
       
@@ -1856,6 +1999,7 @@ export default function ProductDesigner({ onSave, onCancel }) {
       // Show loading state
       setIsGenerating(true);
       setError('');
+      setNotification('Step 1/4: Uploading designs to Printify...');
       
       // Get creator session data
       const creatorSession = getCreatorSession();
@@ -1865,42 +2009,249 @@ export default function ProductDesigner({ onSave, onCancel }) {
         return;
       }
       
-      // Use the cached images that were captured when user clicked "Next"
-      console.log('🚀 Launching product with cached images...');
-      const designData = {
-        images: [
-          { data: cachedViewImages.front, view: 'front' },
-          { data: cachedViewImages.back, view: 'back' },
-          { data: cachedViewImages.leftSleeve, view: 'leftSleeve' },
-          { data: cachedViewImages.rightSleeve, view: 'rightSleeve' },
-          { data: cachedViewImages.neckLabel, view: 'neckLabel' }
-        ],
-        title: productTitle,
-        description: productDescription,
-        price: parseFloat(productPrice),
-        availableColors,
-        availableSizes,
-        timestamp: new Date().toISOString()
-      };
+      // Step 1: Upload non-null designs to Printify (design-only, no t-shirt template)
+      console.log('📤 Step 1: Uploading designs to Printify...');
+      const uploadedImageIds = {};
+      const editorImages = [];
       
-      // Call backend API to create product
-      const response = await fetch(`${API_BASE_URL}/api/shopify/create-product`, {
+      // First, capture design-only images (without t-shirt template) for Printify
+      const viewsToUpload = ['front', 'back', 'leftSleeve', 'rightSleeve', 'neckLabel'];
+      
+      for (const view of viewsToUpload) {
+        // Only upload if the design has actual content
+        if (designImages[view] || textElements[view] || spritesPerView[view]?.length > 0) {
+          console.log(`  Capturing and uploading ${view} design...`);
+          
+          // Capture design-only image (transparent background, no t-shirt)
+          const designOnlyImage = drawDesignOnlyView(view);
+          
+          if (!designOnlyImage) {
+            console.warn(`  ⚠️ Failed to capture ${view} design, skipping...`);
+            continue;
+          }
+          
+          // Keep the full canvas image (with t-shirt) for mockup carousel
+          if (cachedViewImages && cachedViewImages[view]) {
+            editorImages.push({ data: cachedViewImages[view], view });
+          }
+          
+          try {
+            const uploadResponse = await fetch(`${API_BASE_URL}/api/printify/upload-image`, {
+              method: 'POST',
+              headers: {
+                'Content-Type': 'application/json',
+              },
+              body: JSON.stringify({
+                imageData: designOnlyImage,  // Send design-only image
+                fileName: `${productTitle}-${view}.png`,
+                creatorId: creatorSession.uid
+              })
+            });
+            
+            if (!uploadResponse.ok) {
+              throw new Error(`Failed to upload ${view} design`);
+            }
+            
+            const uploadResult = await uploadResponse.json();
+            uploadedImageIds[view] = uploadResult.imageId;
+            console.log(`  ✅ Uploaded ${view}: ${uploadResult.imageId}`);
+          } catch (uploadError) {
+            console.error(`Error uploading ${view}:`, uploadError);
+            // Continue with other uploads
+          }
+        }
+      }
+      
+      if (Object.keys(uploadedImageIds).length === 0) {
+        throw new Error('No designs to upload. Please add at least one design.');
+      }
+      
+      console.log('✅ All designs uploaded:', uploadedImageIds);
+      
+      // Step 2: Build variants from selected colors and sizes
+      setNotification('Step 2/4: Building product variants...');
+      console.log('🔧 Step 2: Building variants...');
+      
+      const variantsData = getPrintifyVariants();
+      if (!variantsData || !variantsData.variants) {
+        throw new Error('Variants data not available. Please refresh and try again.');
+      }
+      
+      // Map selected colors and sizes to Printify variant IDs
+      const selectedVariants = [];
+      for (const color of availableColors) {
+        for (const size of availableSizes) {
+          // Find matching variant
+          const variant = variantsData.variants.find(v => 
+            v.options.color.toLowerCase() === color.toLowerCase() &&
+            v.options.size === size
+          );
+          
+          if (variant) {
+            selectedVariants.push({
+              id: variant.id,
+              price: Math.round(parseFloat(productPrice) * 100), // Convert to cents
+              is_enabled: true
+            });
+          }
+        }
+      }
+      
+      if (selectedVariants.length === 0) {
+        throw new Error('No matching variants found. Please check your color and size selections.');
+      }
+      
+      console.log(`✅ Built ${selectedVariants.length} variants`);
+      
+      // Step 3: Create Printify product
+      setNotification('Step 3/4: Creating product in Printify...');
+      console.log('🎨 Step 3: Creating Printify product...');
+      
+      const createProductResponse = await fetch(`${API_BASE_URL}/api/printify/create-product`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
         },
         body: JSON.stringify({
-          productData: designData,
+          title: productTitle,
+          description: productDescription,
+          uploadedImageIds: uploadedImageIds,
+          variants: selectedVariants,
+          blueprintId: 6,
+          printProviderId: 99
+        })
+      });
+      
+      if (!createProductResponse.ok) {
+        const errorData = await createProductResponse.json();
+        throw new Error(errorData.error || 'Failed to create Printify product');
+      }
+      
+      const createProductResult = await createProductResponse.json();
+      const productId = createProductResult.productId;
+      console.log(`✅ Printify product created: ${productId}`);
+      
+      // Step 4: Fetch product with mockups
+      setNotification('Step 4/4: Generating mockups...');
+      console.log('🖼️ Step 4: Fetching product with mockups...');
+      
+      const getProductResponse = await fetch(`${API_BASE_URL}/api/printify/product/${productId}`, {
+        method: 'GET',
+        headers: {
+          'Content-Type': 'application/json',
+        }
+      });
+      
+      if (!getProductResponse.ok) {
+        throw new Error('Failed to fetch product mockups');
+      }
+      
+      const productData = await getProductResponse.json();
+      console.log(`✅ Product fetched with ${productData.product.mockups?.length || 0} mockups`);
+      
+      // Combine editor images with mockups
+      const allImages = [
+        ...editorImages,
+        ...(productData.product.mockups || []).map(mockup => ({ src: mockup.src, type: 'mockup' }))
+      ];
+      
+      // Show mockup carousel
+      setMockupImages(allImages);
+      setPrintifyProductId(productId);
+      setShowMockupCarousel(true);
+      setIsGenerating(false);
+      setNotification('');
+      
+    } catch (error) {
+      console.error('Error creating product:', error);
+      setError(error.message || 'Failed to create product. Please try again.');
+      setIsGenerating(false);
+      setNotification('');
+    }
+  };
+  
+  const handleApproveMockups = async () => {
+    try {
+      setIsGenerating(true);
+      setNotification('Publishing to Shopify...');
+      
+      // Get creator session data
+      const creatorSession = getCreatorSession();
+      if (!creatorSession) {
+        setError('Session expired. Please log in again.');
+        setIsGenerating(false);
+        return;
+      }
+      
+      // Create product in Shopify using existing endpoint
+      // This includes: mockup images + editor images, creator collection, metafields
+      console.log('🚀 Creating product in Shopify...');
+      
+      // Prepare product data with all images (editor + mockups)
+      const allImages = mockupImages.map(img => ({
+        data: img.src || img.data,  // Mockups have 'src', editor images have 'data'
+        view: img.view || (img.type === 'mockup' ? 'mockup' : 'editor')
+      }));
+      
+      const productData = {
+        images: allImages,
+        title: productTitle,
+        description: productDescription,
+        price: parseFloat(productPrice),
+        availableColors,
+        availableSizes,
+        timestamp: new Date().toISOString(),
+        printifyProductId: printifyProductId  // Store for reference
+      };
+      
+      const createResponse = await fetch(`${API_BASE_URL}/api/shopify/create-product`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          productData: productData,
           creatorId: creatorSession.uid
         })
       });
       
-      if (!response.ok) {
-        const errorData = await response.json();
-        throw new Error(errorData.message || 'Failed to create product');
+      if (!createResponse.ok) {
+        const errorData = await createResponse.json();
+        throw new Error(errorData.message || 'Failed to create product in Shopify');
       }
       
-      const result = await response.json();
+      const result = await createResponse.json();
+      console.log('✅ Product created in Shopify:', result);
+      
+      // Step 2: Link Printify product to Shopify product for auto-fulfillment
+      setNotification('Linking to Printify for fulfillment...');
+      console.log('🔗 Linking Printify product to Shopify...');
+      
+      try {
+        const linkResponse = await fetch(`${API_BASE_URL}/api/printify/link-to-shopify`, {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify({
+            printifyProductId: printifyProductId,
+            shopifyProductId: result.product.id
+          })
+        });
+        
+        if (linkResponse.ok) {
+          const linkResult = await linkResponse.json();
+          console.log('✅ Printify product linked to Shopify:', linkResult);
+        } else {
+          console.warn('⚠️ Failed to link Printify product, but Shopify product was created');
+        }
+      } catch (linkError) {
+        console.error('Error linking Printify product:', linkError);
+        // Don't fail the whole flow if linking fails
+      }
+      
+      setIsGenerating(false);
+      setNotification('');
       
       // Call the original onSave callback with result
       if (onSave) {
@@ -1908,10 +2259,18 @@ export default function ProductDesigner({ onSave, onCancel }) {
       }
       
     } catch (error) {
-      console.error('Error creating product:', error);
+      console.error('Error creating product in Shopify:', error);
       setError(error.message || 'Failed to create product. Please try again.');
       setIsGenerating(false);
+      setNotification('');
     }
+  };
+  
+  const handleRejectMockups = () => {
+    setShowMockupCarousel(false);
+    setMockupImages([]);
+    setPrintifyProductId(null);
+    setCurrentMockupIndex(0);
   };
 
   return (
@@ -2601,29 +2960,94 @@ export default function ProductDesigner({ onSave, onCancel }) {
                   </div>
                 </div>
 
-                <div className="glass-card p-6 rounded-2xl">
+                <div className="glass-card p-6 rounded-2xl relative z-40">
                   <h3 className="text-lg font-bold text-white mb-2">Available Colors</h3>
-                  <p className="text-white/60 text-sm mb-4">Select which colors customers can choose from</p>
+                  <p className="text-white/60 text-sm mb-4">
+                    Search and select colors ({printifyColors.length} available)
+                  </p>
                   
-                  <div className="grid grid-cols-2 gap-3">
-                    {colors.map(color => (
-                      <label key={color} className="flex items-center gap-3 glass-card px-4 py-3 rounded-lg cursor-pointer hover:shadow-glow transition-all">
-                        <input
-                          type="checkbox"
-                          checked={availableColors.includes(color)}
-                          onChange={(e) => {
-                            if (e.target.checked) {
-                              setAvailableColors([...availableColors, color]);
-                            } else {
-                              setAvailableColors(availableColors.filter(c => c !== color));
-                            }
-                          }}
-                          className="w-4 h-4 text-purple-bright rounded focus:ring-purple-bright"
-                        />
-                        <span className="text-white/80 capitalize">{color}</span>
-                      </label>
-                    ))}
+                  {/* Selected Colors Tags */}
+                  {availableColors.length > 0 && (
+                    <div className="mb-4 flex flex-wrap gap-2">
+                      {availableColors.map(color => (
+                        <div 
+                          key={color}
+                          className="flex items-center gap-2 glass-card px-3 py-2 rounded-lg bg-purple-mid/20 border-purple-bright/30"
+                        >
+                          <span className="text-white text-sm">{color}</span>
+                          <button
+                            onClick={() => setAvailableColors(availableColors.filter(c => c !== color))}
+                            className="text-white/60 hover:text-white transition-colors"
+                            aria-label={`Remove ${color}`}
+                          >
+                            <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                            </svg>
+                          </button>
+                        </div>
+                      ))}
+                    </div>
+                  )}
+                  
+                  {/* Search Input with Dropdown */}
+                  <div className="relative z-50">
+                    <input
+                      type="text"
+                      value={colorSearchTerm}
+                      onChange={(e) => {
+                        setColorSearchTerm(e.target.value);
+                        setShowColorDropdown(e.target.value.length > 0);
+                      }}
+                      onFocus={() => colorSearchTerm.length > 0 && setShowColorDropdown(true)}
+                      onBlur={() => setTimeout(() => setShowColorDropdown(false), 200)}
+                      placeholder="Search colors..."
+                      className="w-full px-4 py-3 bg-white/5 border border-white/10 rounded-lg text-white placeholder-white/40 focus:outline-none focus:ring-2 focus:ring-purple-bright transition-all"
+                    />
+                    
+                    {/* Search Results Dropdown */}
+                    {showColorDropdown && colorSearchTerm && printifyColors.length > 0 && (
+                      <div className="absolute z-50 w-full mt-2 bg-purple-deep/95 backdrop-blur-xl border border-white/20 rounded-lg overflow-hidden max-h-64 overflow-y-auto custom-scrollbar shadow-2xl">
+                        {printifyColors
+                          .filter(color => 
+                            color.toLowerCase().includes(colorSearchTerm.toLowerCase()) &&
+                            !availableColors.includes(color)
+                          )
+                          .slice(0, 10)
+                          .map(color => (
+                            <button
+                              key={color}
+                              onClick={() => {
+                                setAvailableColors([...availableColors, color]);
+                                setColorSearchTerm('');
+                                setShowColorDropdown(false);
+                              }}
+                              className="w-full px-4 py-3 text-left text-white hover:bg-purple-mid/20 transition-colors border-b border-white/5 last:border-b-0"
+                            >
+                              {color}
+                            </button>
+                          ))}
+                        
+                        {printifyColors.filter(color => 
+                          color.toLowerCase().includes(colorSearchTerm.toLowerCase()) &&
+                          !availableColors.includes(color)
+                        ).length === 0 && (
+                          <div className="px-4 py-3 text-white/40 text-sm text-center">
+                            {availableColors.some(c => c.toLowerCase() === colorSearchTerm.toLowerCase()) 
+                              ? 'Color already selected'
+                              : 'No colors found'}
+                          </div>
+                        )}
+                      </div>
+                    )}
                   </div>
+                  
+                  {/* Helper text */}
+                  <p className="text-white/40 text-xs mt-2">
+                    {availableColors.length === 0 
+                      ? 'Start typing to search and add colors'
+                      : `${availableColors.length} color${availableColors.length !== 1 ? 's' : ''} selected`
+                    }
+                  </p>
                 </div>
 
                 <div className="glass-card p-6 rounded-2xl">
@@ -2691,6 +3115,140 @@ export default function ProductDesigner({ onSave, onCancel }) {
                   </div>
                 )}
               </div>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Mockup Carousel Modal */}
+      {showMockupCarousel && (
+        <div className="fixed inset-0 bg-black/80 backdrop-blur-sm z-50 flex items-center justify-center p-4">
+          <div className="glass-card rounded-3xl max-w-6xl w-full max-h-[90vh] overflow-auto p-8">
+            <div className="flex flex-col gap-6">
+              {/* Header */}
+              <div className="flex items-center justify-between">
+                <div>
+                  <h2 className="text-3xl font-bold text-white mb-2">Preview Your Product</h2>
+                  <p className="text-white/60">Review the mockups and approve to publish to your Shopify store</p>
+                </div>
+                <button
+                  onClick={handleRejectMockups}
+                  className="w-10 h-10 flex items-center justify-center text-white/60 hover:text-white transition-colors rounded-lg hover:bg-white/10"
+                  title="Close"
+                >
+                  <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                  </svg>
+                </button>
+              </div>
+
+              {/* Image Counter */}
+              <div className="text-center">
+                <p className="text-white/80">
+                  Image {currentMockupIndex + 1} of {mockupImages.length}
+                </p>
+              </div>
+
+              {/* Main Image Display */}
+              <div className="relative aspect-square max-h-[500px] flex items-center justify-center bg-white/5 rounded-2xl overflow-hidden">
+                {mockupImages[currentMockupIndex] && (
+                  <>
+                    {mockupImages[currentMockupIndex].type === 'mockup' ? (
+                      <img
+                        src={mockupImages[currentMockupIndex].src}
+                        alt={`Mockup ${currentMockupIndex + 1}`}
+                        className="max-w-full max-h-full object-contain"
+                      />
+                    ) : (
+                      <img
+                        src={mockupImages[currentMockupIndex].data}
+                        alt={`${mockupImages[currentMockupIndex].view} view`}
+                        className="max-w-full max-h-full object-contain"
+                      />
+                    )}
+                  </>
+                )}
+
+                {/* Navigation Arrows */}
+                {mockupImages.length > 1 && (
+                  <>
+                    <button
+                      onClick={() => setCurrentMockupIndex(Math.max(0, currentMockupIndex - 1))}
+                      disabled={currentMockupIndex === 0}
+                      className="absolute left-4 top-1/2 -translate-y-1/2 w-12 h-12 flex items-center justify-center glass-card rounded-full disabled:opacity-30 disabled:cursor-not-allowed hover:shadow-glow transition-all"
+                    >
+                      <svg className="w-6 h-6 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7" />
+                      </svg>
+                    </button>
+                    <button
+                      onClick={() => setCurrentMockupIndex(Math.min(mockupImages.length - 1, currentMockupIndex + 1))}
+                      disabled={currentMockupIndex === mockupImages.length - 1}
+                      className="absolute right-4 top-1/2 -translate-y-1/2 w-12 h-12 flex items-center justify-center glass-card rounded-full disabled:opacity-30 disabled:cursor-not-allowed hover:shadow-glow transition-all"
+                    >
+                      <svg className="w-6 h-6 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
+                      </svg>
+                    </button>
+                  </>
+                )}
+              </div>
+
+              {/* Thumbnail Strip */}
+              {mockupImages.length > 1 && (
+                <div className="flex gap-3 overflow-x-auto pb-2">
+                  {mockupImages.map((img, idx) => (
+                    <button
+                      key={idx}
+                      onClick={() => setCurrentMockupIndex(idx)}
+                      className={`flex-shrink-0 w-20 h-20 rounded-lg overflow-hidden transition-all ${
+                        currentMockupIndex === idx
+                          ? 'ring-2 ring-purple-bright shadow-glow'
+                          : 'opacity-60 hover:opacity-100'
+                      }`}
+                    >
+                      {img.type === 'mockup' ? (
+                        <img src={img.src} alt={`Thumbnail ${idx + 1}`} className="w-full h-full object-cover" />
+                      ) : (
+                        <img src={img.data} alt={img.view} className="w-full h-full object-cover" />
+                      )}
+                    </button>
+                  ))}
+                </div>
+              )}
+
+              {/* Action Buttons */}
+              <div className="flex gap-4">
+                <button
+                  onClick={handleRejectMockups}
+                  className="flex-1 py-4 glass-button rounded-xl font-bold"
+                >
+                  Cancel
+                </button>
+                <button
+                  onClick={handleApproveMockups}
+                  disabled={isGenerating}
+                  className="flex-1 py-4 btn-primary rounded-xl font-bold flex items-center justify-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed"
+                >
+                  {isGenerating ? (
+                    <>
+                      <div className="w-5 h-5 border-2 border-white/30 border-t-white rounded-full animate-spin"></div>
+                      Publishing...
+                    </>
+                  ) : (
+                    <>
+                      ✅ Approve & Publish to Shopify
+                    </>
+                  )}
+                </button>
+              </div>
+
+              {/* Notification */}
+              {notification && (
+                <div className="glass-card p-4 rounded-lg bg-blue-500/20 border-blue-500/30">
+                  <p className="text-sm text-blue-300 text-center">{notification}</p>
+                </div>
+              )}
             </div>
           </div>
         </div>

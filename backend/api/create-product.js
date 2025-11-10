@@ -109,12 +109,25 @@ const createShopifyProduct = async (productData, creatorId) => {
           }
         ],
         variants: variants,
-        images: productData.images ? productData.images.map((img, index) => ({
-          attachment: img.data.split(',')[1], // Base64 data without prefix
-          filename: `${productData.title.replace(/\s+/g, '-')}-${img.view || index}.png`,
-          alt: `${productData.title} - ${img.view || `View ${index + 1}`}`
-        })) : [{
-          attachment: productData.imageUrl ? productData.imageUrl.split(',')[1] : '', // Fallback for old format
+        images: productData.images ? productData.images.map((img, index) => {
+          // Handle both base64 (editor images) and URLs (Printify mockups)
+          if (img.data && img.data.startsWith('data:')) {
+            // Base64 image from editor
+            return {
+              attachment: img.data.split(',')[1],
+              filename: `${productData.title.replace(/\s+/g, '-')}-${img.view || index}.png`,
+              alt: `${productData.title} - ${img.view || `View ${index + 1}`}`
+            };
+          } else if (img.data && (img.data.startsWith('http://') || img.data.startsWith('https://'))) {
+            // External URL from Printify mockups
+            return {
+              src: img.data,
+              alt: `${productData.title} - ${img.view || 'mockup'}`
+            };
+          }
+          return null;
+        }).filter(Boolean) : [{
+          attachment: productData.imageUrl ? productData.imageUrl.split(',')[1] : '',
           filename: `${productData.title.replace(/\s+/g, '-')}.png`
         }],
         metafields: [
@@ -129,7 +142,14 @@ const createShopifyProduct = async (productData, creatorId) => {
             key: 'design_timestamp',
             value: productData.timestamp,
             type: 'single_line_text_field'
-          }
+          },
+          // Store Printify product ID for reference
+          ...(productData.printifyProductId ? [{
+            namespace: 'printify',
+            key: 'product_id',
+            value: productData.printifyProductId,
+            type: 'single_line_text_field'
+          }] : [])
         ]
       }
     };

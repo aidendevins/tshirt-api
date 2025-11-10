@@ -27,6 +27,12 @@ import shopifyCollectionsRouter from './api/shopify-collections.js';
 import createProductRouter from './api/create-product.js';
 import shopifyOrdersWebhook from './api/shopify-orders-webhook-v2.js';
 import uploadDesignHandler from './api/upload-design.js';
+import printifyVariantsRouter from './api/printify-variants.js';
+import printifyUploadImageRouter from './api/printify-upload-image.js';
+import printifyCreateProductRouter from './api/printify-create-product.js';
+import printifyGetProductRouter from './api/printify-get-product.js';
+import printifyPublishShopifyRouter from './api/printify-publish-shopify.js';
+import printifyLinkShopifyRouter from './api/printify-link-shopify.js';
 // import generateHandler from './api/generate.js';
 
 // API Routes
@@ -35,6 +41,12 @@ app.post('/api/upload-design', uploadDesignHandler);
 app.use('/api/shopify', shopifyCollectionsRouter);
 app.use('/api/shopify', createProductRouter);
 app.post('/api/shopify/orders-webhook', shopifyOrdersWebhook);
+app.use('/api/printify', printifyVariantsRouter);
+app.use('/api/printify', printifyUploadImageRouter);
+app.use('/api/printify', printifyCreateProductRouter);
+app.use('/api/printify', printifyGetProductRouter);
+app.use('/api/printify', printifyPublishShopifyRouter);
+app.use('/api/printify', printifyLinkShopifyRouter);
 // app.post('/api/generate', generateHandler);
 
 // Health check endpoint
@@ -42,7 +54,16 @@ app.get('/health', (req, res) => {
   res.json({ 
     status: 'OK', 
     timestamp: new Date().toISOString(),
-    endpoints: ['/api/generate-sd', '/api/upload-design']
+    endpoints: [
+      '/api/generate-sd', 
+      '/api/upload-design', 
+      '/api/printify/variants',
+      '/api/printify/upload-image',
+      '/api/printify/create-product',
+      '/api/printify/product/:productId',
+      '/api/printify/publish-to-shopify',
+      '/api/printify/link-to-shopify'
+    ]
   });
 });
 
@@ -57,7 +78,13 @@ app.get('/', (req, res) => {
       uploadDesign: 'POST /api/upload-design',
       shopifyCollections: 'POST /api/shopify/collections',
       createProduct: 'POST /api/shopify/create-product',
-      shopifyWebhook: 'POST /api/shopify/orders-webhook'
+      shopifyWebhook: 'POST /api/shopify/orders-webhook',
+      printifyVariants: 'GET /api/printify/variants',
+      printifyUploadImage: 'POST /api/printify/upload-image',
+      printifyCreateProduct: 'POST /api/printify/create-product',
+      printifyGetProduct: 'GET /api/printify/product/:productId',
+      printifyPublishShopify: 'POST /api/printify/publish-to-shopify',
+      printifyLinkShopify: 'POST /api/printify/link-to-shopify'
     }
   });
 });
@@ -75,7 +102,17 @@ app.use((err, req, res, next) => {
 app.use((req, res) => {
   res.status(404).json({ 
     error: 'Endpoint not found',
-    availableEndpoints: ['/api/generate-sd', '/api/upload-design', '/health']
+    availableEndpoints: [
+      '/api/generate-sd', 
+      '/api/upload-design', 
+      '/api/printify/variants',
+      '/api/printify/upload-image',
+      '/api/printify/create-product',
+      '/api/printify/product/:productId',
+      '/api/printify/publish-to-shopify',
+      '/api/printify/link-to-shopify',
+      '/health'
+    ]
   });
 });
 
@@ -87,11 +124,19 @@ app.listen(PORT, () => {
   console.log(`   - POST http://localhost:${PORT}/api/generate-sd`);
   console.log(`   - POST http://localhost:${PORT}/api/upload-design`);
   console.log(`   - POST http://localhost:${PORT}/api/shopify/orders-webhook`);
+  console.log(`   - GET  http://localhost:${PORT}/api/printify/variants`);
+  console.log(`   - POST http://localhost:${PORT}/api/printify/upload-image`);
+  console.log(`   - POST http://localhost:${PORT}/api/printify/create-product`);
+  console.log(`   - GET  http://localhost:${PORT}/api/printify/product/:productId`);
+  console.log(`   - POST http://localhost:${PORT}/api/printify/publish-to-shopify`);
+  console.log(`   - POST http://localhost:${PORT}/api/printify/link-to-shopify`);
   console.log(`   - GET  http://localhost:${PORT}/health`);
   console.log(`\n💡 Make sure you have the following environment variables set:`);
   console.log(`   - GEMINI_API_KEY`);
   console.log(`   - SHOPIFY_ADMIN_ACCESS_TOKEN`);
   console.log(`   - SHOPIFY_STORE_URL`);
+  console.log(`   - PRINTIFY_API_KEY`);
+  console.log(`   - PRINTIFY_SHOP_ID`);
   console.log(`   - REPLICATE_API_TOKEN (optional, for fallback)`);
   console.log(`\n🌍 Backend server is ready to accept requests!`);
 });
