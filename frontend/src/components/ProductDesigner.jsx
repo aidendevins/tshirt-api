@@ -4,6 +4,10 @@ import tFrontImg from '../assets/t-front.png';
 import tBackImg from '../assets/t-back.png';
 import tSleeveImg from '../assets/t-sleeve.png';
 import tNeckLabelImg from '../assets/t-necklabel.png';
+import tFrontRealisticImg from '../assets/t-front-realistic.png';
+import tBackRealisticImg from '../assets/t-realistic-back.png';
+import tSleeveRealisticImg from '../assets/t-sleeve-realistic.png';
+import tNeckRealisticImg from '../assets/t-neck-realistic.png';
 
 // Print area restriction constants
 const PRINT_AREA_CONFIG = {
@@ -44,8 +48,11 @@ const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || 'http://localhost:8000
 export default function ProductDesigner({ onSave, onCancel }) {
   // Canvas state
   const canvasRef = useRef(null);
+  const previewCanvasRef = useRef(null);
   const [ctx, setCtx] = useState(null);
+  const [previewCtx, setPreviewCtx] = useState(null);
   const [canvasImageUrl, setCanvasImageUrl] = useState('');
+  const [designOnlyImageUrl, setDesignOnlyImageUrl] = useState('');
   const fileInputRef = useRef(null);
   
   // Design state - separate design for each view
@@ -77,8 +84,14 @@ export default function ProductDesigner({ onSave, onCancel }) {
     neckLabel: null
   });
   
-  // Text state
-  const [textElement, setTextElement] = useState(null);
+  // Text state - separate text for each view
+  const [textElements, setTextElements] = useState({
+    front: null,
+    back: null,
+    leftSleeve: null,
+    rightSleeve: null,
+    neckLabel: null
+  });
   const [showTextEditor, setShowTextEditor] = useState(false);
   const [textInput, setTextInput] = useState('');
   const [textFont, setTextFont] = useState('Arial Black');
@@ -86,8 +99,14 @@ export default function ProductDesigner({ onSave, onCancel }) {
   const [fontSize, setFontSize] = useState(60);
   const [textWarpStyle, setTextWarpStyle] = useState('none');
   
-  // Sprites state
-  const [sprites, setSprites] = useState([]);
+  // Sprites state - separate sprites for each view
+  const [spritesPerView, setSpritesPerView] = useState({
+    front: [],
+    back: [],
+    leftSleeve: [],
+    rightSleeve: [],
+    neckLabel: []
+  });
   const [showSpritePanel, setShowSpritePanel] = useState(false);
   
   // Control state
@@ -130,6 +149,25 @@ export default function ProductDesigner({ onSave, onCancel }) {
   // Cached images - captured when user clicks "Next"
   const [cachedViewImages, setCachedViewImages] = useState(null);
   
+  // Current view's text and sprites (convenience accessors)
+  const textElement = textElements[currentView];
+  const sprites = spritesPerView[currentView];
+  
+  // Helper functions to update current view's text and sprites
+  const setTextElement = (newText) => {
+    setTextElements({
+      ...textElements,
+      [currentView]: newText
+    });
+  };
+  
+  const setSprites = (newSprites) => {
+    setSpritesPerView({
+      ...spritesPerView,
+      [currentView]: newSprites
+    });
+  };
+  
   const fonts = ['Arial Black', 'Impact', 'Helvetica', 'Times New Roman', 'Georgia', 'Courier New', 'Comic Sans MS'];
   const warpStyles = ['none', 'arc', 'wave', 'circle'];
   const colors = ['white', 'black', 'gray', 'red', 'blue', 'navy', 'green'];
@@ -139,13 +177,18 @@ export default function ProductDesigner({ onSave, onCancel }) {
   // Initialize canvas
   useEffect(() => {
     const canvas = canvasRef.current;
-    if (!canvas) return;
+    const previewCanvas = previewCanvasRef.current;
+    if (!canvas || !previewCanvas) return;
     
     const context = canvas.getContext('2d');
+    const previewContext = previewCanvas.getContext('2d');
     setCtx(context);
+    setPreviewCtx(previewContext);
     
     canvas.width = 660;
     canvas.height = 660;
+    previewCanvas.width = 660;
+    previewCanvas.height = 660;
     
     // Load t-shirt template images
     const loadImage = (src) => {
@@ -167,34 +210,84 @@ export default function ProductDesigner({ onSave, onCancel }) {
     ]).then(([front, back, leftSleeve, rightSleeve, neckLabel]) => {
       setTshirtImages({ front, back, leftSleeve, rightSleeve, neckLabel });
     });
-    
-    drawCanvas();
   }, []);
   
   // Redraw canvas when state changes
   useEffect(() => {
-    if (ctx && tshirtImages.front) {
+    if (ctx && previewCtx && tshirtImages.front) {
       drawCanvas();
     }
-  }, [designImages, textElement, sprites, currentView, ctx, tshirtImages, isDesignSelected, isTextSelected]);
+  }, [designImages, textElements, spritesPerView, currentView, ctx, previewCtx, tshirtImages, isDesignSelected, isTextSelected]);
   
   // Redraw canvas when returning to design step
   useEffect(() => {
-    if (currentStep === 'design' && ctx && tshirtImages.front) {
+    if (currentStep === 'design' && ctx && previewCtx && tshirtImages.front) {
       // Small delay to ensure DOM is ready
       const timer = setTimeout(() => {
         drawCanvas();
       }, 10);
       return () => clearTimeout(timer);
     }
-  }, [currentStep]);
+  }, [currentStep, ctx, previewCtx, tshirtImages]);
+  
+  // Handle keyboard events for deleting selected elements
+  useEffect(() => {
+    const handleKeyDown = (e) => {
+      // Only handle delete/backspace when in design step and not in an input field
+      if (currentStep !== 'design') return;
+      if (e.target.tagName === 'INPUT' || e.target.tagName === 'TEXTAREA') return;
+      
+      if (e.key === 'Delete' || e.key === 'Backspace') {
+        e.preventDefault();
+        
+        // Delete selected text
+        if (isTextSelected && textElement) {
+          saveState();
+          setTextElement(null);
+          setIsTextSelected(false);
+          return;
+        }
+        
+        // Delete selected design image
+        if (isDesignSelected && designImages[currentView]) {
+          saveState();
+          setDesignImages({
+            ...designImages,
+            [currentView]: null
+          });
+          setIsDesignSelected(false);
+          return;
+        }
+        
+        // Delete selected sprite
+        if (selectedLayer && selectedLayer.startsWith('sprite-')) {
+          const spriteIndex = parseInt(selectedLayer.split('-')[1]);
+          if (spriteIndex >= 0 && spriteIndex < sprites.length) {
+            saveState();
+            const newSprites = sprites.filter((_, idx) => idx !== spriteIndex);
+            setSprites(newSprites);
+            setSelectedLayer(null);
+          }
+        }
+      }
+    };
+    
+    window.addEventListener('keydown', handleKeyDown);
+    return () => window.removeEventListener('keydown', handleKeyDown);
+  }, [currentStep, isTextSelected, isDesignSelected, selectedLayer, textElement, designImages, sprites, currentView]);
   
   // Save state for undo
   const saveState = () => {
     const state = {
       designImages: { ...designImages },
-      textElement: textElement ? { ...textElement } : null,
-      sprites: sprites.map(s => ({ ...s }))
+      textElements: { ...textElements },
+      spritesPerView: {
+        front: [...spritesPerView.front],
+        back: [...spritesPerView.back],
+        leftSleeve: [...spritesPerView.leftSleeve],
+        rightSleeve: [...spritesPerView.rightSleeve],
+        neckLabel: [...spritesPerView.neckLabel]
+      }
     };
     setUndoStack([...undoStack, state]);
     setRedoStack([]);
@@ -208,16 +301,22 @@ export default function ProductDesigner({ onSave, onCancel }) {
     
     const currentState = {
       designImages: { ...designImages },
-      textElement: textElement ? { ...textElement } : null,
-      sprites: sprites.map(s => ({ ...s }))
+      textElements: { ...textElements },
+      spritesPerView: {
+        front: [...spritesPerView.front],
+        back: [...spritesPerView.back],
+        leftSleeve: [...spritesPerView.leftSleeve],
+        rightSleeve: [...spritesPerView.rightSleeve],
+        neckLabel: [...spritesPerView.neckLabel]
+      }
     };
     
     setRedoStack([...redoStack, currentState]);
     setUndoStack(newUndoStack);
     
     setDesignImages(prevState.designImages);
-    setTextElement(prevState.textElement);
-    setSprites(prevState.sprites);
+    setTextElements(prevState.textElements);
+    setSpritesPerView(prevState.spritesPerView);
   };
   
   const handleRedo = () => {
@@ -228,16 +327,22 @@ export default function ProductDesigner({ onSave, onCancel }) {
     
     const currentState = {
       designImages: { ...designImages },
-      textElement: textElement ? { ...textElement } : null,
-      sprites: sprites.map(s => ({ ...s }))
+      textElements: { ...textElements },
+      spritesPerView: {
+        front: [...spritesPerView.front],
+        back: [...spritesPerView.back],
+        leftSleeve: [...spritesPerView.leftSleeve],
+        rightSleeve: [...spritesPerView.rightSleeve],
+        neckLabel: [...spritesPerView.neckLabel]
+      }
     };
     
     setUndoStack([...undoStack, currentState]);
     setRedoStack(newRedoStack);
     
     setDesignImages(nextState.designImages);
-    setTextElement(nextState.textElement);
-    setSprites(nextState.sprites);
+    setTextElements(nextState.textElements);
+    setSpritesPerView(nextState.spritesPerView);
   };
   
   const drawCanvas = () => {
@@ -264,9 +369,9 @@ export default function ProductDesigner({ onSave, onCancel }) {
     }
     
     const printAreaX = w * PRINT_AREA_CONFIG[currentView].x;
-    const printAreaY = w * PRINT_AREA_CONFIG[currentView].y;
+    const printAreaY = h * PRINT_AREA_CONFIG[currentView].y;
     const printAreaWidth = w * PRINT_AREA_CONFIG[currentView].width;
-    const printAreaHeight = w * PRINT_AREA_CONFIG[currentView].height;
+    const printAreaHeight = h * PRINT_AREA_CONFIG[currentView].height;
     
     // Get the design for the current view
     const currentDesignImage = designImages[currentView];
@@ -324,8 +429,158 @@ export default function ProductDesigner({ onSave, onCancel }) {
         console.error('Error converting canvas to data URL:', e);
       }
     }
+    
+    // Update preview with design-only rendering
+    updatePreviewCanvas();
   };
   
+  const updatePreviewCanvas = () => {
+    if (!previewCtx || !previewCanvasRef.current) return;
+    
+    const canvas = previewCanvasRef.current;
+    const w = canvas.width;
+    const h = canvas.height;
+    
+    // Clear with transparent background
+    previewCtx.clearRect(0, 0, w, h);
+    
+    // Get the design for the current view
+    const currentDesignImage = designImages[currentView];
+    
+    // Draw only the design elements (no t-shirt template)
+    if (currentDesignImage) {
+      previewCtx.drawImage(currentDesignImage.img, currentDesignImage.x, currentDesignImage.y, currentDesignImage.width, currentDesignImage.height);
+    }
+    
+    // Draw sprites
+    sprites.forEach((sprite) => {
+      previewCtx.font = `${sprite.size}px Arial`;
+      previewCtx.textAlign = 'left';
+      previewCtx.textBaseline = 'top';
+      previewCtx.fillText(sprite.emoji, sprite.x, sprite.y);
+    });
+    
+    // Draw text
+    if (textElement) {
+      drawTextOnPreview(textElement);
+    }
+    
+    // Update design-only image URL
+    if (previewCanvasRef.current) {
+      try {
+        setDesignOnlyImageUrl(previewCanvasRef.current.toDataURL('image/png'));
+      } catch (e) {
+        console.error('Error converting preview canvas to data URL:', e);
+      }
+    }
+  };
+  
+  const drawTextOnPreview = (text) => {
+    if (!previewCtx) return;
+    
+    previewCtx.font = `${text.size}px ${text.font}`;
+    previewCtx.fillStyle = text.color;
+    previewCtx.textAlign = 'center';
+    previewCtx.textBaseline = 'middle';
+    
+    if (text.warpStyle === 'arc') {
+      drawArcTextOnPreview(text.text, text.x, text.y, text.size);
+    } else if (text.warpStyle === 'wave') {
+      drawWaveTextOnPreview(text.text, text.x, text.y, text.size);
+    } else if (text.warpStyle === 'circle') {
+      drawCircleTextOnPreview(text.text, text.x, text.y, text.size);
+    } else {
+      // Use text's maxWidth if available, otherwise use print area width
+      const canvas = previewCanvasRef.current;
+      const printAreaWidth = canvas.width * PRINT_AREA_CONFIG[currentView].width;
+      const maxWidth = text.maxWidth || printAreaWidth;
+      
+      // Wrap text if needed
+      const lines = wrapText(text.text, maxWidth, previewCtx);
+      const lineHeight = text.size * 1.2;
+      const totalHeight = lines.length * lineHeight;
+      const startY = text.y - (totalHeight / 2) + (lineHeight / 2);
+      
+      // Draw each line centered
+      lines.forEach((line, index) => {
+        const y = startY + (index * lineHeight);
+        previewCtx.fillText(line, text.x, y);
+      });
+    }
+  };
+  
+  const drawArcTextOnPreview = (text, cx, cy, fontSize) => {
+    const radius = 100;
+    const angleRange = Math.PI;
+    const startAngle = -Math.PI / 2 - angleRange / 2;
+    
+    for (let i = 0; i < text.length; i++) {
+      const angle = startAngle + (angleRange / text.length) * i;
+      const x = cx + radius * Math.cos(angle);
+      const y = cy + radius * Math.sin(angle);
+      
+      previewCtx.save();
+      previewCtx.translate(x, y);
+      previewCtx.rotate(angle + Math.PI / 2);
+      previewCtx.fillText(text[i], 0, 0);
+      previewCtx.restore();
+    }
+  };
+  
+  const drawWaveTextOnPreview = (text, cx, cy, fontSize) => {
+    const amplitude = 20;
+    const frequency = 0.5;
+    const spacing = fontSize * 0.6;
+    const startX = cx - (text.length * spacing) / 2;
+    
+    for (let i = 0; i < text.length; i++) {
+      const x = startX + i * spacing;
+      const y = cy + Math.sin(i * frequency) * amplitude;
+      previewCtx.fillText(text[i], x, y);
+    }
+  };
+  
+  const drawCircleTextOnPreview = (text, cx, cy, fontSize) => {
+    const radius = 80;
+    const angleStep = (2 * Math.PI) / text.length;
+    
+    for (let i = 0; i < text.length; i++) {
+      const angle = i * angleStep - Math.PI / 2;
+      const x = cx + radius * Math.cos(angle);
+      const y = cy + radius * Math.sin(angle);
+      
+      previewCtx.save();
+      previewCtx.translate(x, y);
+      previewCtx.rotate(angle + Math.PI / 2);
+      previewCtx.fillText(text[i], 0, 0);
+      previewCtx.restore();
+    }
+  };
+  
+  // Helper function to wrap text into multiple lines
+  const wrapText = (text, maxWidth, context) => {
+    const words = text.split(' ');
+    if (words.length === 0) return [''];
+    
+    const lines = [];
+    let currentLine = words[0];
+    
+    for (let i = 1; i < words.length; i++) {
+      const word = words[i];
+      const testLine = currentLine + ' ' + word;
+      const metrics = context.measureText(testLine);
+      
+      if (metrics.width > maxWidth) {
+        lines.push(currentLine);
+        currentLine = word;
+      } else {
+        currentLine = testLine;
+      }
+    }
+    lines.push(currentLine);
+    return lines;
+  };
+
   const drawText = (text) => {
     if (!ctx) return;
     
@@ -341,7 +596,22 @@ export default function ProductDesigner({ onSave, onCancel }) {
     } else if (text.warpStyle === 'circle') {
       drawCircleText(text.text, text.x, text.y, text.size);
     } else {
-      ctx.fillText(text.text, text.x, text.y);
+      // Use text's maxWidth if available, otherwise use print area width
+      const canvas = canvasRef.current;
+      const printAreaWidth = canvas.width * PRINT_AREA_CONFIG[currentView].width;
+      const maxWidth = text.maxWidth || printAreaWidth;
+      
+      // Wrap text if needed
+      const lines = wrapText(text.text, maxWidth, ctx);
+      const lineHeight = text.size * 1.2;
+      const totalHeight = lines.length * lineHeight;
+      const startY = text.y - (totalHeight / 2) + (lineHeight / 2);
+      
+      // Draw each line centered
+      lines.forEach((line, index) => {
+        const y = startY + (index * lineHeight);
+        ctx.fillText(line, text.x, y);
+      });
     }
   };
   
@@ -396,10 +666,36 @@ export default function ProductDesigner({ onSave, onCancel }) {
   const getTextBoundingBox = () => {
     if (!textElement || !ctx) return { x: 0, y: 0, width: 0, height: 0 };
     
+    // Use stored box dimensions if available (for resizing stability)
+    if (textElement.boxWidth && textElement.boxHeight) {
+      return {
+        x: textElement.x - textElement.boxWidth / 2,
+        y: textElement.y - textElement.boxHeight / 2,
+        width: textElement.boxWidth,
+        height: textElement.boxHeight
+      };
+    }
+    
+    // Otherwise calculate from wrapped text (for backward compatibility)
     ctx.font = `${textElement.size}px ${textElement.font}`;
-    const metrics = ctx.measureText(textElement.text);
-    const width = metrics.width;
-    const height = textElement.size;
+    
+    const canvas = canvasRef.current;
+    const printAreaWidth = canvas.width * PRINT_AREA_CONFIG[currentView].width;
+    const maxWidth = textElement.maxWidth || printAreaWidth;
+    
+    const lines = wrapText(textElement.text, maxWidth, ctx);
+    const lineHeight = textElement.size * 1.2;
+    
+    let actualMaxWidth = 0;
+    lines.forEach(line => {
+      const metrics = ctx.measureText(line);
+      if (metrics.width > actualMaxWidth) {
+        actualMaxWidth = metrics.width;
+      }
+    });
+    
+    const width = Math.min(actualMaxWidth, maxWidth);
+    const height = lines.length * lineHeight;
     
     return {
       x: textElement.x - width / 2,
@@ -784,21 +1080,211 @@ export default function ProductDesigner({ onSave, onCancel }) {
       const dx = pos.x - dragStart.x;
       const dy = pos.y - dragStart.y;
       
+      // Use box dimensions if available, otherwise calculate from wrapped text
+      let textWidth, textHeight;
+      
+      if (textElement.boxWidth && textElement.boxHeight) {
+        textWidth = textElement.boxWidth;
+        textHeight = textElement.boxHeight;
+      } else {
+        ctx.font = `${textElement.size}px ${textElement.font}`;
+        const canvas = canvasRef.current;
+        const printAreaWidth = canvas.width * PRINT_AREA_CONFIG[currentView].width;
+        const maxWidth = textElement.maxWidth || printAreaWidth;
+        
+        const lines = wrapText(textElement.text, maxWidth, ctx);
+        const lineHeight = textElement.size * 1.2;
+        
+        let actualMaxWidth = 0;
+        lines.forEach(line => {
+          const metrics = ctx.measureText(line);
+          if (metrics.width > actualMaxWidth) {
+            actualMaxWidth = metrics.width;
+          }
+        });
+        
+        textWidth = Math.min(actualMaxWidth, maxWidth);
+        textHeight = lines.length * lineHeight;
+      }
+      
+      // Convert center position to top-left for constraint checking
+      const newCenterX = startDimensions.x + dx;
+      const newCenterY = startDimensions.y + dy;
+      const topLeftX = newCenterX - textWidth / 2;
+      const topLeftY = newCenterY - textHeight / 2;
+      
+      // Constrain the top-left corner
+      const constrained = constrainToPrintArea(
+        topLeftX,
+        topLeftY,
+        textWidth,
+        textHeight
+      );
+      
+      // Convert back from top-left to center position
+      const constrainedCenterX = constrained.x + constrained.width / 2;
+      const constrainedCenterY = constrained.y + constrained.height / 2;
+      
       setTextElement({
         ...textElement,
-        x: startDimensions.x + dx,
-        y: startDimensions.y + dy
+        x: constrainedCenterX,
+        y: constrainedCenterY
       });
     } else if (isTextResizing && textElement) {
-      const dx = pos.x - dragStart.x;
-      const dy = pos.y - dragStart.y;
+      const canvas = canvasRef.current;
+      const printAreaX = canvas.width * PRINT_AREA_CONFIG[currentView].x;
+      const printAreaY = canvas.height * PRINT_AREA_CONFIG[currentView].y;
+      const printAreaWidth = canvas.width * PRINT_AREA_CONFIG[currentView].width;
+      const printAreaHeight = canvas.height * PRINT_AREA_CONFIG[currentView].height;
       
-      const sizeChange = Math.max(dx, dy);
-      const newSize = Math.max(20, Math.min(120, textElement.size + sizeChange / 2));
+      // STEP 1: Define anchor point (opposite corner that MUST stay absolutely fixed)
+      let anchorX, anchorY;
+      
+      if (textResizeHandle === 'br') {
+        // Dragging bottom-right, anchor is top-left
+        anchorX = startDimensions.x;
+        anchorY = startDimensions.y;
+      } else if (textResizeHandle === 'bl') {
+        // Dragging bottom-left, anchor is top-right
+        anchorX = startDimensions.x + startDimensions.width;
+        anchorY = startDimensions.y;
+      } else if (textResizeHandle === 'tr') {
+        // Dragging top-right, anchor is bottom-left
+        anchorX = startDimensions.x;
+        anchorY = startDimensions.y + startDimensions.height;
+      } else if (textResizeHandle === 'tl') {
+        // Dragging top-left, anchor is bottom-right
+        anchorX = startDimensions.x + startDimensions.width;
+        anchorY = startDimensions.y + startDimensions.height;
+      }
+      
+      // STEP 2: Calculate desired dimensions from anchor to cursor
+      let desiredWidth, desiredHeight;
+      
+      if (textResizeHandle === 'br' || textResizeHandle === 'tr') {
+        // Expanding right
+        desiredWidth = pos.x - anchorX;
+      } else {
+        // Expanding left
+        desiredWidth = anchorX - pos.x;
+      }
+      
+      if (textResizeHandle === 'br' || textResizeHandle === 'bl') {
+        // Expanding down
+        desiredHeight = pos.y - anchorY;
+      } else {
+        // Expanding up
+        desiredHeight = anchorY - pos.y;
+      }
+      
+      // STEP 3: Constrain dimensions based on print area and anchor position
+      const minHeight = 20 * 1.2;
+      const minWidth = 50;
+      
+      let newBoxWidth = desiredWidth;
+      let newBoxHeight = desiredHeight;
+      
+      // Apply minimum constraints
+      newBoxWidth = Math.max(minWidth, newBoxWidth);
+      newBoxHeight = Math.max(minHeight, newBoxHeight);
+      
+      // Apply maximum constraints based on print area and anchor position
+      if (textResizeHandle === 'br') {
+        // Anchor at top-left, can expand right and down
+        const maxWidthFromAnchor = (printAreaX + printAreaWidth) - anchorX;
+        const maxHeightFromAnchor = (printAreaY + printAreaHeight) - anchorY;
+        newBoxWidth = Math.min(newBoxWidth, maxWidthFromAnchor);
+        newBoxHeight = Math.min(newBoxHeight, maxHeightFromAnchor);
+      } else if (textResizeHandle === 'bl') {
+        // Anchor at top-right, can expand left and down
+        const maxWidthFromAnchor = anchorX - printAreaX;
+        const maxHeightFromAnchor = (printAreaY + printAreaHeight) - anchorY;
+        newBoxWidth = Math.min(newBoxWidth, maxWidthFromAnchor);
+        newBoxHeight = Math.min(newBoxHeight, maxHeightFromAnchor);
+      } else if (textResizeHandle === 'tr') {
+        // Anchor at bottom-left, can expand right and up
+        const maxWidthFromAnchor = (printAreaX + printAreaWidth) - anchorX;
+        const maxHeightFromAnchor = anchorY - printAreaY;
+        newBoxWidth = Math.min(newBoxWidth, maxWidthFromAnchor);
+        newBoxHeight = Math.min(newBoxHeight, maxHeightFromAnchor);
+      } else if (textResizeHandle === 'tl') {
+        // Anchor at bottom-right, can expand left and up
+        const maxWidthFromAnchor = anchorX - printAreaX;
+        const maxHeightFromAnchor = anchorY - printAreaY;
+        newBoxWidth = Math.min(newBoxWidth, maxWidthFromAnchor);
+        newBoxHeight = Math.min(newBoxHeight, maxHeightFromAnchor);
+      }
+      
+      // Also apply absolute max constraints
+      newBoxWidth = Math.min(newBoxWidth, printAreaWidth);
+      newBoxHeight = Math.min(newBoxHeight, printAreaHeight);
+      
+      // STEP 4: Calculate final box position from anchor (anchor absolutely stays in place)
+      let newBoxX, newBoxY;
+      
+      if (textResizeHandle === 'br') {
+        newBoxX = anchorX;
+        newBoxY = anchorY;
+      } else if (textResizeHandle === 'bl') {
+        newBoxX = anchorX - newBoxWidth;
+        newBoxY = anchorY;
+      } else if (textResizeHandle === 'tr') {
+        newBoxX = anchorX;
+        newBoxY = anchorY - newBoxHeight;
+      } else if (textResizeHandle === 'tl') {
+        newBoxX = anchorX - newBoxWidth;
+        newBoxY = anchorY - newBoxHeight;
+      }
+      
+      // STEP 5: Box dimensions are now FINAL - calculate font size to fit inside it
+      // Font size should fill the height when text is wrapped at the box width
+      let bestSize = 8;
+      let low = 8;  // Allow very small text (no practical minimum)
+      let high = 150;
+      
+      // Binary search for font size where wrapped text height equals box height
+      for (let i = 0; i < 15; i++) {
+        const testSize = (low + high) / 2;
+        ctx.font = `${testSize}px ${textElement.font}`;
+        const testLines = wrapText(textElement.text, newBoxWidth, ctx);
+        const testLineHeight = testSize * 1.2;
+        const testTotalHeight = testLines.length * testLineHeight;
+        
+        if (Math.abs(testTotalHeight - newBoxHeight) < 3) {
+          bestSize = testSize;
+          break;
+        } else if (testTotalHeight < newBoxHeight) {
+          low = testSize;
+          bestSize = testSize;
+        } else {
+          high = testSize;
+        }
+      }
+      
+      // STEP 6: Final check - ensure text doesn't overflow the box
+      ctx.font = `${bestSize}px ${textElement.font}`;
+      const finalLines = wrapText(textElement.text, newBoxWidth, ctx);
+      const finalLineHeight = bestSize * 1.2;
+      const finalTotalHeight = finalLines.length * finalLineHeight;
+      
+      if (finalTotalHeight > newBoxHeight) {
+        // Scale down proportionally to fit (allow any size needed)
+        bestSize = bestSize * (newBoxHeight / finalTotalHeight);
+        bestSize = Math.max(1, bestSize);  // Only enforce 1px absolute minimum
+      }
+      
+      // STEP 7: Calculate center position from the FINAL box position
+      const centerX = newBoxX + newBoxWidth / 2;
+      const centerY = newBoxY + newBoxHeight / 2;
       
       setTextElement({
         ...textElement,
-        size: newSize
+        x: centerX,
+        y: centerY,
+        size: bestSize,
+        maxWidth: newBoxWidth,
+        boxWidth: newBoxWidth,
+        boxHeight: newBoxHeight
       });
     } else if (isDragging && selectedLayer && selectedLayer.startsWith('sprite-')) {
       const spriteIndex = parseInt(selectedLayer.split('-')[1]);
@@ -807,11 +1293,19 @@ export default function ProductDesigner({ onSave, onCancel }) {
       const dx = pos.x - dragStart.x;
       const dy = pos.y - dragStart.y;
       
+      const spriteSize = sprite.size || 50;
+      const constrained = constrainToPrintArea(
+        startDimensions.x + dx,
+        startDimensions.y + dy,
+        spriteSize,
+        spriteSize
+      );
+      
       const newSprites = [...sprites];
       newSprites[spriteIndex] = {
         ...sprite,
-        x: startDimensions.x + dx,
-        y: startDimensions.y + dy
+        x: constrained.x,
+        y: constrained.y
       };
       setSprites(newSprites);
     } else if (isSpriteResizing && selectedLayer && selectedLayer.startsWith('sprite-')) {
@@ -821,12 +1315,67 @@ export default function ProductDesigner({ onSave, onCancel }) {
       const dx = pos.x - dragStart.x;
       const dy = pos.y - dragStart.y;
       
-      const sizeChange = Math.max(dx, dy);
-      const newSize = Math.max(20, sprite.size + sizeChange);
+      // Calculate new size based on which corner is being dragged
+      let newSize;
+      let newX = startDimensions.x;
+      let newY = startDimensions.y;
+      
+      if (spriteResizeHandle === 'br') {
+        // Bottom-right: increase size, position stays
+        newSize = Math.max(20, Math.max(startDimensions.width + dx, startDimensions.height + dy));
+      } else if (spriteResizeHandle === 'bl') {
+        // Bottom-left: increase size down and left
+        const widthChange = -dx;
+        newSize = Math.max(20, Math.max(startDimensions.width + widthChange, startDimensions.height + dy));
+        newX = startDimensions.x - (newSize - startDimensions.width);
+      } else if (spriteResizeHandle === 'tr') {
+        // Top-right: increase size up and right
+        const heightChange = -dy;
+        newSize = Math.max(20, Math.max(startDimensions.width + dx, startDimensions.height + heightChange));
+        newY = startDimensions.y - (newSize - startDimensions.height);
+      } else if (spriteResizeHandle === 'tl') {
+        // Top-left: increase size up and left
+        const widthChange = -dx;
+        const heightChange = -dy;
+        newSize = Math.max(20, Math.max(startDimensions.width + widthChange, startDimensions.height + heightChange));
+        newX = startDimensions.x - (newSize - startDimensions.width);
+        newY = startDimensions.y - (newSize - startDimensions.height);
+      } else {
+        newSize = startDimensions.width;
+      }
+      
+      // Check if new size would fit in print area
+      const canvas = canvasRef.current;
+      if (canvas) {
+        const printAreaWidth = canvas.width * PRINT_AREA_CONFIG[currentView].width;
+        const printAreaHeight = canvas.height * PRINT_AREA_CONFIG[currentView].height;
+        const printAreaX = canvas.width * PRINT_AREA_CONFIG[currentView].x;
+        const printAreaY = canvas.height * PRINT_AREA_CONFIG[currentView].y;
+        
+        // Ensure sprite stays within bounds
+        if (newX + newSize > printAreaX + printAreaWidth) {
+          newSize = printAreaX + printAreaWidth - newX;
+        }
+        if (newY + newSize > printAreaY + printAreaHeight) {
+          newSize = printAreaY + printAreaHeight - newY;
+        }
+        if (newX < printAreaX) {
+          newSize = newSize - (printAreaX - newX);
+          newX = printAreaX;
+        }
+        if (newY < printAreaY) {
+          newSize = newSize - (printAreaY - newY);
+          newY = printAreaY;
+        }
+        // Also constrain to not exceed print area dimensions
+        newSize = Math.min(newSize, printAreaWidth, printAreaHeight);
+      }
       
       const newSprites = [...sprites];
       newSprites[spriteIndex] = {
         ...sprite,
+        x: newX,
+        y: newY,
         size: newSize,
         width: newSize,
         height: newSize
@@ -982,14 +1531,65 @@ export default function ProductDesigner({ onSave, onCancel }) {
     
     saveState();
     const canvas = canvasRef.current;
+    
+    // Place text in the center of the print area
+    const printAreaX = canvas.width * PRINT_AREA_CONFIG[currentView].x;
+    const printAreaY = canvas.height * PRINT_AREA_CONFIG[currentView].y;
+    const printAreaWidth = canvas.width * PRINT_AREA_CONFIG[currentView].width;
+    const printAreaHeight = canvas.height * PRINT_AREA_CONFIG[currentView].height;
+    
+    // Calculate initial dimensions for the text box
+    ctx.font = `${fontSize}px ${textFont}`;
+    const naturalWidth = ctx.measureText(textInput).width;
+    const initialWidth = Math.min(Math.max(naturalWidth, 100), printAreaWidth);
+    const initialHeight = Math.min(fontSize * 1.2, printAreaHeight);
+    
+    // Calculate font size that fits within the initial container
+    let bestSize = fontSize;
+    let low = 8;
+    let high = 150;
+    
+    // Binary search for font size that fits the box
+    for (let i = 0; i < 15; i++) {
+      const testSize = (low + high) / 2;
+      ctx.font = `${testSize}px ${textFont}`;
+      const testLines = wrapText(textInput, initialWidth, ctx);
+      const testLineHeight = testSize * 1.2;
+      const testTotalHeight = testLines.length * testLineHeight;
+      
+      if (Math.abs(testTotalHeight - initialHeight) < 3) {
+        bestSize = testSize;
+        break;
+      } else if (testTotalHeight < initialHeight) {
+        low = testSize;
+        bestSize = testSize;
+      } else {
+        high = testSize;
+      }
+    }
+    
+    // Final check - ensure text doesn't overflow
+    ctx.font = `${bestSize}px ${textFont}`;
+    const finalLines = wrapText(textInput, initialWidth, ctx);
+    const finalLineHeight = bestSize * 1.2;
+    const finalTotalHeight = finalLines.length * finalLineHeight;
+    
+    if (finalTotalHeight > initialHeight) {
+      bestSize = bestSize * (initialHeight / finalTotalHeight);
+      bestSize = Math.max(1, bestSize);
+    }
+    
     const newText = {
       text: textInput,
-      x: canvas.width / 2,
-      y: canvas.height / 2,
-      size: fontSize,
+      x: printAreaX + printAreaWidth / 2,
+      y: printAreaY + printAreaHeight / 2,
+      size: bestSize,  // Use calculated size, not user's fontSize
       font: textFont,
       color: textColor,
-      warpStyle: textWarpStyle
+      warpStyle: textWarpStyle,
+      maxWidth: initialWidth,
+      boxWidth: initialWidth,
+      boxHeight: initialHeight
     };
     
     setTextElement(newText);
@@ -1001,10 +1601,17 @@ export default function ProductDesigner({ onSave, onCancel }) {
   const handleAddSprite = (emoji) => {
     saveState();
     const canvas = canvasRef.current;
+    
+    // Place sprite in the center of the print area
+    const printAreaX = canvas.width * PRINT_AREA_CONFIG[currentView].x;
+    const printAreaY = canvas.height * PRINT_AREA_CONFIG[currentView].y;
+    const printAreaWidth = canvas.width * PRINT_AREA_CONFIG[currentView].width;
+    const printAreaHeight = canvas.height * PRINT_AREA_CONFIG[currentView].height;
+    
     const newSprite = {
       emoji,
-      x: canvas.width / 2,
-      y: canvas.height / 2,
+      x: printAreaX + printAreaWidth / 2 - 30,
+      y: printAreaY + printAreaHeight / 2 - 30,
       size: 60,
       width: 60,
       height: 60,
@@ -1093,29 +1700,45 @@ export default function ProductDesigner({ onSave, onCancel }) {
       ctx.drawImage(viewDesign.img, viewDesign.x, viewDesign.y, viewDesign.width, viewDesign.height);
     }
     
-    // Draw sprites (no selection handles)
-    sprites.forEach((sprite) => {
+    // Draw sprites for this view (no selection handles)
+    const viewSprites = spritesPerView[view];
+    viewSprites.forEach((sprite) => {
       ctx.font = `${sprite.size}px Arial`;
       ctx.textAlign = 'left';
       ctx.textBaseline = 'top';
       ctx.fillText(sprite.emoji, sprite.x, sprite.y);
     });
     
-    // Draw text (no selection handles)
-    if (textElement) {
-      ctx.font = `${textElement.size}px ${textElement.font}`;
-      ctx.fillStyle = textElement.color;
+    // Draw text for this view (no selection handles)
+    const viewText = textElements[view];
+    if (viewText) {
+      ctx.font = `${viewText.size}px ${viewText.font}`;
+      ctx.fillStyle = viewText.color;
       ctx.textAlign = 'center';
       ctx.textBaseline = 'middle';
       
-      if (textElement.warpStyle === 'arc') {
-        drawArcText(textElement.text, textElement.x, textElement.y, textElement.size);
-      } else if (textElement.warpStyle === 'wave') {
-        drawWaveText(textElement.text, textElement.x, textElement.y, textElement.size);
-      } else if (textElement.warpStyle === 'circle') {
-        drawCircleText(textElement.text, textElement.x, textElement.y, textElement.size);
+      if (viewText.warpStyle === 'arc') {
+        drawArcText(viewText.text, viewText.x, viewText.y, viewText.size);
+      } else if (viewText.warpStyle === 'wave') {
+        drawWaveText(viewText.text, viewText.x, viewText.y, viewText.size);
+      } else if (viewText.warpStyle === 'circle') {
+        drawCircleText(viewText.text, viewText.x, viewText.y, viewText.size);
       } else {
-        ctx.fillText(textElement.text, textElement.x, textElement.y);
+        // Use text's maxWidth if available, otherwise use print area width
+        const printAreaWidth = canvas.width * PRINT_AREA_CONFIG[view].width;
+        const maxWidth = viewText.maxWidth || printAreaWidth;
+        
+        // Wrap text if needed
+        const lines = wrapText(viewText.text, maxWidth, ctx);
+        const lineHeight = viewText.size * 1.2;
+        const totalHeight = lines.length * lineHeight;
+        const startY = viewText.y - (totalHeight / 2) + (lineHeight / 2);
+        
+        // Draw each line centered
+        lines.forEach((line, index) => {
+          const y = startY + (index * lineHeight);
+          ctx.fillText(line, viewText.x, y);
+        });
       }
     }
     
@@ -1297,6 +1920,11 @@ export default function ProductDesigner({ onSave, onCancel }) {
       <div style={{ position: 'absolute', left: '-9999px', top: '-9999px' }}>
         <canvas
           ref={canvasRef}
+          width={660}
+          height={660}
+        />
+        <canvas
+          ref={previewCanvasRef}
           width={660}
           height={660}
         />
@@ -1649,10 +2277,11 @@ export default function ProductDesigner({ onSave, onCancel }) {
           <div className="fixed bottom-6 left-24 z-40">
             <div 
               className={`glass-card rounded-xl overflow-hidden transition-all duration-300 ${
-                isPreviewExpanded ? 'w-96 h-96' : 'w-32 h-32'
+                isPreviewExpanded ? 'h-[calc(100vh-8rem)]' : 'w-32 h-32'
               }`}
+              style={isPreviewExpanded ? { aspectRatio: '1 / 1' } : {}}
             >
-              <div className="relative w-full h-full bg-white/5">
+              <div className="relative w-full h-full bg-white/5 flex items-center justify-center">
                 <button
                   onClick={() => setIsPreviewExpanded(!isPreviewExpanded)}
                   className="absolute top-2 right-2 w-8 h-8 glass-button rounded-lg flex items-center justify-center z-10"
@@ -1665,9 +2294,53 @@ export default function ProductDesigner({ onSave, onCancel }) {
                     )}
                   </svg>
                 </button>
-                <div className="absolute bottom-2 left-2 right-2 text-center">
-                  <p className="text-xs text-white/60">Full Preview</p>
+                <div className="relative w-full h-full p-2 flex items-center justify-center">
+                  {/* Realistic T-shirt background */}
+                  <div className="relative w-full h-full">
+                    <img
+                      src={
+                        currentView === 'front' ? tFrontRealisticImg :
+                        currentView === 'back' ? tBackRealisticImg :
+                        currentView === 'leftSleeve' || currentView === 'rightSleeve' ? tSleeveRealisticImg :
+                        currentView === 'neckLabel' ? tNeckRealisticImg :
+                        tFrontRealisticImg
+                      }
+                      alt={`${currentView} realistic`}
+                      className="w-full h-full object-contain"
+                    />
+                    {/* Design overlay - positioned according to print area */}
+                    {designOnlyImageUrl && (
+                      <img
+                        src={designOnlyImageUrl}
+                        alt="Design Preview"
+                        className="absolute pointer-events-none"
+                        style={{
+                          mixBlendMode: 'normal',
+                          ...(currentView === 'neckLabel' ? {
+                            // Position overlay specifically on the white neck label area
+                            top: '14%',
+                            left: '20%',
+                            width: '65%',
+                            height: '50%',
+                            objectFit: 'contain',
+                            transform: 'rotate(10deg)',
+                            transformOrigin: 'center'
+                          } : {
+                            // Default positioning for other views
+                            inset: 0,
+                            width: '100%',
+                            height: '100%',
+                            objectFit: 'contain'
+                          })
+                        }}
+                      />
+                    )}
+                  </div>
                 </div>
+                {!isPreviewExpanded && (
+                  <div className="absolute bottom-2 left-2 right-2 text-center">
+                  </div>
+                )}
               </div>
             </div>
           </div>
