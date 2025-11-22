@@ -9,8 +9,8 @@ export default {
       colors: {
         // New dark aesthetic colors
         'glass-dark': 'rgba(0, 0, 0, 0.4)',
-        'glass-purple': 'rgba(88, 28, 135, 0.15)',
-        'glass-light': 'rgba(139, 92, 246, 0.08)',
+        'glass-purple': 'rgba(28, 49, 135, 0.15)',
+        'glass-light': 'rgba(36, 2, 117, 0.08)',
         'purple-deep': '#000000',
         'purple-dark': '#0a0a0f',
         'purple-mid': '#581c87',
