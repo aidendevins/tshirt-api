@@ -19,9 +19,6 @@
     "nodemon": "^3.1.10",
     "openai": "^6.7.0",
     "parcel": "^2.16.0",
-    "polotno": "^2.29.5",
-    "react": "^19.2.0",
-    "react-dom": "^19.2.0",
     "replicate": "^0.31.1",
     "shopify": "^3.86.1"
   },
