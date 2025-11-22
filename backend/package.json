@@ -5,7 +5,8 @@
   "scripts": {
     "start": "node server.js",
     "dev": "nodemon server.js",
-    "serve": "nodemon server.js"
+    "serve": "nodemon server.js",
+    "install-python-deps": "python3 -m pip install --upgrade pip && python3 -m pip install -r python/requirements.txt || echo 'Warning: Python dependencies not installed. Ensure python3 is available.'"
   },
   "dependencies": {
     "@google/generative-ai": "^0.21.0",

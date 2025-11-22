@@ -34,12 +34,12 @@ export default async function handler(req, res) {
     const inputPayload = JSON.stringify({ imageData, elementDescription });
     await fs.writeFile(tmpPath, inputPayload, 'utf-8');
 
-    // Resolve python interpreter: env var PYTHON_BIN or ~/myenv/bin/python3.13 else 'python3'
-    const home = os.homedir();
-    const defaultVenvPy = join(home, 'myenv/bin/python3.13');
+    // Resolve python interpreter: env var PYTHON_BIN or 'python3' (system Python)
+    // For local dev with venv, set PYTHON_BIN env var (e.g., ~/myenv/bin/python3.13)
+    // For Railway/production, use system python3
     const pythonBin = process.env.PYTHON_BIN && process.env.PYTHON_BIN.trim()
       ? process.env.PYTHON_BIN.trim()
-      : defaultVenvPy;
+      : 'python3';
 
     const py = spawn(pythonBin, [scriptPath, tmpPath], { stdio: ['ignore', 'pipe', 'pipe'] });
     let out = '';
