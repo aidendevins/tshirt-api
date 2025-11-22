@@ -1,9 +1,10 @@
 import { NavLink, Link } from 'react-router-dom';
+import { motion } from 'framer-motion';
 
 export default function Sidebar() {
   const navItems = [
     { name: 'Home', path: '/creator', icon: HomeIcon },
-    { name: 'Orders', path: '/creator/orders', icon: OrdersIcon },
+    { name: 'Orders', path: '/creator/orders', icon: OrdersIcon, badge: '3' },
     { name: 'Products', path: '/creator/products', icon: ProductsIcon },
     { name: 'Community Designs', path: '/creator/community-designs', icon: CommunityIcon },
     { name: 'Promotions', path: '/creator/promotions', icon: PromotionsIcon },
@@ -15,10 +16,21 @@ export default function Sidebar() {
   ];
 
   return (
-    <aside className="fixed left-0 top-0 h-screen w-64 glass-card rounded-none border-l-0 border-t-0 border-b-0 p-6 flex flex-col overflow-y-auto">
+    <motion.aside
+      initial={{ x: -20, opacity: 0 }}
+      animate={{ x: 0, opacity: 1 }}
+      transition={{ duration: 0.5 }}
+      className="fixed left-0 top-0 h-screen w-64 glass-card rounded-none border-l-0 border-t-0 border-b-0 p-6 flex flex-col overflow-y-auto custom-scrollbar"
+    >
       {/* Logo */}
       <div className="mb-8">
-        <h1 className="text-2xl font-bold text-gradient">TShirt Studio</h1>
+        <motion.h1 
+          className="text-2xl font-bold text-gradient"
+          whileHover={{ scale: 1.05 }}
+          transition={{ duration: 0.2 }}
+        >
+          TShirt Studio
+        </motion.h1>
       </div>
 
       {/* Navigation */}
@@ -27,21 +39,48 @@ export default function Sidebar() {
           Navigation
         </h3>
         <nav className="space-y-1">
-          {navItems.map((item) => (
+          {navItems.map((item, idx) => (
             <NavLink
               key={item.path}
               to={item.path}
               end={item.path === '/creator'}
-              className={({ isActive }) =>
-                `flex items-center gap-3 px-4 py-3 rounded-xl transition-all duration-300 ${
-                  isActive
-                    ? 'bg-gradient-to-r from-purple-mid to-purple-bright text-white shadow-glow'
-                    : 'text-white/60 hover:text-white hover:bg-white/5'
-                }`
-              }
             >
-              <item.icon className="w-5 h-5" />
-              <span className="font-medium">{item.name}</span>
+              {({ isActive }) => (
+                <motion.div
+                  className={`flex items-center gap-3 px-4 py-3 rounded-xl transition-all duration-300 relative overflow-hidden group ${
+                    isActive
+                      ? 'bg-gradient-to-r from-purple-mid to-purple-bright text-white shadow-glow'
+                      : 'text-white/60 hover:text-white hover:bg-white/5'
+                  }`}
+                  initial={{ opacity: 0, x: -20 }}
+                  animate={{ opacity: 1, x: 0 }}
+                  transition={{ delay: idx * 0.05 }}
+                  whileHover={{ x: 5 }}
+                  whileTap={{ scale: 0.98 }}
+                >
+                  {isActive && (
+                    <motion.div
+                      layoutId="sidebar-active-bg"
+                      className="absolute inset-0 bg-gradient-to-r from-purple-mid to-purple-bright rounded-xl"
+                      transition={{ type: "spring", bounce: 0.2, duration: 0.6 }}
+                    />
+                  )}
+                  <div className="relative z-10 flex items-center gap-3 w-full">
+                    <item.icon className="w-5 h-5" />
+                    <span className="font-medium">{item.name}</span>
+                    {item.badge && (
+                      <motion.span
+                        className="ml-auto bg-purple-bright/20 text-purple-light text-xs px-2 py-1 rounded-full"
+                        initial={{ scale: 0 }}
+                        animate={{ scale: 1 }}
+                        transition={{ delay: 0.5 + idx * 0.05 }}
+                      >
+                        {item.badge}
+                      </motion.span>
+                    )}
+                  </div>
+                </motion.div>
+              )}
             </NavLink>
           ))}
         </nav>
@@ -49,17 +88,20 @@ export default function Sidebar() {
 
       {/* Back to Studio Button */}
       <div className="mt-6 pt-6 border-t border-white/10">
-        <Link
-          to="/"
-          className="flex items-center justify-center gap-2 px-4 py-3 rounded-xl text-white/60 hover:text-white hover:bg-white/5 transition-all duration-300"
-        >
-          <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10 19l-7-7m0 0l7-7m-7 7h18" />
-          </svg>
-          <span className="font-medium">Back to T Shirt Studio</span>
+        <Link to="/">
+          <motion.div
+            className="flex items-center justify-center gap-2 px-4 py-3 rounded-xl text-white/60 hover:text-white hover:bg-white/5 transition-all duration-300"
+            whileHover={{ x: -5 }}
+            whileTap={{ scale: 0.98 }}
+          >
+            <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10 19l-7-7m0 0l7-7m-7 7h18" />
+            </svg>
+            <span className="font-medium">Back to T Shirt Studio</span>
+          </motion.div>
         </Link>
       </div>
-    </aside>
+    </motion.aside>
   );
 }
 

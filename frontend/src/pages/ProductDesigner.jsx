@@ -1,6 +1,6 @@
 import { useNavigate } from 'react-router-dom';
 import { useEffect, useState } from 'react';
-import ProductDesigner from '../components/ProductDesigner';
+import ProductDesigner from '../components/Editor';
 import { isCreatorAuthenticated } from '../utils/session';
 
 export default function ProductDesignerPage() {

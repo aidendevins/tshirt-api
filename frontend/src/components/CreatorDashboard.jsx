@@ -1,7 +1,10 @@
 import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
+import { motion } from 'framer-motion';
 import { fetchCreatorProducts, formatProductData } from '../services/creatorProducts';
 import Sidebar from './Sidebar';
+import CardSpotlight from './ui/CardSpotlight';
+import Card3D from './ui/Card3D';
 
 export default function CreatorDashboard({ user }) {
   const navigate = useNavigate();
@@ -76,8 +79,6 @@ export default function CreatorDashboard({ user }) {
   const ProductCard = ({ product, isCommunity = false }) => {
     const [currentImageIndex, setCurrentImageIndex] = useState(0);
     
-    // Handle multiple images or fallback to single image
-    // Shopify returns images as an array of image objects with 'src' property
     const images = product.images && Array.isArray(product.images) 
       ? product.images.map(img => typeof img === 'string' ? img : (img.src || img))
       : (product.image ? [product.image] : []);
@@ -93,54 +94,58 @@ export default function CreatorDashboard({ user }) {
     };
     
     return (
-      <div className="glass-card p-0 overflow-hidden hover:shadow-glow-lg transition-all duration-300 hover:scale-105">
+      <CardSpotlight className="p-0">
         <div className="relative aspect-square group">
-          <img src={currentImage} alt={product.name} className="w-full h-full object-cover" />
+          <img src={currentImage} alt={product.name} className="w-full h-full object-cover rounded-t-3xl" />
           
-          {/* Image Navigation Buttons */}
           {hasMultipleImages && (
             <>
-              <button
+              <motion.button
                 onClick={(e) => {
                   e.stopPropagation();
                   prevImage();
                 }}
                 className="absolute left-2 top-1/2 -translate-y-1/2 w-8 h-8 bg-black/50 hover:bg-black/70 backdrop-blur-sm rounded-full flex items-center justify-center text-white opacity-0 group-hover:opacity-100 transition-opacity"
-                title="Previous image"
+                whileHover={{ scale: 1.1 }}
+                whileTap={{ scale: 0.9 }}
               >
                 <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7" />
                 </svg>
-              </button>
+              </motion.button>
               
-              <button
+              <motion.button
                 onClick={(e) => {
                   e.stopPropagation();
                   nextImage();
                 }}
                 className="absolute right-2 top-1/2 -translate-y-1/2 w-8 h-8 bg-black/50 hover:bg-black/70 backdrop-blur-sm rounded-full flex items-center justify-center text-white opacity-0 group-hover:opacity-100 transition-opacity"
-                title="Next image"
+                whileHover={{ scale: 1.1 }}
+                whileTap={{ scale: 0.9 }}
               >
                 <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
                 </svg>
-              </button>
+              </motion.button>
               
-              {/* Image Counter */}
               <div className="absolute bottom-2 right-2 px-2 py-1 bg-black/50 backdrop-blur-sm rounded-full text-xs text-white">
                 {currentImageIndex + 1} / {images.length}
               </div>
             </>
           )}
           
-          {/* Status Badge */}
-          <div className={`absolute top-4 right-4 px-3 py-1 rounded-full text-xs font-semibold backdrop-blur-md ${
-            product.status.toLowerCase() === 'active' 
-              ? 'bg-green-500/30 border border-green-500/50 text-green-300' 
-              : 'bg-yellow-500/30 border border-yellow-500/50 text-yellow-300'
-          }`}>
+          <motion.div 
+            className={`absolute top-4 right-4 px-3 py-1 rounded-full text-xs font-semibold backdrop-blur-md ${
+              product.status.toLowerCase() === 'active' 
+                ? 'bg-green-500/30 border border-green-500/50 text-green-300' 
+                : 'bg-yellow-500/30 border border-yellow-500/50 text-yellow-300'
+            }`}
+            initial={{ scale: 0 }}
+            animate={{ scale: 1 }}
+            transition={{ delay: 0.2 }}
+          >
             {product.status}
-          </div>
+          </motion.div>
         </div>
         <div className="p-6 space-y-4">
           <div>
@@ -154,18 +159,34 @@ export default function CreatorDashboard({ user }) {
           {product.tags && product.tags.length > 0 && (
             <div className="flex flex-wrap gap-2">
               {product.tags.slice(0, 3).map(tag => (
-                <span key={tag} className="px-3 py-1 bg-white/5 backdrop-blur-sm border border-white/10 rounded-full text-xs text-white/70">
+                <motion.span 
+                  key={tag} 
+                  className="px-3 py-1 bg-white/5 backdrop-blur-sm border border-white/10 rounded-full text-xs text-white/70"
+                  whileHover={{ scale: 1.05, backgroundColor: "rgba(255, 255, 255, 0.1)" }}
+                >
                   #{tag}
-                </span>
+                </motion.span>
               ))}
             </div>
           )}
           <div className="flex gap-2 pt-2">
-            <button className="flex-1 glass-button py-2 text-sm">Edit</button>
-            <button className="flex-1 btn-danger py-2 text-sm">Delete</button>
+            <motion.button 
+              className="flex-1 glass-button py-2 text-sm"
+              whileHover={{ scale: 1.02 }}
+              whileTap={{ scale: 0.98 }}
+            >
+              Edit
+            </motion.button>
+            <motion.button 
+              className="flex-1 btn-danger py-2 text-sm"
+              whileHover={{ scale: 1.02 }}
+              whileTap={{ scale: 0.98 }}
+            >
+              Delete
+            </motion.button>
           </div>
         </div>
-      </div>
+      </CardSpotlight>
     );
   };
 
@@ -179,75 +200,127 @@ export default function CreatorDashboard({ user }) {
       <main className="ml-64 flex-1 p-8 max-w-full overflow-x-hidden">
         {isLoading ? (
           <div className="flex items-center justify-center min-h-screen">
-            <div className="glass-card p-12 text-center">
-              <div className="w-16 h-16 border-4 border-purple-bright/30 border-t-purple-bright rounded-full animate-spin mx-auto mb-4"></div>
+            <motion.div 
+              className="glass-card p-12 text-center"
+              initial={{ opacity: 0, scale: 0.9 }}
+              animate={{ opacity: 1, scale: 1 }}
+              transition={{ duration: 0.3 }}
+            >
+              <motion.div 
+                className="w-16 h-16 border-4 border-purple-bright/30 border-t-purple-bright rounded-full mx-auto mb-4"
+                animate={{ rotate: 360 }}
+                transition={{ duration: 1, repeat: Infinity, ease: "linear" }}
+              />
               <p className="text-white/60">Loading your products...</p>
-            </div>
+            </motion.div>
           </div>
         ) : error ? (
           <div className="flex items-center justify-center min-h-screen">
-            <div className="glass-card p-12 text-center space-y-4">
+            <motion.div 
+              className="glass-card p-12 text-center space-y-4"
+              initial={{ opacity: 0, scale: 0.9 }}
+              animate={{ opacity: 1, scale: 1 }}
+              transition={{ duration: 0.3 }}
+            >
               <p className="text-red-300 text-lg">❌ {error}</p>
-              <button onClick={() => window.location.reload()} className="btn-primary">
+              <motion.button 
+                onClick={() => window.location.reload()} 
+                className="btn-primary"
+                whileHover={{ scale: 1.05 }}
+                whileTap={{ scale: 0.95 }}
+              >
                 Try Again
-              </button>
-            </div>
+              </motion.button>
+            </motion.div>
           </div>
         ) : (
           <>
             {!hasProducts ? (
               /* Show "Create your first product" splash when no products */
-              <div className="glass-card p-8">
-                    <div className="flex items-start justify-between mb-6">
-                      <div>
-                        <h1 className="text-3xl font-bold text-white mb-2">
-                          You're just a few steps away from launch!
-                        </h1>
-                        <p className="text-white/60">0% complete</p>
-                      </div>
-                      <button className="text-white/60 hover:text-white text-sm flex items-center gap-2">
-                        <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
-                        </svg>
-                        Skip all
-                      </button>
+              <motion.div 
+                className="glass-card p-8"
+                initial={{ opacity: 0, y: 20 }}
+                animate={{ opacity: 1, y: 0 }}
+                transition={{ duration: 0.5 }}
+              >
+                <div className="flex items-start justify-between mb-6">
+                  <div>
+                    <h1 className="text-3xl font-bold text-white mb-2">
+                      You're just a few steps away from launch!
+                    </h1>
+                    <p className="text-white/60">0% complete</p>
+                  </div>
+                  <motion.button 
+                    className="text-white/60 hover:text-white text-sm flex items-center gap-2"
+                    whileHover={{ scale: 1.05 }}
+                  >
+                    <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                    </svg>
+                    Skip all
+                  </motion.button>
+                </div>
+
+                {/* Progress Bar */}
+                <div className="h-2 bg-white/10 rounded-full overflow-hidden mb-8">
+                  <motion.div 
+                    className="h-full bg-gradient-to-r from-green-500 to-emerald-500"
+                    initial={{ width: 0 }}
+                    animate={{ width: "0%" }}
+                  />
+                </div>
+
+                {/* Step 1: Create your first product */}
+                <div className="space-y-4">
+                  <div className="flex items-center justify-between">
+                    <div className="flex items-center gap-3">
+                      <motion.div 
+                        className="w-8 h-8 rounded-full bg-white/10 flex items-center justify-center text-white font-semibold"
+                        whileHover={{ scale: 1.1, backgroundColor: "rgba(139, 92, 246, 0.3)" }}
+                      >
+                        1
+                      </motion.div>
+                      <h2 className="text-xl font-semibold text-white">Create your first product</h2>
                     </div>
-
-                    {/* Progress Bar */}
-                    <div className="h-2 bg-white/10 rounded-full overflow-hidden mb-8">
-                      <div className="h-full bg-gradient-to-r from-green-500 to-emerald-500 w-0"></div>
+                    <div className="flex gap-3">
+                      <motion.button 
+                        className="glass-button"
+                        whileHover={{ scale: 1.05 }}
+                        whileTap={{ scale: 0.95 }}
+                      >
+                        Browse all
+                      </motion.button>
+                      <motion.button 
+                        onClick={handleCreateProduct} 
+                        className="btn-primary"
+                        whileHover={{ scale: 1.05, boxShadow: "0 0 30px rgba(139, 92, 246, 0.6)" }}
+                        whileTap={{ scale: 0.95 }}
+                      >
+                        Create product
+                      </motion.button>
                     </div>
+                  </div>
 
-                    {/* Step 1: Create your first product */}
-                    <div className="space-y-4">
-                      <div className="flex items-center justify-between">
-                        <div className="flex items-center gap-3">
-                          <div className="w-8 h-8 rounded-full bg-white/10 flex items-center justify-center text-white font-semibold">
-                            1
-                          </div>
-                          <h2 className="text-xl font-semibold text-white">Create your first product</h2>
-                        </div>
-                        <div className="flex gap-3">
-                          <button className="glass-button">Browse all</button>
-                          <button onClick={handleCreateProduct} className="btn-primary">
-                            Create product
-                          </button>
-                        </div>
-                      </div>
-
-                      {/* Product Templates Grid */}
-                      <div className="grid grid-cols-5 gap-4 mt-6">
-                        {productTemplates.map((template) => (
+                  {/* Product Templates Grid */}
+                  <div className="grid grid-cols-5 gap-4 mt-6">
+                    {productTemplates.map((template, idx) => (
+                      <motion.div 
+                        key={template.id}
+                        initial={{ opacity: 0, y: 20 }}
+                        animate={{ opacity: 1, y: 0 }}
+                        transition={{ delay: idx * 0.1 }}
+                      >
+                        <Card3D className="p-0 cursor-pointer">
                           <div 
-                            key={template.id}
-                            className="glass-card p-0 overflow-hidden hover:shadow-glow transition-all duration-300 cursor-pointer group"
                             onClick={handleCreateProduct}
                           >
-                            <div className="aspect-square bg-white/5 overflow-hidden">
-                              <img 
+                            <div className="aspect-square bg-white/5 overflow-hidden rounded-t-3xl">
+                              <motion.img 
                                 src={template.image} 
                                 alt={template.name}
-                                className="w-full h-full object-cover group-hover:scale-110 transition-transform duration-300"
+                                className="w-full h-full object-cover"
+                                whileHover={{ scale: 1.1 }}
+                                transition={{ duration: 0.3 }}
                               />
                             </div>
                             <div className="p-3">
@@ -259,50 +332,78 @@ export default function CreatorDashboard({ user }) {
                               </p>
                             </div>
                           </div>
-                        ))}
-                      </div>
+                        </Card3D>
+                      </motion.div>
+                    ))}
+                  </div>
 
-                      {/* Step 2 */}
-                      <div className="flex items-center gap-3 mt-8 pt-6 border-t border-white/10">
-                        <div className="w-8 h-8 rounded-full bg-white/10 flex items-center justify-center text-white/60 font-semibold">
-                          2
-                        </div>
-                        <h2 className="text-lg text-white/60">Customize the look of your site</h2>
-                      </div>
+                  {/* Step 2 */}
+                  <motion.div 
+                    className="flex items-center gap-3 mt-8 pt-6 border-t border-white/10"
+                    initial={{ opacity: 0 }}
+                    animate={{ opacity: 1 }}
+                    transition={{ delay: 0.8 }}
+                  >
+                    <div className="w-8 h-8 rounded-full bg-white/10 flex items-center justify-center text-white/60 font-semibold">
+                      2
+                    </div>
+                    <h2 className="text-lg text-white/60">Customize the look of your site</h2>
+                  </motion.div>
+                </div>
+              </motion.div>
+            ) : (
+              /* Show "Your Products" carousel when products exist */
+              <div className="space-y-8">
+                <motion.div 
+                  className="glass-card p-8 max-w-full"
+                  initial={{ opacity: 0, y: 20 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  transition={{ duration: 0.5 }}
+                >
+                  <div className="flex items-center justify-between mb-6">
+                    <div>
+                      <h1 className="text-3xl font-bold text-white mb-2">Your Products</h1>
+                      <p className="text-white/60">{creatorProducts.length} product{creatorProducts.length !== 1 ? 's' : ''} designed</p>
+                    </div>
+                    <div className="flex gap-3">
+                      <motion.button 
+                        onClick={() => navigate('/creator/products')} 
+                        className="glass-button"
+                        whileHover={{ scale: 1.05 }}
+                        whileTap={{ scale: 0.95 }}
+                      >
+                        View All
+                      </motion.button>
+                      <motion.button 
+                        onClick={handleCreateProduct} 
+                        className="btn-primary"
+                        whileHover={{ scale: 1.05, boxShadow: "0 0 30px rgba(139, 92, 246, 0.6)" }}
+                        whileTap={{ scale: 0.95 }}
+                      >
+                        + Create New Product
+                      </motion.button>
                     </div>
                   </div>
-                ) : (
-                  /* Show "Your Products" carousel when products exist */
-                  <div className="space-y-8">
-                    <div className="glass-card p-8 max-w-full">
-                      <div className="flex items-center justify-between mb-6">
-                        <div>
-                          <h1 className="text-3xl font-bold text-white mb-2">Your Products</h1>
-                          <p className="text-white/60">{creatorProducts.length} product{creatorProducts.length !== 1 ? 's' : ''} designed</p>
-                        </div>
-                        <div className="flex gap-3">
-                          <button onClick={() => navigate('/creator/products')} className="glass-button">
-                            View All
-                          </button>
-                          <button onClick={handleCreateProduct} className="btn-primary">
-                            + Create New Product
-                          </button>
-                        </div>
-                      </div>
 
-                      {/* Horizontal Scrollable Product Carousel */}
-                      <div className="relative -mx-8">
-                        <div className="flex gap-6 overflow-x-auto px-8 pb-4 scrollbar-thin">
-                          {creatorProducts.map(product => (
-                            <div key={product.id} className="flex-shrink-0 w-80">
-                              <ProductCard product={product} isCommunity={false} />
-                            </div>
-                          ))}
-                        </div>
-                      </div>
+                  {/* Horizontal Scrollable Product Carousel */}
+                  <div className="relative -mx-8">
+                    <div className="flex gap-6 overflow-x-auto px-8 pb-4 scrollbar-thin">
+                      {creatorProducts.map((product, idx) => (
+                        <motion.div 
+                          key={product.id} 
+                          className="flex-shrink-0 w-80"
+                          initial={{ opacity: 0, x: 50 }}
+                          animate={{ opacity: 1, x: 0 }}
+                          transition={{ delay: idx * 0.1 }}
+                        >
+                          <ProductCard product={product} isCommunity={false} />
+                        </motion.div>
+                      ))}
                     </div>
                   </div>
-                )}
+                </motion.div>
+              </div>
+            )}
           </>
         )}
       </main>

@@ -33,11 +33,13 @@ import printifyCreateProductRouter from './api/printify-create-product.js';
 import printifyGetProductRouter from './api/printify-get-product.js';
 import printifyPublishShopifyRouter from './api/printify-publish-shopify.js';
 import printifyLinkShopifyRouter from './api/printify-link-shopify.js';
+import extractSpriteHandler from './api/extract-sprite.js';
 // import generateHandler from './api/generate.js';
 
 // API Routes
 app.post('/api/generate-sd', generateSDHandler);
 app.post('/api/upload-design', uploadDesignHandler);
+app.post('/api/extract-sprite', extractSpriteHandler);
 app.use('/api/shopify', shopifyCollectionsRouter);
 app.use('/api/shopify', createProductRouter);
 app.post('/api/shopify/orders-webhook', shopifyOrdersWebhook);
@@ -62,7 +64,8 @@ app.get('/health', (req, res) => {
       '/api/printify/create-product',
       '/api/printify/product/:productId',
       '/api/printify/publish-to-shopify',
-      '/api/printify/link-to-shopify'
+      '/api/printify/link-to-shopify',
+      '/api/extract-sprite'
     ]
   });
 });
@@ -85,6 +88,8 @@ app.get('/', (req, res) => {
       printifyGetProduct: 'GET /api/printify/product/:productId',
       printifyPublishShopify: 'POST /api/printify/publish-to-shopify',
       printifyLinkShopify: 'POST /api/printify/link-to-shopify'
+      ,
+      extractSprite: 'POST /api/extract-sprite'
     }
   });
 });
@@ -130,6 +135,7 @@ app.listen(PORT, () => {
   console.log(`   - GET  http://localhost:${PORT}/api/printify/product/:productId`);
   console.log(`   - POST http://localhost:${PORT}/api/printify/publish-to-shopify`);
   console.log(`   - POST http://localhost:${PORT}/api/printify/link-to-shopify`);
+  console.log(`   - POST http://localhost:${PORT}/api/extract-sprite`);
   console.log(`   - GET  http://localhost:${PORT}/health`);
   console.log(`\n💡 Make sure you have the following environment variables set:`);
   console.log(`   - GEMINI_API_KEY`);

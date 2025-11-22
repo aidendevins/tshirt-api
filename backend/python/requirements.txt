@@ -1,0 +1,22 @@
+# Core dependencies
+Pillow>=10.0.0
+numpy>=1.24.0
+
+# Background removal options (choose one or more)
+
+# Option 1: RemBG with improved models
+rembg[new]>=2.0.0
+
+# Option 2: GroundingDINO + SAM (most accurate for specific objects)
+# Note: Install from source or use conda
+# git+https://github.com/IDEA-Research/GroundingDINO.git
+# git+https://github.com/facebookresearch/segment-anything.git
+# torch>=2.0.0
+# torchvision>=0.15.0
+
+# Option 3: ClipDrop API (high quality, requires API key)
+requests>=2.31.0
+
+# Optional: Better matting models
+# pip install rembg[new]  # Includes briarmbg, silueta, etc.
+
