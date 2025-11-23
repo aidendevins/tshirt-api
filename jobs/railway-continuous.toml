@@ -1,5 +1,6 @@
 [build]
 builder = "NIXPACKS"
+# nixpacks.toml in this directory will be used to install Chrome/Chromium
 
 [deploy]
 startCommand = "node youtube-scraper/continuous-scraper.js"
@@ -8,8 +9,8 @@ restartPolicyMaxRetries = 10
 healthcheckPath = "/"
 healthcheckTimeout = 300
 
-# Railway will automatically install Chrome/Chromium for Selenium
-# through the Nixpacks build system
+# Chrome/Chromium and ChromeDriver are installed via nixpacks.toml
+# The scraper will automatically detect the correct paths
 
 # Note: This service runs continuously and should be deployed
 # as a separate service from the scheduler

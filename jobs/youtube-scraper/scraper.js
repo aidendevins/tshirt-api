@@ -8,22 +8,110 @@ const { getClient } = require('../db/connection');
 async function setupDriver() {
   try {
     const options = new chrome.Options();
+    
+    // Set Chrome binary path for Railway/Linux environments
+    // Try common paths where Chromium is installed
+    const fs = require('fs');
+    const possibleChromePaths = [
+      '/usr/bin/chromium',
+      '/usr/bin/chromium-browser',
+      '/usr/bin/google-chrome',
+      '/usr/bin/google-chrome-stable'
+    ];
+    
+    let chromePath = null;
+    for (const path of possibleChromePaths) {
+      try {
+        if (fs.existsSync(path)) {
+          chromePath = path;
+          break;
+        }
+      } catch (e) {
+        // Continue searching
+      }
+    }
+    
+    if (chromePath) {
+      options.setChromeBinaryPath(chromePath);
+      console.log(`  Using Chrome binary: ${chromePath}`);
+    } else {
+      console.log('  Using default Chrome binary (may need to be set)');
+    }
+    
+    // Chrome options for Railway/Linux headless environment
     options.addArguments('--headless=new');
     options.addArguments('--no-sandbox');
     options.addArguments('--disable-dev-shm-usage');
     options.addArguments('--disable-gpu');
+    options.addArguments('--disable-software-rasterizer');
+    options.addArguments('--disable-extensions');
+    options.addArguments('--disable-background-networking');
+    options.addArguments('--disable-background-timer-throttling');
+    options.addArguments('--disable-backgrounding-occluded-windows');
+    options.addArguments('--disable-breakpad');
+    options.addArguments('--disable-client-side-phishing-detection');
+    options.addArguments('--disable-default-apps');
+    options.addArguments('--disable-features=TranslateUI');
+    options.addArguments('--disable-hang-monitor');
+    options.addArguments('--disable-ipc-flooding-protection');
+    options.addArguments('--disable-popup-blocking');
+    options.addArguments('--disable-prompt-on-repost');
+    options.addArguments('--disable-renderer-backgrounding');
+    options.addArguments('--disable-sync');
+    options.addArguments('--disable-translate');
+    options.addArguments('--metrics-recording-only');
+    options.addArguments('--no-first-run');
+    options.addArguments('--safebrowsing-disable-auto-update');
+    options.addArguments('--enable-automation');
+    options.addArguments('--password-store=basic');
+    options.addArguments('--use-mock-keychain');
     options.addArguments('--disable-blink-features=AutomationControlled');
-    options.addArguments('--user-agent=Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36');
+    options.addArguments('--user-agent=Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36');
     
-    const driver = await new Builder()
+    // Set ChromeDriver path if available
+    const possibleDriverPaths = [
+      '/usr/bin/chromedriver',
+      '/usr/lib/chromium-browser/chromedriver',
+      '/usr/lib/chromium/chromedriver'
+    ];
+    
+    let driverPath = null;
+    for (const path of possibleDriverPaths) {
+      try {
+        if (fs.existsSync(path)) {
+          driverPath = path;
+          break;
+        }
+      } catch (e) {
+        // Continue searching
+      }
+    }
+    
+    let service = null;
+    if (driverPath) {
+      service = new chrome.ServiceBuilder(driverPath);
+      console.log(`  Using ChromeDriver: ${driverPath}`);
+    } else {
+      console.log('  Using default ChromeDriver (selenium-webdriver will manage)');
+      service = new chrome.ServiceBuilder();
+    }
+    
+    // Use 'chrome' browser type (works for both Chrome and Chromium)
+    const builder = new Builder()
       .forBrowser('chrome')
-      .setChromeOptions(options)
-      .build();
+      .setChromeOptions(options);
+    
+    if (service) {
+      builder.setChromeService(service);
+    }
+    
+    const driver = await builder.build();
     
     console.log('✓ Chrome driver initialized');
     return driver;
   } catch (error) {
     console.error('Failed to setup Chrome driver:', error.message);
+    console.error('Stack trace:', error.stack);
     throw error;
   }
 }

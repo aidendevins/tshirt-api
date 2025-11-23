@@ -1,0 +1,31 @@
+[phases.setup]
+aptPkgs = [
+  "chromium-browser",
+  "chromium-chromedriver",
+  "libgconf-2-4",
+  "libnss3",
+  "libgbm1",
+  "libxss1",
+  "libasound2",
+  "libatk1.0-0",
+  "libatk-bridge2.0-0",
+  "libcups2",
+  "libdrm2",
+  "libxkbcommon0",
+  "libxcomposite1",
+  "libxdamage1",
+  "libxfixes3",
+  "libxrandr2",
+  "libpango-1.0-0",
+  "ca-certificates",
+  "fonts-liberation",
+  "libappindicator3-1",
+  "xdg-utils"
+]
+
+[phases.install]
+cmds = ["npm install"]
+
+[phases.build]
+cmds = ["echo 'Build complete'"]
+
