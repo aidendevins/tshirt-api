@@ -1101,9 +1101,8 @@ export default function ProductDesigner({ onSave, onCancel }) {
 
       if (removeBackground) {
         fullPrompt += '. Make the edits on the main object of the image, and make the background all green.';
-      } else {
-        fullPrompt += '. The design should be suitable for printing on a t-shirt with a transparent background.';
       }
+      // Don't add transparent background instruction - keep the same consistency as the original image
 
       const response = await fetch(`${API_BASE_URL}/api/generate-sd`, {
         method: 'POST',

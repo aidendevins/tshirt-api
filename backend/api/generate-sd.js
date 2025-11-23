@@ -180,7 +180,7 @@ export default async function handler(req, res) {
           const spriteDescriptions = validSprites
             .map((s, i) => (s.description && s.description.trim()) ? `${i + 1}) ${s.description.trim()}` : `${i + 1}) sprite image`)
             .join('; ');
-          finalPrompt += ` Extract the following elements from the attached sprite images and incorporate them into the final design while preserving transparency: ${spriteDescriptions}.`;
+          finalPrompt += ` Extract the following elements from the attached sprite images and incorporate them into the final design: ${spriteDescriptions}.`;
         }
 
         // Build prompt text that references image positions
@@ -189,7 +189,7 @@ export default async function handler(req, res) {
           ? `Based on this reference image, ${finalPrompt} Generate a high-quality, print-ready design.`
           : `Based on these ${images.length} reference images (${imageReferences}), ${finalPrompt} Generate a high-quality, print-ready design.`;
 
-        promptText += ` Never change the integrety of the original image. Keep the main elements of the original image unless the user specifically asks for a change.`;
+        promptText += ` Never change the integrity of the original image. Keep the main elements, background, and overall visual consistency of the original image unless the user specifically asks for a change. Maintain the same background style and appearance as the reference image.`;
 
         // Generate new image with Gemini native image generation
         const result = await model.generateContent({
@@ -263,7 +263,7 @@ export default async function handler(req, res) {
           contents: [{
             role: 'user',
             parts: [{
-              text: `Create a high-quality image: ${finalPrompt}. High quality, detailed, vibrant artwork, professional design for a t-shirt. Output only the design on a transparent background (no t-shirt).`
+              text: `Create a high-quality image: ${finalPrompt}. High quality, detailed, vibrant artwork, professional design for a t-shirt.`
             }]
           }],
           generationConfig: {

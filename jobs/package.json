@@ -9,10 +9,17 @@
     "dev": "NODE_ENV=development node run-once.js",
     "analyze": "node youtube-scraper/youtubeapi.js",
     "analyze:dev": "NODE_ENV=development node youtube-scraper/youtubeapi.js",
+    "youtube-test": "node youtube-scraper/youtubeapi-test.js",
     "all": "node run-all.js",
     "all:dev": "NODE_ENV=development node run-all.js"
   },
-  "keywords": ["youtube", "scraper", "channels", "cron", "railway"],
+  "keywords": [
+    "youtube",
+    "scraper",
+    "channels",
+    "cron",
+    "railway"
+  ],
   "author": "",
   "license": "ISC",
   "type": "commonjs",
