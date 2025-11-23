@@ -1,12 +1,9 @@
 [phases.setup]
 aptPkgs = [
-  "chromium-browser",
-  "chromium-chromedriver",
-  "libgconf-2-4",
+  "chromium",
   "libnss3",
   "libgbm1",
   "libxss1",
-  "libasound2",
   "libatk1.0-0",
   "libatk-bridge2.0-0",
   "libcups2",
@@ -20,11 +17,26 @@ aptPkgs = [
   "ca-certificates",
   "fonts-liberation",
   "libappindicator3-1",
-  "xdg-utils"
+  "xdg-utils",
+  "libgdk-pixbuf2.0-0",
+  "libgtk-3-0",
+  "libx11-6",
+  "libx11-xcb1",
+  "libxcb1",
+  "libxext6",
+  "libxrender1",
+  "libxtst6",
+  "libxi6",
+  "libxcursor1",
+  "wget",
+  "unzip"
 ]
 
 [phases.install]
-cmds = ["npm install"]
+cmds = [
+  "npm install",
+  "echo 'ChromeDriver will be managed by selenium-webdriver automatically'"
+]
 
 [phases.build]
 cmds = ["echo 'Build complete'"]

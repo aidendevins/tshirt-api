@@ -71,8 +71,10 @@ async function setupDriver() {
     // Set ChromeDriver path if available
     const possibleDriverPaths = [
       '/usr/bin/chromedriver',
+      '/usr/bin/chromium-driver',
       '/usr/lib/chromium-browser/chromedriver',
-      '/usr/lib/chromium/chromedriver'
+      '/usr/lib/chromium/chromedriver',
+      '/usr/lib/chromium-driver/chromedriver'
     ];
     
     let driverPath = null;
