@@ -120,35 +120,10 @@ async function setupDriver() {
     options.addArguments('--window-size=1920,1080');
     options.addArguments('--user-agent=Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36');
     
-    // Set ChromeDriver path if available
-    const possibleDriverPaths = [
-      '/usr/bin/chromedriver',
-      '/usr/bin/chromium-driver',
-      '/usr/lib/chromium-browser/chromedriver',
-      '/usr/lib/chromium/chromedriver',
-      '/usr/lib/chromium-driver/chromedriver'
-    ];
-    
-    let driverPath = null;
-    for (const path of possibleDriverPaths) {
-      try {
-        if (fs.existsSync(path)) {
-          driverPath = path;
-          break;
-        }
-      } catch (e) {
-        // Continue searching
-      }
-    }
-    
-    let service = null;
-    if (driverPath) {
-      service = new chrome.ServiceBuilder(driverPath);
-      console.log(`  Using ChromeDriver: ${driverPath}`);
-    } else {
-      console.log('  Using default ChromeDriver (selenium-webdriver will manage)');
-      service = new chrome.ServiceBuilder();
-    }
+    // Let selenium-webdriver manage ChromeDriver completely
+    // Don't try to use system ChromeDriver as it may not match Chromium version
+    console.log('  Using selenium-webdriver managed ChromeDriver (auto-downloads matching version)');
+    const service = new chrome.ServiceBuilder();
     
     // Use 'chrome' browser type (works for both Chrome and Chromium)
     const builder = new Builder()
@@ -167,8 +142,46 @@ async function setupDriver() {
     } catch (buildError) {
       console.error(`  Build error: ${buildError.message}`);
       
-      // Try with even more minimal options
+      // Try with even more minimal options and test Chromium directly
       console.log('  Trying with ultra-minimal options...');
+      
+      // First, test if Chromium can run at all
+      if (chromePath) {
+        let finalPath;
+        try {
+          if (fs.existsSync(chromePath) && !fs.lstatSync(chromePath).isSymbolicLink()) {
+            finalPath = chromePath;
+          } else {
+            finalPath = fs.realpathSync(chromePath);
+          }
+          
+          console.log(`  Testing Chromium directly: ${finalPath}`);
+          try {
+            const { execSync } = require('child_process');
+            // Test with minimal flags to see if Chromium can start
+            const testResult = execSync(`"${finalPath}" --headless --disable-gpu --no-sandbox --disable-dev-shm-usage --dump-dom about:blank 2>&1`, {
+              timeout: 10000,
+              encoding: 'utf8',
+              stdio: ['ignore', 'pipe', 'pipe']
+            });
+            console.log('  ✓ Chromium can run directly (test successful)');
+          } catch (testError) {
+            console.error(`  ✗ Chromium test failed`);
+            console.error(`  Error message: ${testError.message}`);
+            if (testError.stderr) {
+              console.error(`  stderr: ${testError.stderr.toString().substring(0, 500)}`);
+            }
+            if (testError.stdout) {
+              console.error(`  stdout: ${testError.stdout.toString().substring(0, 500)}`);
+            }
+            console.error(`  This suggests Chromium may be missing dependencies or misconfigured`);
+            console.error(`  Common issues: missing libnss3, libgbm1, or other shared libraries`);
+          }
+        } catch (e) {
+          finalPath = chromePath;
+        }
+      }
+      
       const minimalOptions = new chrome.Options();
       if (chromePath) {
         let finalPath;
@@ -178,22 +191,22 @@ async function setupDriver() {
           } else {
             finalPath = fs.realpathSync(chromePath);
           }
+          minimalOptions.setChromeBinaryPath(finalPath);
         } catch (e) {
-          finalPath = chromePath;
+          minimalOptions.setChromeBinaryPath(chromePath);
         }
-        minimalOptions.setChromeBinaryPath(finalPath);
       }
       
-      // Absolute minimum flags needed
+      // Absolute minimum flags needed - try without headless first
       minimalOptions.addArguments('--headless=new');
       minimalOptions.addArguments('--no-sandbox');
       minimalOptions.addArguments('--disable-setuid-sandbox');
       minimalOptions.addArguments('--disable-dev-shm-usage');
       minimalOptions.addArguments('--disable-gpu');
+      minimalOptions.addArguments('--disable-software-rasterizer');
+      minimalOptions.addArguments('--disable-extensions');
       
-      const minimalService = driverPath 
-        ? new chrome.ServiceBuilder(driverPath)
-        : new chrome.ServiceBuilder();
+      const minimalService = new chrome.ServiceBuilder();
       
       const minimalBuilder = new Builder()
         .forBrowser('chrome')
@@ -206,7 +219,10 @@ async function setupDriver() {
         return driver;
       } catch (minimalError) {
         console.error(`  Minimal build also failed: ${minimalError.message}`);
-        throw new Error(`Chrome driver setup failed. Original error: ${buildError.message}. Minimal attempt error: ${minimalError.message}`);
+        console.error(`  Full error details:`, minimalError);
+        
+        // Last resort: try with chromium directly without selenium
+        throw new Error(`Chrome driver setup failed. Original: ${buildError.message}. Minimal: ${minimalError.message}. Chromium may need additional dependencies or configuration.`);
       }
     }
   } catch (error) {
