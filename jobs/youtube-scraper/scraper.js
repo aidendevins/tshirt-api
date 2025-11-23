@@ -13,12 +13,15 @@ async function setupDriver() {
     
     // Set Chrome binary path for Railway/Linux environments
     // Try common paths where Chromium is installed
-    // Note: On Debian/Ubuntu, chromium-browser is often a symlink to chromium
+    // IMPORTANT: chromium-browser may be a snap wrapper, so try /usr/bin/chromium first
+    // Also check /usr/lib/chromium/chromium which is the actual binary location
     const possibleChromePaths = [
-      '/usr/bin/chromium',
-      '/usr/bin/chromium-browser',
+      '/usr/bin/chromium',  // Direct binary (preferred)
+      '/usr/lib/chromium/chromium',  // Actual binary location on some systems
+      '/usr/lib/chromium-browser/chromium-browser',  // Alternative location
       '/usr/bin/google-chrome',
-      '/usr/bin/google-chrome-stable'
+      '/usr/bin/google-chrome-stable',
+      '/usr/bin/chromium-browser'  // Last resort (may be snap wrapper)
     ];
     
     // Also check if chromium-browser is a symlink and resolve it
@@ -40,6 +43,31 @@ async function setupDriver() {
     let chromePath = null;
     for (const path of possibleChromePaths) {
       try {
+        if (!fs.existsSync(path)) {
+          continue;
+        }
+        
+        // Check if it's a snap wrapper (contains "snap" in readlink or is a script)
+        try {
+          const stats = fs.lstatSync(path);
+          if (stats.isSymbolicLink()) {
+            const linkTarget = fs.readlinkSync(path);
+            if (linkTarget.includes('snap')) {
+              console.log(`  Skipping ${path} (snap wrapper)`);
+              continue;
+            }
+          } else if (stats.isFile()) {
+            // Check if it's a script that mentions snap
+            const content = fs.readFileSync(path, 'utf8').substring(0, 200);
+            if (content.includes('snap') && content.includes('chromium')) {
+              console.log(`  Skipping ${path} (snap wrapper script)`);
+              continue;
+            }
+          }
+        } catch (e) {
+          // Continue checking
+        }
+        
         const resolvedPath = checkSymlink(path);
         if (resolvedPath) {
           chromePath = resolvedPath;
