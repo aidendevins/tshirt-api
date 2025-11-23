@@ -6,7 +6,11 @@
   "scripts": {
     "start": "node scheduler.js",
     "test": "node run-once.js",
-    "dev": "NODE_ENV=development node run-once.js"
+    "dev": "NODE_ENV=development node run-once.js",
+    "analyze": "node youtube-scraper/youtubeapi.js",
+    "analyze:dev": "NODE_ENV=development node youtube-scraper/youtubeapi.js",
+    "all": "node run-all.js",
+    "all:dev": "NODE_ENV=development node run-all.js"
   },
   "keywords": ["youtube", "scraper", "channels", "cron", "railway"],
   "author": "",
@@ -18,6 +22,7 @@
   "dependencies": {
     "cheerio": "^1.0.0-rc.12",
     "dotenv": "^16.3.1",
+    "googleapis": "^144.0.0",
     "node-cron": "^3.0.3",
     "pg": "^8.11.3",
     "selenium-webdriver": "^4.15.0"
