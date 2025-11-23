@@ -2,10 +2,84 @@
 require('dotenv').config();
 const { Builder, By, until } = require('selenium-webdriver');
 const chrome = require('selenium-webdriver/chrome');
+const { Capabilities } = require('selenium-webdriver');
 const cheerio = require('cheerio');
 const { getClient } = require('../db/connection');
 
+/**
+ * Setup Selenium WebDriver - supports both Selenium Grid (preferred) and local Chrome
+ * Set SELENIUM_GRID_URL environment variable to use Railway's Selenium Grid template
+ * Example: SELENIUM_GRID_URL=https://your-grid.up.railway.app/wd/hub
+ */
 async function setupDriver() {
+  // Check if Selenium Grid URL is provided
+  const gridUrl = process.env.SELENIUM_GRID_URL;
+  
+  if (gridUrl) {
+    console.log(`  Using Selenium Grid: ${gridUrl}`);
+    return await setupGridDriver(gridUrl);
+  } else {
+    console.log('  Using local Chrome (set SELENIUM_GRID_URL to use Selenium Grid)');
+    return await setupLocalDriver();
+  }
+}
+
+/**
+ * Setup driver using Selenium Grid (Railway template)
+ */
+async function setupGridDriver(gridUrl) {
+  try {
+    const options = new chrome.Options();
+    
+    // Chrome options for headless operation
+    options.addArguments('--headless=new');
+    options.addArguments('--no-sandbox');
+    options.addArguments('--disable-setuid-sandbox');
+    options.addArguments('--disable-dev-shm-usage');
+    options.addArguments('--disable-gpu');
+    options.addArguments('--disable-software-rasterizer');
+    options.addArguments('--window-size=1920,1080');
+    options.addArguments('--user-agent=Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36');
+    
+    // Normalize the grid URL
+    // Railway public domains automatically route to the service port (8080 in your case)
+    // So we don't need to specify the port in the URL
+    let hubUrl = gridUrl.trim();
+    
+    // Remove trailing slashes
+    hubUrl = hubUrl.replace(/\/+$/, '');
+    
+    // Ensure it ends with /wd/hub (Selenium Grid hub endpoint)
+    if (!hubUrl.endsWith('/wd/hub')) {
+      hubUrl = `${hubUrl}/wd/hub`;
+    }
+    
+    console.log(`  Connecting to Selenium Grid hub: ${hubUrl}`);
+    
+    // Create capabilities for Chrome
+    const capabilities = Capabilities.chrome();
+    capabilities.merge(options);
+    
+    // Build remote driver
+    const driver = await new Builder()
+      .usingServer(hubUrl)
+      .withCapabilities(capabilities)
+      .build();
+    
+    console.log('✓ Selenium Grid driver initialized');
+    return driver;
+  } catch (error) {
+    console.error('Failed to setup Selenium Grid driver:', error.message);
+    console.error('  Make sure your Selenium Grid is running and accessible');
+    console.error('  Grid URL should be: https://chrome-node-production.up.railway.app/wd/hub');
+    throw error;
+  }
+}
+
+/**
+ * Setup driver using local Chrome (fallback)
+ */
+async function setupLocalDriver() {
   try {
     const options = new chrome.Options();
     const { execSync } = require('child_process');
