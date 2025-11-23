@@ -127,10 +127,6 @@ async function setupDriver() {
       service = new chrome.ServiceBuilder();
     }
     
-    // Enable verbose logging for ChromeDriver to debug issues
-    service.setLoggingToFile(false);
-    service.setStdio(['ignore', 'pipe', 'pipe']);
-    
     // Use 'chrome' browser type (works for both Chrome and Chromium)
     const builder = new Builder()
       .forBrowser('chrome')
