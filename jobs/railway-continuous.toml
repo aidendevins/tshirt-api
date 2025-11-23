@@ -1,0 +1,16 @@
+[build]
+builder = "NIXPACKS"
+
+[deploy]
+startCommand = "node youtube-scraper/continuous-scraper.js"
+restartPolicyType = "ON_FAILURE"
+restartPolicyMaxRetries = 10
+healthcheckPath = "/"
+healthcheckTimeout = 300
+
+# Railway will automatically install Chrome/Chromium for Selenium
+# through the Nixpacks build system
+
+# Note: This service runs continuously and should be deployed
+# as a separate service from the scheduler
+

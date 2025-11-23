@@ -135,7 +135,7 @@ function parseChannels(html, searchTerm) {
 async function saveToDatabase(channels, queryName) {
   if (!channels || channels.length === 0) {
     console.log('    ℹ No channels to save');
-    return;
+    return { saved: 0, updated: 0 };
   }
 
   const client = await getClient();
@@ -148,6 +148,9 @@ async function saveToDatabase(channels, queryName) {
     
     for (const channel of channels) {
       try {
+        // Use query_name from channel if available, otherwise use parameter
+        const finalQueryName = channel.query_name || queryName;
+        
         const result = await client.query(`
           INSERT INTO youtube_channels 
             (channel_name, subscribers, search_term, query_name, last_updated)
@@ -163,7 +166,7 @@ async function saveToDatabase(channels, queryName) {
           channel.channel_name,
           channel.subscribers,
           channel.search_term,
-          queryName
+          finalQueryName
         ]);
         
         if (result.rows[0].inserted) {
@@ -179,6 +182,8 @@ async function saveToDatabase(channels, queryName) {
     await client.query('COMMIT');
     console.log(`    ✓ Database: ${savedCount} new, ${updatedCount} updated (${channels.length} total)`);
     
+    return { saved: savedCount, updated: updatedCount };
+    
   } catch (error) {
     await client.query('ROLLBACK');
     console.error('    ✗ Database transaction error:', error.message);
@@ -188,62 +193,183 @@ async function saveToDatabase(channels, queryName) {
   }
 }
 
-async function runScraper(queries) {
-  let driver;
+/**
+ * Process a single search term and return channels
+ * @param {string} term - Search term
+ * @param {Object} driver - Selenium driver
+ * @param {string} queryName - Query category name
+ * @returns {Promise<Array>} Array of channel objects
+ */
+async function processSearchTerm(term, driver, queryName) {
+  try {
+    const channels = await scrapeChannels(term, driver);
+    return channels.map(ch => ({ ...ch, query_name: queryName }));
+  } catch (error) {
+    console.error(`  ✗ Failed to scrape term "${term}":`, error.message);
+    return [];
+  }
+}
+
+/**
+ * Run scraper with incremental saving (saves every N terms)
+ * @param {Array} queries - Array of query objects
+ * @param {Object} options - Options object
+ * @param {number} options.saveInterval - Save after every N terms (default: 20)
+ * @param {Function} options.onProgress - Callback for progress updates
+ * @param {Function} options.shouldStop - Function that returns true if should stop
+ * @returns {Promise<Object>} Statistics object
+ */
+async function runScraper(queries, options = {}) {
+  const {
+    saveInterval = 20,
+    onProgress = null,
+    shouldStop = () => false,
+    driver = null
+  } = options;
+  
+  let localDriver = driver;
+  let driverCreated = false;
+  let totalProcessed = 0;
+  let totalSaved = 0;
+  let totalUpdated = 0;
+  let currentBatch = [];
+  let batchCount = 0;
+  
+  // Statistics tracking
+  const stats = {
+    queriesProcessed: 0,
+    termsProcessed: 0,
+    channelsFound: 0,
+    channelsSaved: 0,
+    channelsUpdated: 0,
+    batchesSaved: 0,
+    startTime: Date.now()
+  };
   
   try {
-    driver = await setupDriver();
-    
-    for (const query of queries) {
-      console.log(`\n${'='.repeat(60)}`);
-      console.log(`📊 Processing Query Category: ${query.name}`);
-      console.log(`${'='.repeat(60)}`);
-      
-      const searchTerms = query.terms.split(',').map(t => t.trim());
-      const allChannels = [];
-      
-      for (let i = 0; i < searchTerms.length; i++) {
-        const term = searchTerms[i];
-        console.log(`\n  [${i + 1}/${searchTerms.length}] Searching: "${term}"`);
-        
-        try {
-          const channels = await scrapeChannels(term, driver);
-          allChannels.push(...channels);
-          
-          // Avoid rate limiting - random delay between 2-4 seconds
-          const delay = 2000 + Math.random() * 2000;
-          await driver.sleep(delay);
-        } catch (error) {
-          console.error(`  ✗ Failed to scrape term "${term}":`, error.message);
-        }
-      }
-      
-      // Remove duplicates based on channel_name
-      const uniqueChannels = Array.from(
-        new Map(allChannels.map(ch => [ch.channel_name, ch])).values()
-      );
-      
-      console.log(`\n  📝 Summary: ${uniqueChannels.length} unique channels found (${allChannels.length} total)`);
-      
-      // Save to database
-      try {
-        await saveToDatabase(uniqueChannels, query.name);
-      } catch (error) {
-        console.error(`  ✗ Failed to save to database:`, error.message);
-      }
-      
-      console.log(`${'='.repeat(60)}\n`);
+    // Setup driver if not provided
+    if (!localDriver) {
+      localDriver = await setupDriver();
+      driverCreated = true;
     }
     
-    console.log('✅ Scraper completed successfully\n');
+    // Flatten all queries into individual terms with query names
+    const allTerms = [];
+    for (const query of queries) {
+      const searchTerms = query.terms.split(',').map(t => t.trim());
+      for (const term of searchTerms) {
+        allTerms.push({ term, queryName: query.name });
+      }
+    }
+    
+    console.log(`\n${'='.repeat(60)}`);
+    console.log(`📊 Starting scraper with ${allTerms.length} total search terms`);
+    console.log(`💾 Saving incrementally every ${saveInterval} terms`);
+    console.log(`${'='.repeat(60)}\n`);
+    
+    for (let i = 0; i < allTerms.length; i++) {
+      // Check if should stop
+      if (shouldStop()) {
+        console.log('\n⚠️  Stop signal received, saving current batch and exiting...');
+        break;
+      }
+      
+      const { term, queryName } = allTerms[i];
+      const termIndex = i + 1;
+      
+      console.log(`\n  [${termIndex}/${allTerms.length}] Searching: "${term}" (${queryName})`);
+      
+      try {
+        const channels = await processSearchTerm(term, localDriver, queryName);
+        currentBatch.push(...channels);
+        stats.termsProcessed++;
+        stats.channelsFound += channels.length;
+        
+        // Avoid rate limiting - random delay between 2-4 seconds
+        const delay = 2000 + Math.random() * 2000;
+        await localDriver.sleep(delay);
+        
+        // Save incrementally every saveInterval terms
+        if (currentBatch.length > 0 && (termIndex % saveInterval === 0 || i === allTerms.length - 1)) {
+          // Remove duplicates based on channel_name
+          const uniqueChannels = Array.from(
+            new Map(currentBatch.map(ch => [ch.channel_name, ch])).values()
+          );
+          
+          try {
+            const { saved, updated } = await saveToDatabase(uniqueChannels, queryName);
+            totalSaved += saved;
+            totalUpdated += updated;
+            stats.channelsSaved += saved;
+            stats.channelsUpdated += updated;
+            stats.batchesSaved++;
+            batchCount++;
+            
+            console.log(`\n  💾 Batch #${batchCount} saved: ${saved} new, ${updated} updated (${uniqueChannels.length} total)`);
+            console.log(`  📊 Running totals: ${totalSaved} new, ${totalUpdated} updated channels`);
+          } catch (error) {
+            console.error(`  ✗ Failed to save batch:`, error.message);
+          }
+          
+          currentBatch = []; // Clear batch
+        }
+        
+        // Progress callback
+        if (onProgress) {
+          onProgress({
+            termIndex,
+            totalTerms: allTerms.length,
+            currentBatchSize: currentBatch.length,
+            totalSaved,
+            totalUpdated
+          });
+        }
+        
+      } catch (error) {
+        console.error(`  ✗ Error processing term "${term}":`, error.message);
+      }
+    }
+    
+    // Save any remaining channels in the batch
+    if (currentBatch.length > 0) {
+      const uniqueChannels = Array.from(
+        new Map(currentBatch.map(ch => [ch.channel_name, ch])).values()
+      );
+      
+      try {
+        const { saved, updated } = await saveToDatabase(uniqueChannels, 'final');
+        totalSaved += saved;
+        totalUpdated += updated;
+        stats.channelsSaved += saved;
+        stats.channelsUpdated += updated;
+        stats.batchesSaved++;
+        
+        console.log(`\n  💾 Final batch saved: ${saved} new, ${updated} updated`);
+      } catch (error) {
+        console.error(`  ✗ Failed to save final batch:`, error.message);
+      }
+    }
+    
+    stats.queriesProcessed = queries.length;
+    stats.duration = Date.now() - stats.startTime;
+    
+    console.log(`\n✅ Scraper completed successfully`);
+    console.log(`   Terms processed: ${stats.termsProcessed}`);
+    console.log(`   Channels found: ${stats.channelsFound}`);
+    console.log(`   Channels saved: ${stats.channelsSaved} new, ${stats.channelsUpdated} updated`);
+    console.log(`   Batches saved: ${stats.batchesSaved}`);
+    console.log(`   Duration: ${(stats.duration / 1000 / 60).toFixed(2)} minutes\n`);
+    
+    return stats;
     
   } catch (error) {
     console.error('❌ Scraper failed:', error.message);
     throw error;
   } finally {
-    if (driver) {
+    // Only close driver if we created it
+    if (driverCreated && localDriver) {
       try {
-        await driver.quit();
+        await localDriver.quit();
         console.log('✓ Chrome driver closed');
       } catch (error) {
         console.error('✗ Failed to close driver:', error.message);
@@ -252,4 +378,4 @@ async function runScraper(queries) {
   }
 }
 
-module.exports = { runScraper };
+module.exports = { runScraper, setupDriver, processSearchTerm };
