@@ -8,11 +8,12 @@ const { getClient } = require('../db/connection');
 async function setupDriver() {
   try {
     const options = new chrome.Options();
+    const { execSync } = require('child_process');
+    const fs = require('fs');
     
     // Set Chrome binary path for Railway/Linux environments
     // Try common paths where Chromium is installed
     // Note: On Debian/Ubuntu, chromium-browser is often a symlink to chromium
-    const fs = require('fs');
     const possibleChromePaths = [
       '/usr/bin/chromium',
       '/usr/bin/chromium-browser',
@@ -52,17 +53,37 @@ async function setupDriver() {
     
     if (chromePath) {
       // Use the resolved path (actual binary, not symlink)
-      const finalPath = fs.existsSync(chromePath) && !fs.lstatSync(chromePath).isSymbolicLink() 
-        ? chromePath 
-        : fs.realpathSync(chromePath);
+      let finalPath;
+      try {
+        if (fs.existsSync(chromePath) && !fs.lstatSync(chromePath).isSymbolicLink()) {
+          finalPath = chromePath;
+        } else {
+          finalPath = fs.realpathSync(chromePath);
+        }
+      } catch (e) {
+        finalPath = chromePath;
+      }
+      
       options.setChromeBinaryPath(finalPath);
       console.log(`  Using Chrome binary: ${finalPath}`);
+      
+      // Test if Chromium can run (check version)
+      try {
+        const versionOutput = execSync(`"${finalPath}" --version`, { 
+          timeout: 5000,
+          encoding: 'utf8',
+          stdio: ['ignore', 'pipe', 'pipe']
+        });
+        console.log(`  Chrome version check: ${versionOutput.trim()}`);
+      } catch (e) {
+        console.log(`  Warning: Could not verify Chrome version: ${e.message}`);
+      }
     } else {
       console.log('  Using default Chrome binary (may need to be set)');
     }
     
     // Chrome options for Railway/Linux headless environment
-    // Critical flags for Railway/server environments
+    // Start with minimal critical flags - add more only if needed
     options.addArguments('--headless=new');
     options.addArguments('--no-sandbox');
     options.addArguments('--disable-setuid-sandbox');
@@ -70,7 +91,7 @@ async function setupDriver() {
     options.addArguments('--disable-gpu');
     options.addArguments('--disable-software-rasterizer');
     options.addArguments('--disable-extensions');
-    options.addArguments('--single-process'); // Important for Railway
+    // Note: --single-process can cause issues, try without it first
     options.addArguments('--disable-background-networking');
     options.addArguments('--disable-background-timer-throttling');
     options.addArguments('--disable-backgrounding-occluded-windows');
@@ -92,7 +113,9 @@ async function setupDriver() {
     options.addArguments('--password-store=basic');
     options.addArguments('--use-mock-keychain');
     options.addArguments('--disable-blink-features=AutomationControlled');
-    options.addArguments('--remote-debugging-port=9222');
+    // Use a random port for remote debugging to avoid conflicts
+    const debugPort = 9000 + Math.floor(Math.random() * 1000);
+    options.addArguments(`--remote-debugging-port=${debugPort}`);
     options.addArguments('--remote-allow-origins=*');
     options.addArguments('--window-size=1920,1080');
     options.addArguments('--user-agent=Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36');
@@ -137,33 +160,54 @@ async function setupDriver() {
     }
     
     try {
+      console.log('  Attempting to build Chrome driver...');
       const driver = await builder.build();
       console.log('✓ Chrome driver initialized');
       return driver;
     } catch (buildError) {
-      // If build fails, try with minimal options
-      console.log('  Initial build failed, trying with minimal options...');
+      console.error(`  Build error: ${buildError.message}`);
+      
+      // Try with even more minimal options
+      console.log('  Trying with ultra-minimal options...');
       const minimalOptions = new chrome.Options();
       if (chromePath) {
-        minimalOptions.setChromeBinaryPath(chromePath);
+        let finalPath;
+        try {
+          if (fs.existsSync(chromePath) && !fs.lstatSync(chromePath).isSymbolicLink()) {
+            finalPath = chromePath;
+          } else {
+            finalPath = fs.realpathSync(chromePath);
+          }
+        } catch (e) {
+          finalPath = chromePath;
+        }
+        minimalOptions.setChromeBinaryPath(finalPath);
       }
+      
+      // Absolute minimum flags needed
       minimalOptions.addArguments('--headless=new');
       minimalOptions.addArguments('--no-sandbox');
+      minimalOptions.addArguments('--disable-setuid-sandbox');
       minimalOptions.addArguments('--disable-dev-shm-usage');
       minimalOptions.addArguments('--disable-gpu');
-      minimalOptions.addArguments('--single-process');
+      
+      const minimalService = driverPath 
+        ? new chrome.ServiceBuilder(driverPath)
+        : new chrome.ServiceBuilder();
       
       const minimalBuilder = new Builder()
         .forBrowser('chrome')
-        .setChromeOptions(minimalOptions);
+        .setChromeOptions(minimalOptions)
+        .setChromeService(minimalService);
       
-      if (service) {
-        minimalBuilder.setChromeService(service);
+      try {
+        const driver = await minimalBuilder.build();
+        console.log('✓ Chrome driver initialized (ultra-minimal mode)');
+        return driver;
+      } catch (minimalError) {
+        console.error(`  Minimal build also failed: ${minimalError.message}`);
+        throw new Error(`Chrome driver setup failed. Original error: ${buildError.message}. Minimal attempt error: ${minimalError.message}`);
       }
-      
-      const driver = await minimalBuilder.build();
-      console.log('✓ Chrome driver initialized (minimal mode)');
-      return driver;
     }
   } catch (error) {
     console.error('Failed to setup Chrome driver:', error.message);

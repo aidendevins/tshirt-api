@@ -38,7 +38,9 @@ aptPkgs = [
 [phases.install]
 cmds = [
   "npm install",
-  "echo 'ChromeDriver will be managed by selenium-webdriver automatically'"
+  "echo 'ChromeDriver will be managed by selenium-webdriver automatically'",
+  "echo 'Testing Chromium installation...'",
+  "chromium --version || chromium-browser --version || echo 'Chromium version check failed (may still work)'"
 ]
 
 [phases.build]
