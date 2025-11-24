@@ -5,7 +5,7 @@
 require('dotenv').config();
 const http = require('http');
 const { runScraper, setupDriver } = require('./scraper');
-const { initializeDatabase, closePool } = require('../db/connection');
+const { initializeDatabase, closePool } = require('./db/connection');
 const queries = require('./queries');
 
 // Configuration

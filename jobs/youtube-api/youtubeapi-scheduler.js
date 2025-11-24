@@ -17,7 +17,7 @@ require('dotenv').config();
 const http = require('http');
 const cron = require('node-cron');
 const { main } = require('./youtubeapi');
-const { initializeDatabase, closePool } = require('../db/connection');
+const { initializeDatabase, closePool } = require('./db/connection');
 
 // Healthcheck server configuration
 const HEALTHCHECK_PORT = process.env.PORT || 3000; // Railway sets PORT automatically

@@ -1,0 +1,13 @@
+[build]
+builder = "NIXPACKS"
+
+[deploy]
+startCommand = "node youtubeapi-scheduler.js"
+restartPolicyType = "ON_FAILURE"
+restartPolicyMaxRetries = 10
+healthcheckPath = "/"
+healthcheckTimeout = 300
+
+# YouTube API Analyzer Service
+# Runs daily at 4 AM UTC to analyze channels and calculate merchandise scores
+

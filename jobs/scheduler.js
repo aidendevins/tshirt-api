@@ -72,7 +72,7 @@ function startHealthcheckServer() {
     
     // Start healthcheck server for Railway
     healthcheckServer = startHealthcheckServer();
-
+    
   } catch (error) {
     console.error('❌ Failed to initialize:', error.message);
     process.exit(1);

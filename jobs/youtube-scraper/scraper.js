@@ -4,7 +4,7 @@ const { Builder, By, until } = require('selenium-webdriver');
 const chrome = require('selenium-webdriver/chrome');
 const { Capabilities } = require('selenium-webdriver');
 const cheerio = require('cheerio');
-const { getClient } = require('../db/connection');
+const { getClient } = require('./db/connection');
 
 /**
  * Setup Selenium WebDriver - supports both Selenium Grid (preferred) and local Chrome
@@ -416,12 +416,55 @@ function parseChannels(html, searchTerm) {
         
         seen.add(channelName);
         
+        // Extract channel ID from the link href
+        let channelId = null;
+        const href = channelLink.attr('href') || '';
+        
+        // Extract channel ID from different URL formats:
+        // /channel/UC... (channel ID)
+        // /c/ChannelName (custom URL - need to resolve)
+        // /@handle (handle - need to resolve)
+        if (href.includes('/channel/')) {
+          // Direct channel ID: /channel/UCxxxxxxxxxxxxx
+          const match = href.match(/\/channel\/([a-zA-Z0-9_-]+)/);
+          if (match) {
+            channelId = match[1];
+          }
+        } else if (href.includes('/c/')) {
+          // Custom URL: /c/ChannelName - store as-is, will need to resolve later
+          const match = href.match(/\/c\/([a-zA-Z0-9_-]+)/);
+          if (match) {
+            channelId = `/c/${match[1]}`;
+          }
+        } else if (href.includes('/@')) {
+          // Handle: /@handle - store as @handle
+          const match = href.match(/\/@([a-zA-Z0-9_-]+)/);
+          if (match) {
+            channelId = `@${match[1]}`;
+          }
+        } else if (href.includes('youtube.com/')) {
+          // Try to extract from full URL
+          const urlMatch = href.match(/youtube\.com\/(channel|c|@)([a-zA-Z0-9_-]+)/);
+          if (urlMatch) {
+            const type = urlMatch[1];
+            const id = urlMatch[2];
+            if (type === 'channel') {
+              channelId = id;
+            } else if (type === 'c') {
+              channelId = `/c/${id}`;
+            } else if (type === '@') {
+              channelId = `@${id}`;
+            }
+          }
+        }
+        
         // Extract subscribers
         const subMatch = fullText.match(/([\d.]+[KMB]?)\s*subscriber/i);
         const subscribers = subMatch ? formatNumber(subMatch[1]) : 0;
         
         channels.push({
           channel_name: channelName,
+          channel_id: channelId, // Now includes channel_id
           subscribers: subscribers,
           search_term: searchTerm
         });
@@ -485,10 +528,11 @@ async function saveToDatabase(channels, queryName) {
         
         const result = await client.query(`
           INSERT INTO youtube_channels 
-            (channel_name, subscribers, search_term, query_name, last_updated)
-          VALUES ($1, $2, $3, $4, NOW())
+            (channel_name, channel_id, subscribers, search_term, query_name, last_updated)
+          VALUES ($1, $2, $3, $4, $5, NOW())
           ON CONFLICT (channel_name) 
           DO UPDATE SET 
+            channel_id = COALESCE(EXCLUDED.channel_id, youtube_channels.channel_id),
             subscribers = EXCLUDED.subscribers,
             search_term = EXCLUDED.search_term,
             query_name = EXCLUDED.query_name,
@@ -496,6 +540,7 @@ async function saveToDatabase(channels, queryName) {
           RETURNING (xmax = 0) AS inserted
         `, [
           channel.channel_name,
+          channel.channel_id || null,
           channel.subscribers,
           channel.search_term,
           finalQueryName

@@ -21,7 +21,7 @@
 
 require('dotenv').config();
 const { google } = require('googleapis');
-const { query, getClient } = require('../db/connection');
+const { query, getClient } = require('./db/connection');
 
 // -------------------- CONFIG --------------------
 // MULTIPLE API KEYS - Will automatically switch when quota exceeded!
@@ -770,14 +770,14 @@ async function processChannel(csvChannel) {
     console.log(`  ❌ No videos found`);
     return {
       analysis: {
-        Channel_Name: channelName,
-        Channel_ID: channelId,
-        CSV_Subs: csvSubs,
-        Actual_Subs: channelData.subs,
-        Total_Channel_Views: channelData.views_total,
-        Total_Channel_Videos: channelData.video_count,
-        Videos_Fetched: 0,
-        Qualifying_Videos_60d: 0,
+      Channel_Name: channelName,
+      Channel_ID: channelId,
+      CSV_Subs: csvSubs,
+      Actual_Subs: channelData.subs,
+      Total_Channel_Views: channelData.views_total,
+      Total_Channel_Videos: channelData.video_count,
+      Videos_Fetched: 0,
+      Qualifying_Videos_60d: 0,
         Shorts_Skipped: 0,
         Short_Vids_Skipped: 0,
         Old_Videos_Skipped: 0,
@@ -789,8 +789,8 @@ async function processChannel(csvChannel) {
         Avg_Likes_Qualified: 0,
         Avg_Comments_Qualified: 0,
         Total_Views_Qualified: 0,
-        Search_Term: csvChannel.search_term || '',
-        Query_Name: csvChannel.query_name || '',
+      Search_Term: csvChannel.search_term || '',
+      Query_Name: csvChannel.query_name || '',
         Status: "No videos found"
       },
       qualified: null
@@ -803,14 +803,14 @@ async function processChannel(csvChannel) {
     console.log(`  ❌ Could not analyze videos`);
     return {
       analysis: {
-        Channel_Name: channelName,
-        Channel_ID: channelId,
-        CSV_Subs: csvSubs,
-        Actual_Subs: channelData.subs,
-        Total_Channel_Views: channelData.views_total,
-        Total_Channel_Videos: channelData.video_count,
-        Videos_Fetched: 0,
-        Qualifying_Videos_60d: 0,
+      Channel_Name: channelName,
+      Channel_ID: channelId,
+      CSV_Subs: csvSubs,
+      Actual_Subs: channelData.subs,
+      Total_Channel_Views: channelData.views_total,
+      Total_Channel_Videos: channelData.video_count,
+      Videos_Fetched: 0,
+      Qualifying_Videos_60d: 0,
         Shorts_Skipped: 0,
         Short_Vids_Skipped: 0,
         Old_Videos_Skipped: 0,
@@ -822,8 +822,8 @@ async function processChannel(csvChannel) {
         Avg_Likes_Qualified: 0,
         Avg_Comments_Qualified: 0,
         Total_Views_Qualified: 0,
-        Search_Term: csvChannel.search_term || '',
-        Query_Name: csvChannel.query_name || '',
+      Search_Term: csvChannel.search_term || '',
+      Query_Name: csvChannel.query_name || '',
         Status: "Video analysis failed"
       },
       qualified: null
@@ -905,8 +905,8 @@ async function processChannel(csvChannel) {
   }
 
   if (ENABLE_VERBOSE_LOGS) {
-    const nameDisplay = channelName.substring(0, 40).padEnd(40);
-    console.log(`  ✅ ${nameDisplay} | Fetched: ${videoData.total_videos_fetched.toString().padStart(2)} | Qualified: ${qualifyingCount.toString().padStart(2)} | Status: ${status.substring(0, 30)}`);
+  const nameDisplay = channelName.substring(0, 40).padEnd(40);
+  console.log(`  ✅ ${nameDisplay} | Fetched: ${videoData.total_videos_fetched.toString().padStart(2)} | Qualified: ${qualifyingCount.toString().padStart(2)} | Status: ${status.substring(0, 30)}`);
   }
 
   return {
@@ -1093,7 +1093,7 @@ async function main(maxChannels = null) {
     const csvSubs = channel.subscribers;
 
     if (ENABLE_VERBOSE_LOGS) {
-      console.log(`[${idx + 1}/${channels.length}] ${channelName} (ID: ${channelId.substring(0, 20)}..., ${csvSubs.toLocaleString()} subs)`);
+    console.log(`[${idx + 1}/${channels.length}] ${channelName} (ID: ${channelId.substring(0, 20)}..., ${csvSubs.toLocaleString()} subs)`);
     } else if ((idx + 1) % LOG_PROGRESS_EVERY === 1) {
       console.log(`📡 Processing channels ${idx + 1}-${Math.min(idx + LOG_PROGRESS_EVERY, channels.length)} / ${channels.length}`);
     }
