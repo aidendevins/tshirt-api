@@ -3,7 +3,7 @@ builder = "NIXPACKS"
 rootDirectory = "jobs/youtube-scraper"
 
 [deploy]
-startCommand = "node continuous-scraper.js"
+startCommand = "npm start"
 restartPolicyType = "ON_FAILURE"
 restartPolicyMaxRetries = 10
 healthcheckPath = "/health"
