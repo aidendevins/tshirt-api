@@ -3,6 +3,7 @@
 // Continuously runs the YouTube scraper, restarting the driver every 2 hours
 
 require('dotenv').config();
+const http = require('http');
 const { runScraper, setupDriver } = require('./scraper');
 const { initializeDatabase, closePool } = require('../db/connection');
 const queries = require('./queries');
@@ -11,6 +12,7 @@ const queries = require('./queries');
 const DRIVER_RESTART_INTERVAL = 2 * 60 * 60 * 1000; // 2 hours in milliseconds
 const SAVE_INTERVAL = 20; // Save after every 20 terms
 const TERM_DELAY = 3000; // 3 seconds between terms (2-4 seconds random)
+const HEALTHCHECK_PORT = process.env.PORT || 3000; // Railway sets PORT automatically
 
 // Global state
 let isRunning = true;
@@ -25,6 +27,42 @@ let totalStats = {
   driverRestarts: 0,
   startTime: Date.now()
 };
+
+/**
+ * Start HTTP server for Railway healthchecks
+ */
+function startHealthcheckServer() {
+  const server = http.createServer((req, res) => {
+    // Healthcheck endpoint
+    if (req.url === '/' || req.url === '/health') {
+      res.writeHead(200, { 'Content-Type': 'application/json' });
+      res.end(JSON.stringify({
+        status: 'healthy',
+        service: 'youtube-scraper',
+        uptime: Math.floor((Date.now() - totalStats.startTime) / 1000),
+        stats: {
+          termsProcessed: totalStats.termsProcessed,
+          channelsSaved: totalStats.channelsSaved,
+          channelsUpdated: totalStats.channelsUpdated,
+          driverRestarts: totalStats.driverRestarts
+        }
+      }));
+    } else {
+      res.writeHead(404, { 'Content-Type': 'text/plain' });
+      res.end('Not Found');
+    }
+  });
+
+  server.listen(HEALTHCHECK_PORT, () => {
+    console.log(`✓ Healthcheck server listening on port ${HEALTHCHECK_PORT}`);
+    console.log(`  Healthcheck URL: http://localhost:${HEALTHCHECK_PORT}/`);
+  });
+
+  // Store globally for shutdown
+  global.healthcheckServer = server;
+  
+  return server;
+}
 
 /**
  * Initialize database and validate setup
@@ -209,6 +247,13 @@ async function shutdown(signal) {
       console.log('✓ Chrome driver closed');
     }
     
+    // Close healthcheck server
+    if (global.healthcheckServer) {
+      global.healthcheckServer.close(() => {
+        console.log('✓ Healthcheck server closed');
+      });
+    }
+    
     await closePool();
     console.log('✓ Database connections closed');
     
@@ -230,8 +275,13 @@ async function shutdown(signal) {
 
 // Main execution
 (async () => {
+  let healthcheckServer = null;
+  
   try {
     await initialize();
+    
+    // Start healthcheck server for Railway
+    healthcheckServer = startHealthcheckServer();
     
     // Setup signal handlers
     process.on('SIGTERM', () => shutdown('SIGTERM'));
@@ -256,6 +306,9 @@ async function shutdown(signal) {
     
   } catch (error) {
     console.error('Fatal error:', error);
+    if (healthcheckServer) {
+      healthcheckServer.close();
+    }
     await closePool();
     process.exit(1);
   }
