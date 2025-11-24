@@ -24,6 +24,20 @@ const HEALTHCHECK_PORT = process.env.PORT || 3000; // Railway sets PORT automati
 let healthcheckServer = null;
 const startTime = Date.now();
 
+// Calculate next run time (4 AM UTC)
+function getNextRunTime() {
+  const now = new Date();
+  const nextRun = new Date();
+  nextRun.setUTCHours(4, 0, 0, 0);
+  
+  // If it's already past 4 AM today, schedule for tomorrow
+  if (now.getUTCHours() >= 4) {
+    nextRun.setUTCDate(nextRun.getUTCDate() + 1);
+  }
+  
+  return nextRun;
+}
+
 /**
  * Start HTTP server for Railway healthchecks
  */
@@ -36,7 +50,7 @@ function startHealthcheckServer() {
         status: 'healthy',
         service: 'youtube-api-scheduler',
         uptime: Math.floor((Date.now() - startTime) / 1000),
-        nextRun: cron.schedule('0 4 * * *', () => {}).nextDate().toISOString(),
+        nextRun: getNextRunTime().toISOString(),
         timestamp: new Date().toISOString()
       }));
     } else {
@@ -125,7 +139,7 @@ if (process.env.NODE_ENV === 'development' && process.env.RUN_ON_STARTUP === 'tr
 }
 
 // Calculate next run time
-const nextRun = cron.schedule('0 4 * * *', () => {}).nextDate();
+const nextRun = getNextRunTime();
 console.log('\n✓ YouTube API scraper scheduled - runs daily at 4 AM UTC');
 console.log(`  Next run: ${nextRun.toISOString()}`);
 console.log(`  Current time: ${new Date().toISOString()}`);

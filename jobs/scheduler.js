@@ -53,8 +53,22 @@ cron.schedule('0 2 * * *', async () => {
   timezone: "UTC"
 });
 
+// Calculate next run time (2 AM UTC)
+function getNextRunTime() {
+  const now = new Date();
+  const nextRun = new Date();
+  nextRun.setUTCHours(2, 0, 0, 0);
+  
+  // If it's already past 2 AM today, schedule for tomorrow
+  if (now.getUTCHours() >= 2) {
+    nextRun.setUTCDate(nextRun.getUTCDate() + 1);
+  }
+  
+  return nextRun;
+}
+
 console.log('\n✓ YouTube scraper scheduled - runs daily at 2 AM UTC');
-console.log('  Next run:', cron.schedule('0 2 * * *', () => {}).nextDate());
+console.log('  Next run:', getNextRunTime().toISOString());
 console.log('\n📡 Scheduler is running. Press Ctrl+C to stop.\n');
 
 // Graceful shutdown
