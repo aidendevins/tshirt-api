@@ -6,6 +6,7 @@
   "scripts": {
     "start": "node scheduler.js",
     "continuous": "node youtube-scraper/continuous-scraper.js",
+    "youtube-scheduler": "node youtube-scraper/youtubeapi-scheduler.js",
     "test": "node run-once.js",
     "dev": "NODE_ENV=development node run-once.js",
     "analyze": "node youtube-scraper/youtubeapi.js",

@@ -288,41 +288,57 @@ async function initializeDatabaseTables() {
 // ------------------------------------------------
 // 1️⃣ Load channels from database
 // ------------------------------------------------
-async function getChannelsFromDatabase(maxChannels = null) {
+async function getChannelsFromDatabase(maxChannels = null, skipAnalyzedToday = true) {
   /**
    * Load channels from database with filters:
    * - subscribers >= MIN_SUBS_FILTER
    * - channel_id IS NOT NULL/empty
+   * - Excludes channels already analyzed today (if skipAnalyzedToday is true)
    * @param {number|null} maxChannels - Maximum number of channels to process (null for all)
+   * @param {boolean} skipAnalyzedToday - Skip channels that were analyzed today (default: true)
    */
   try {
     console.log('📂 Loading channels from database...');
 
     let sql = `
-      SELECT 
-        channel_id,
-        channel_name,
-        subscribers,
-        COALESCE(search_term, '') as search_term,
-        COALESCE(query_name, '') as query_name
-      FROM youtube_channels
-      WHERE subscribers >= $1
-        AND channel_id IS NOT NULL
-        AND channel_id != ''
-      ORDER BY subscribers DESC
+      SELECT DISTINCT
+        yc.channel_id,
+        yc.channel_name,
+        yc.subscribers,
+        COALESCE(yc.search_term, '') as search_term,
+        COALESCE(yc.query_name, '') as query_name
+      FROM youtube_channels yc
+      WHERE yc.subscribers >= $1
+        AND yc.channel_id IS NOT NULL
+        AND yc.channel_id != ''
     `;
 
     const params = [MIN_SUBS_FILTER];
+    let paramIndex = 2;
+
+    // Exclude channels already analyzed today
+    if (skipAnalyzedToday) {
+      sql += `
+        AND yc.channel_id NOT IN (
+          SELECT DISTINCT channel_id
+          FROM youtube_channel_analysis
+          WHERE DATE(analyzed_at) = CURRENT_DATE
+        )
+      `;
+    }
+
+    sql += ` ORDER BY yc.subscribers DESC`;
 
     const limit = maxChannels !== null ? maxChannels : MAX_CHANNELS_TO_PROCESS;
     if (limit) {
-      sql += ` LIMIT $2`;
+      sql += ` LIMIT $${paramIndex}`;
       params.push(limit);
     }
 
     const result = await query(sql, params);
 
-    console.log(`  ✓ Loaded ${result.rows.length} channels from database`);
+    const skipCount = skipAnalyzedToday ? ' (skipping already analyzed today)' : '';
+    console.log(`  ✓ Loaded ${result.rows.length} channels from database${skipCount}`);
     return result.rows;
   } catch (error) {
     console.error(`  ❌ Error loading channels: ${error.message}`);
@@ -943,8 +959,8 @@ async function main(maxChannels = null) {
   // Initialize database tables
   await initializeDatabaseTables();
 
-  // STEP 1: Load channels from database
-  const channels = await getChannelsFromDatabase(maxChannels);
+  // STEP 1: Load channels from database (skip already analyzed today)
+  const channels = await getChannelsFromDatabase(maxChannels, true);
 
   if (!channels || channels.length === 0) {
     console.log("\n❌ No channels found in database matching criteria");

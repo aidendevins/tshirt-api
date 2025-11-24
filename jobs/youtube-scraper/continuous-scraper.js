@@ -20,6 +20,7 @@ let driver = null;
 let driverStartTime = null;
 let totalStats = {
   termsProcessed: 0,
+  termsSkipped: 0,
   channelsFound: 0,
   channelsSaved: 0,
   channelsUpdated: 0,
@@ -42,6 +43,7 @@ function startHealthcheckServer() {
         uptime: Math.floor((Date.now() - totalStats.startTime) / 1000),
         stats: {
           termsProcessed: totalStats.termsProcessed,
+          termsSkipped: totalStats.termsSkipped,
           channelsSaved: totalStats.channelsSaved,
           channelsUpdated: totalStats.channelsUpdated,
           driverRestarts: totalStats.driverRestarts
@@ -162,7 +164,7 @@ async function runContinuous() {
       console.log('='.repeat(80));
       console.log(`Start time: ${new Date().toISOString()}`);
       console.log(`Driver age: ${((Date.now() - driverStartTime) / 1000 / 60).toFixed(1)} minutes`);
-      console.log(`Total stats: ${totalStats.termsProcessed} terms, ${totalStats.channelsSaved} saved, ${totalStats.channelsUpdated} updated`);
+      console.log(`Total stats: ${totalStats.termsProcessed} processed, ${totalStats.termsSkipped} skipped, ${totalStats.channelsSaved} saved, ${totalStats.channelsUpdated} updated`);
       console.log('='.repeat(80) + '\n');
       
       // Run scraper with current driver
@@ -181,6 +183,7 @@ async function runContinuous() {
       
       // Update total stats
       totalStats.termsProcessed += stats.termsProcessed || 0;
+      totalStats.termsSkipped += stats.termsSkipped || 0;
       totalStats.channelsFound += stats.channelsFound || 0;
       totalStats.channelsSaved += stats.channelsSaved || 0;
       totalStats.channelsUpdated += stats.channelsUpdated || 0;
@@ -192,11 +195,11 @@ async function runContinuous() {
       console.log(`✅ CYCLE #${cycleCount} COMPLETED`);
       console.log('='.repeat(80));
       console.log(`Cycle stats:`);
-      console.log(`  Terms: ${stats.termsProcessed || 0}`);
+      console.log(`  Terms: ${stats.termsProcessed || 0} processed, ${stats.termsSkipped || 0} skipped`);
       console.log(`  Channels: ${stats.channelsSaved || 0} new, ${stats.channelsUpdated || 0} updated`);
       console.log(`  Duration: ${((stats.duration || 0) / 1000 / 60).toFixed(2)} minutes`);
       console.log(`\nTotal stats (since start):`);
-      console.log(`  Terms: ${totalStats.termsProcessed}`);
+      console.log(`  Terms: ${totalStats.termsProcessed} processed, ${totalStats.termsSkipped} skipped`);
       console.log(`  Channels: ${totalStats.channelsSaved} new, ${totalStats.channelsUpdated} updated`);
       console.log(`  Batches: ${totalStats.batchesSaved}`);
       console.log(`  Driver restarts: ${totalStats.driverRestarts}`);
@@ -260,6 +263,7 @@ async function shutdown(signal) {
     const totalDuration = (Date.now() - totalStats.startTime) / 1000 / 60;
     console.log('\n📊 Final Statistics:');
     console.log(`  Terms processed: ${totalStats.termsProcessed}`);
+    console.log(`  Terms skipped: ${totalStats.termsSkipped} (already in database)`);
     console.log(`  Channels saved: ${totalStats.channelsSaved} new, ${totalStats.channelsUpdated} updated`);
     console.log(`  Batches saved: ${totalStats.batchesSaved}`);
     console.log(`  Driver restarts: ${totalStats.driverRestarts}`);

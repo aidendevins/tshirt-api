@@ -438,6 +438,32 @@ function parseChannels(html, searchTerm) {
   }
 }
 
+/**
+ * Check if a search term has already been processed
+ * @param {string} searchTerm - The search term to check
+ * @returns {Promise<boolean>} True if the search term exists in the database
+ */
+async function searchTermExists(searchTerm) {
+  const client = await getClient();
+  
+  try {
+    const result = await client.query(`
+      SELECT COUNT(*) as count
+      FROM youtube_channels
+      WHERE search_term = $1
+      LIMIT 1
+    `, [searchTerm]);
+    
+    return parseInt(result.rows[0].count) > 0;
+  } catch (error) {
+    console.error(`    ⚠️  Error checking if search term exists: ${error.message}`);
+    // If check fails, assume it doesn't exist (safer to process than skip)
+    return false;
+  } finally {
+    client.release();
+  }
+}
+
 async function saveToDatabase(channels, queryName) {
   if (!channels || channels.length === 0) {
     console.log('    ℹ No channels to save');
@@ -545,6 +571,7 @@ async function runScraper(queries, options = {}) {
   const stats = {
     queriesProcessed: 0,
     termsProcessed: 0,
+    termsSkipped: 0,
     channelsFound: 0,
     channelsSaved: 0,
     channelsUpdated: 0,
@@ -584,6 +611,27 @@ async function runScraper(queries, options = {}) {
       const termIndex = i + 1;
       
       console.log(`\n  [${termIndex}/${allTerms.length}] Searching: "${term}" (${queryName})`);
+      
+      // Check if this search term has already been processed
+      const alreadyExists = await searchTermExists(term);
+      if (alreadyExists) {
+        console.log(`    ⏭️  Skipping "${term}" - already exists in database`);
+        stats.termsSkipped++;
+        
+        // Progress callback even for skipped terms
+        if (onProgress) {
+          onProgress({
+            termIndex,
+            totalTerms: allTerms.length,
+            currentBatchSize: currentBatch.length,
+            totalSaved,
+            totalUpdated,
+            skipped: true
+          });
+        }
+        
+        continue; // Skip to next term
+      }
       
       try {
         const channels = await processSearchTerm(term, localDriver, queryName);
@@ -661,6 +709,7 @@ async function runScraper(queries, options = {}) {
     
     console.log(`\n✅ Scraper completed successfully`);
     console.log(`   Terms processed: ${stats.termsProcessed}`);
+    console.log(`   Terms skipped: ${stats.termsSkipped} (already in database)`);
     console.log(`   Channels found: ${stats.channelsFound}`);
     console.log(`   Channels saved: ${stats.channelsSaved} new, ${stats.channelsUpdated} updated`);
     console.log(`   Batches saved: ${stats.batchesSaved}`);
