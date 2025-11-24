@@ -1,5 +1,6 @@
 [build]
 builder = "NIXPACKS"
+rootDirectory = "jobs/youtube-api"
 
 [deploy]
 startCommand = "node youtubeapi-scheduler.js"
@@ -10,4 +11,6 @@ healthcheckTimeout = 300
 
 # YouTube API Analyzer Service
 # Runs daily at 4 AM UTC to analyze channels and calculate merchandise scores
+# 
+# IMPORTANT: In Railway dashboard, set Root Directory to: jobs/youtube-api/
 
