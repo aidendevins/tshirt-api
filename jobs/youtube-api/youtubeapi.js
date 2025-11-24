@@ -59,6 +59,8 @@ const MAX_SHORT_DURATION = 60;           // Maximum 60 seconds for Shorts detect
 
 // Persistence configuration
 const SAVE_BATCH_SIZE = Math.max(1, parseInt(process.env.YOUTUBE_SAVE_BATCH_SIZE || '25', 10) || 25); // Channels per DB batch
+const LOG_PROGRESS_EVERY = Math.max(1, parseInt(process.env.YOUTUBE_LOG_EVERY || '25', 10) || 25);
+const ENABLE_VERBOSE_LOGS = process.env.YOUTUBE_VERBOSE_LOGS === 'true';
 
 // Optional: Limit number of channels to process (set to null for all)
 const MAX_CHANNELS_TO_PROCESS = null;    // Set to a number like 100 for testing, null for all
@@ -902,9 +904,10 @@ async function processChannel(csvChannel) {
     }
   }
 
-  // Print progress
-  const nameDisplay = channelName.substring(0, 40).padEnd(40);
-  console.log(`  ✅ ${nameDisplay} | Fetched: ${videoData.total_videos_fetched.toString().padStart(2)} | Qualified: ${qualifyingCount.toString().padStart(2)} | Status: ${status.substring(0, 30)}`);
+  if (ENABLE_VERBOSE_LOGS) {
+    const nameDisplay = channelName.substring(0, 40).padEnd(40);
+    console.log(`  ✅ ${nameDisplay} | Fetched: ${videoData.total_videos_fetched.toString().padStart(2)} | Qualified: ${qualifyingCount.toString().padStart(2)} | Status: ${status.substring(0, 30)}`);
+  }
 
   return {
     analysis: analysisResult,
@@ -1089,7 +1092,11 @@ async function main(maxChannels = null) {
     const channelId = channel.channel_id;
     const csvSubs = channel.subscribers;
 
-    console.log(`[${idx + 1}/${channels.length}] ${channelName} (ID: ${channelId.substring(0, 20)}..., ${csvSubs.toLocaleString()} subs)`);
+    if (ENABLE_VERBOSE_LOGS) {
+      console.log(`[${idx + 1}/${channels.length}] ${channelName} (ID: ${channelId.substring(0, 20)}..., ${csvSubs.toLocaleString()} subs)`);
+    } else if ((idx + 1) % LOG_PROGRESS_EVERY === 1) {
+      console.log(`📡 Processing channels ${idx + 1}-${Math.min(idx + LOG_PROGRESS_EVERY, channels.length)} / ${channels.length}`);
+    }
 
     try {
       const result = await processChannel(channel);
@@ -1107,6 +1114,11 @@ async function main(maxChannels = null) {
         } else {
           stats.notQualified += 1;
         }
+      }
+
+      if (!ENABLE_VERBOSE_LOGS &&
+          ((idx + 1) % LOG_PROGRESS_EVERY === 0 || idx === channels.length - 1)) {
+        console.log(`🔹 Progress: ${idx + 1}/${channels.length} processed | analyzed: ${stats.analyzed} | qualified: ${stats.qualified} | batches saved: ${totalBatchesSaved}`);
       }
 
       if (analysisBatch.length >= SAVE_BATCH_SIZE || qualifiedBatch.length >= SAVE_BATCH_SIZE) {
