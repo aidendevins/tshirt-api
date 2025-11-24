@@ -14,11 +14,46 @@
 // ============================================================
 
 require('dotenv').config();
+const http = require('http');
 const cron = require('node-cron');
 const { main } = require('./youtubeapi');
 const { initializeDatabase, closePool } = require('../db/connection');
 
-// Initialize database on startup
+// Healthcheck server configuration
+const HEALTHCHECK_PORT = process.env.PORT || 3000; // Railway sets PORT automatically
+let healthcheckServer = null;
+const startTime = Date.now();
+
+/**
+ * Start HTTP server for Railway healthchecks
+ */
+function startHealthcheckServer() {
+  const server = http.createServer((req, res) => {
+    // Healthcheck endpoint
+    if (req.url === '/' || req.url === '/health') {
+      res.writeHead(200, { 'Content-Type': 'application/json' });
+      res.end(JSON.stringify({
+        status: 'healthy',
+        service: 'youtube-api-scheduler',
+        uptime: Math.floor((Date.now() - startTime) / 1000),
+        nextRun: cron.schedule('0 4 * * *', () => {}).nextDate().toISOString(),
+        timestamp: new Date().toISOString()
+      }));
+    } else {
+      res.writeHead(404, { 'Content-Type': 'text/plain' });
+      res.end('Not Found');
+    }
+  });
+
+  server.listen(HEALTHCHECK_PORT, () => {
+    console.log(`✓ Healthcheck server listening on port ${HEALTHCHECK_PORT}`);
+    console.log(`  Healthcheck URL: http://localhost:${HEALTHCHECK_PORT}/health`);
+  });
+
+  return server;
+}
+
+// Initialize database and start healthcheck server on startup
 (async () => {
   try {
     console.log('🚀 Starting YouTube API Scheduler...\n');
@@ -27,6 +62,9 @@ const { initializeDatabase, closePool } = require('../db/connection');
     
     await initializeDatabase();
     console.log('✓ Database initialized\n');
+    
+    // Start healthcheck server for Railway
+    healthcheckServer = startHealthcheckServer();
     
   } catch (error) {
     console.error('❌ Failed to initialize:', error.message);
@@ -103,6 +141,13 @@ const shutdown = async (signal) => {
   console.log(`\n\n⚠️  Received ${signal}, shutting down gracefully...`);
   
   try {
+    // Close healthcheck server
+    if (healthcheckServer) {
+      healthcheckServer.close(() => {
+        console.log('✓ Healthcheck server closed');
+      });
+    }
+    
     await closePool();
     console.log('✓ Database connections closed');
     console.log('✓ Scheduler stopped');
