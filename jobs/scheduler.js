@@ -1,9 +1,57 @@
 // jobs/scheduler.js
 require('dotenv').config();
+const http = require('http');
 const cron = require('node-cron');
 const { runScraper } = require('./youtube-scraper/scraper');
 const { initializeDatabase, closePool } = require('./db/connection');
 const queries = require('./youtube-scraper/queries');
+
+// Healthcheck server configuration
+const HEALTHCHECK_PORT = process.env.PORT || 3000; // Railway sets PORT automatically
+let healthcheckServer = null;
+const startTime = Date.now();
+
+// Calculate next run time (2 AM UTC)
+function getNextRunTime() {
+  const now = new Date();
+  const nextRun = new Date();
+  nextRun.setUTCHours(2, 0, 0, 0);
+  
+  // If it's already past 2 AM today, schedule for tomorrow
+  if (now.getUTCHours() >= 2) {
+    nextRun.setUTCDate(nextRun.getUTCDate() + 1);
+  }
+  
+  return nextRun;
+}
+
+/**
+ * Start HTTP server for Railway healthchecks
+ */
+function startHealthcheckServer() {
+  const server = http.createServer((req, res) => {
+    if (req.url === '/' || req.url === '/health') {
+      res.writeHead(200, { 'Content-Type': 'application/json' });
+      res.end(JSON.stringify({
+        status: 'healthy',
+        service: 'youtube-scraper-scheduler',
+        uptime: Math.floor((Date.now() - startTime) / 1000),
+        nextRun: getNextRunTime().toISOString(),
+        timestamp: new Date().toISOString()
+      }));
+    } else {
+      res.writeHead(404, { 'Content-Type': 'text/plain' });
+      res.end('Not Found');
+    }
+  });
+
+  server.listen(HEALTHCHECK_PORT, () => {
+    console.log(`✓ Healthcheck server listening on port ${HEALTHCHECK_PORT}`);
+    console.log(`  Healthcheck URL: http://localhost:${HEALTHCHECK_PORT}/health`);
+  });
+
+  return server;
+}
 
 // Initialize database on startup
 (async () => {
@@ -22,6 +70,9 @@ const queries = require('./youtube-scraper/queries');
     console.log(`✓ Loaded ${queries.length} query categories`);
     queries.forEach(q => console.log(`  - ${q.name}: ${q.terms.split(',').length} search terms`));
     
+    // Start healthcheck server for Railway
+    healthcheckServer = startHealthcheckServer();
+
   } catch (error) {
     console.error('❌ Failed to initialize:', error.message);
     process.exit(1);
@@ -53,20 +104,6 @@ cron.schedule('0 2 * * *', async () => {
   timezone: "UTC"
 });
 
-// Calculate next run time (2 AM UTC)
-function getNextRunTime() {
-  const now = new Date();
-  const nextRun = new Date();
-  nextRun.setUTCHours(2, 0, 0, 0);
-  
-  // If it's already past 2 AM today, schedule for tomorrow
-  if (now.getUTCHours() >= 2) {
-    nextRun.setUTCDate(nextRun.getUTCDate() + 1);
-  }
-  
-  return nextRun;
-}
-
 console.log('\n✓ YouTube scraper scheduled - runs daily at 2 AM UTC');
 console.log('  Next run:', getNextRunTime().toISOString());
 console.log('\n📡 Scheduler is running. Press Ctrl+C to stop.\n');
@@ -81,6 +118,12 @@ const shutdown = async (signal) => {
   console.log(`\n\n⚠️  Received ${signal}, shutting down gracefully...`);
   
   try {
+    if (healthcheckServer) {
+      healthcheckServer.close(() => {
+        console.log('✓ Healthcheck server closed');
+      });
+    }
+
     await closePool();
     console.log('✓ Database connections closed');
     console.log('✓ Scheduler stopped');

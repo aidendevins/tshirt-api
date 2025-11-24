@@ -57,6 +57,9 @@ const DAYS_LOOKBACK = 60;                // Look back 60 days (2 months)
 const MIN_VIDEO_DURATION = 240;          // Minimum 240 seconds (4 minutes)
 const MAX_SHORT_DURATION = 60;           // Maximum 60 seconds for Shorts detection
 
+// Persistence configuration
+const SAVE_BATCH_SIZE = Math.max(1, parseInt(process.env.YOUTUBE_SAVE_BATCH_SIZE || '25', 10) || 25); // Channels per DB batch
+
 // Optional: Limit number of channels to process (set to null for all)
 const MAX_CHANNELS_TO_PROCESS = null;    // Set to a number like 100 for testing, null for all
 
@@ -729,6 +732,19 @@ function calculateMerchandiseScore(channelData, videoData) {
   };
 }
 
+function categorizeScore(score) {
+  if (score >= 0.70) {
+    return 'excellent';
+  }
+  if (score >= 0.50) {
+    return 'good';
+  }
+  if (score >= 0.30) {
+    return 'moderate';
+  }
+  return 'poor';
+}
+
 // ------------------------------------------------
 // 6️⃣ Process single channel (COLLECT ALL DATA)
 // ------------------------------------------------
@@ -751,17 +767,31 @@ async function processChannel(csvChannel) {
   if (!videoIds || videoIds.length === 0) {
     console.log(`  ❌ No videos found`);
     return {
-      Channel_Name: channelName,
-      Channel_ID: channelId,
-      CSV_Subs: csvSubs,
-      Actual_Subs: channelData.subs,
-      Total_Channel_Views: channelData.views_total,
-      Total_Channel_Videos: channelData.video_count,
-      Videos_Fetched: 0,
-      Qualifying_Videos_60d: 0,
-      Status: "No videos found",
-      Search_Term: csvChannel.search_term || '',
-      Query_Name: csvChannel.query_name || '',
+      analysis: {
+        Channel_Name: channelName,
+        Channel_ID: channelId,
+        CSV_Subs: csvSubs,
+        Actual_Subs: channelData.subs,
+        Total_Channel_Views: channelData.views_total,
+        Total_Channel_Videos: channelData.video_count,
+        Videos_Fetched: 0,
+        Qualifying_Videos_60d: 0,
+        Shorts_Skipped: 0,
+        Short_Vids_Skipped: 0,
+        Old_Videos_Skipped: 0,
+        Avg_Views_All: 0,
+        Avg_Likes_All: 0,
+        Avg_Comments_All: 0,
+        Total_Views_All: 0,
+        Avg_Views_Qualified: 0,
+        Avg_Likes_Qualified: 0,
+        Avg_Comments_Qualified: 0,
+        Total_Views_Qualified: 0,
+        Search_Term: csvChannel.search_term || '',
+        Query_Name: csvChannel.query_name || '',
+        Status: "No videos found"
+      },
+      qualified: null
     };
   }
 
@@ -770,17 +800,31 @@ async function processChannel(csvChannel) {
   if (!videoData) {
     console.log(`  ❌ Could not analyze videos`);
     return {
-      Channel_Name: channelName,
-      Channel_ID: channelId,
-      CSV_Subs: csvSubs,
-      Actual_Subs: channelData.subs,
-      Total_Channel_Views: channelData.views_total,
-      Total_Channel_Videos: channelData.video_count,
-      Videos_Fetched: 0,
-      Qualifying_Videos_60d: 0,
-      Status: "Video analysis failed",
-      Search_Term: csvChannel.search_term || '',
-      Query_Name: csvChannel.query_name || '',
+      analysis: {
+        Channel_Name: channelName,
+        Channel_ID: channelId,
+        CSV_Subs: csvSubs,
+        Actual_Subs: channelData.subs,
+        Total_Channel_Views: channelData.views_total,
+        Total_Channel_Videos: channelData.video_count,
+        Videos_Fetched: 0,
+        Qualifying_Videos_60d: 0,
+        Shorts_Skipped: 0,
+        Short_Vids_Skipped: 0,
+        Old_Videos_Skipped: 0,
+        Avg_Views_All: 0,
+        Avg_Likes_All: 0,
+        Avg_Comments_All: 0,
+        Total_Views_All: 0,
+        Avg_Views_Qualified: 0,
+        Avg_Likes_Qualified: 0,
+        Avg_Comments_Qualified: 0,
+        Total_Views_Qualified: 0,
+        Search_Term: csvChannel.search_term || '',
+        Query_Name: csvChannel.query_name || '',
+        Status: "Video analysis failed"
+      },
+      qualified: null
     };
   }
 
@@ -792,7 +836,7 @@ async function processChannel(csvChannel) {
     status = `Not enough qualifying videos (${qualifyingCount} < ${MIN_VIDEOS_IN_TIMEFRAME})`;
   }
 
-  const result = {
+  const analysisResult = {
     // Basic info
     Channel_Name: channelName,
     Channel_ID: channelId,
@@ -823,18 +867,49 @@ async function processChannel(csvChannel) {
     // Metadata
     Search_Term: csvChannel.search_term || '',
     Query_Name: csvChannel.query_name || '',
-    Status: status,
-
-    // Store video_data and channel_data for scoring later
-    _video_data: videoData,
-    _channel_data: channelData
+    Status: status
   };
+
+  let qualifyingResult = null;
+  if (qualifyingCount >= MIN_VIDEOS_IN_TIMEFRAME &&
+      videoData.avg_views > 0 &&
+      Array.isArray(videoData.dates) &&
+      videoData.dates.length > 0) {
+    try {
+      const scoreData = calculateMerchandiseScore(channelData, videoData);
+      qualifyingResult = {
+        Channel_Name: analysisResult.Channel_Name,
+        Channel_ID: analysisResult.Channel_ID,
+        CSV_Subs: analysisResult.CSV_Subs,
+        Actual_Subs: analysisResult.Actual_Subs,
+        Qualifying_Videos_60d: analysisResult.Qualifying_Videos_60d,
+        Avg_Views: analysisResult.Avg_Views_Qualified,
+        Avg_Likes: analysisResult.Avg_Likes_Qualified,
+        Avg_Comments: analysisResult.Avg_Comments_Qualified,
+        Total_Views_Qualified: analysisResult.Total_Views_Qualified,
+        Engagement_Rate: Number((scoreData.engagement_raw * 100).toFixed(3)),
+        Comment_Rate: Number((scoreData.comment_rate_raw * 100).toFixed(3)),
+        Consistent_Reach: Number(scoreData.consistent_reach_norm.toFixed(2)),
+        Upload_Per_Month: Number(scoreData.upload_consistency_raw.toFixed(1)),
+        View_Velocity: Number(scoreData.view_velocity_norm.toFixed(2)),
+        Like_Rate: Number((scoreData.like_rate_raw * 100).toFixed(3)),
+        Merch_Score: Number(scoreData.score.toFixed(4)),
+        Search_Term: analysisResult.Search_Term,
+        Query_Name: analysisResult.Query_Name
+      };
+    } catch (error) {
+      console.log(`  ⚠️ Error scoring ${channelName}: ${error.message}`);
+    }
+  }
 
   // Print progress
   const nameDisplay = channelName.substring(0, 40).padEnd(40);
   console.log(`  ✅ ${nameDisplay} | Fetched: ${videoData.total_videos_fetched.toString().padStart(2)} | Qualified: ${qualifyingCount.toString().padStart(2)} | Status: ${status.substring(0, 30)}`);
 
-  return result;
+  return {
+    analysis: analysisResult,
+    qualified: qualifyingResult
+  };
 }
 
 // ------------------------------------------------
@@ -971,8 +1046,42 @@ async function main(maxChannels = null) {
   console.log(`📊 ANALYZING ${channels.length} CHANNELS`);
   console.log(`${"=".repeat(70)}\n`);
 
-  // STEP 2: Process each channel (collect ALL data)
-  const allResults = [];
+  // STEP 2: Process channels in batches and save incrementally
+  const analysisBatch = [];
+  const qualifiedBatch = [];
+  let totalBatchesSaved = 0;
+
+  const stats = {
+    analyzed: 0,
+    qualified: 0,
+    notQualified: 0,
+    buckets: {
+      excellent: 0,
+      good: 0,
+      moderate: 0,
+      poor: 0
+    }
+  };
+
+  const topQualified = [];
+  const updateTopQualified = (record) => {
+    topQualified.push(record);
+    topQualified.sort((a, b) => b.Merch_Score - a.Merch_Score);
+    if (topQualified.length > 20) {
+      topQualified.pop();
+    }
+  };
+
+  async function flushBatch(label) {
+    if (!analysisBatch.length && !qualifiedBatch.length) {
+      return;
+    }
+    const analysisToSave = analysisBatch.splice(0, analysisBatch.length);
+    const qualifiedToSave = qualifiedBatch.splice(0, qualifiedBatch.length);
+    console.log(`\n💾 Saving batch (${label}) -> ${analysisToSave.length} analyses, ${qualifiedToSave.length} qualified`);
+    await saveResultsToDatabase(analysisToSave, qualifiedToSave);
+    totalBatchesSaved += 1;
+  }
 
   for (let idx = 0; idx < channels.length; idx++) {
     const channel = channels[idx];
@@ -985,8 +1094,23 @@ async function main(maxChannels = null) {
     try {
       const result = await processChannel(channel);
 
-      if (result) {
-        allResults.push(result);
+      if (result && result.analysis) {
+        analysisBatch.push(result.analysis);
+        stats.analyzed += 1;
+
+        if (result.qualified) {
+          qualifiedBatch.push(result.qualified);
+          stats.qualified += 1;
+          const bucket = categorizeScore(result.qualified.Merch_Score);
+          stats.buckets[bucket] += 1;
+          updateTopQualified(result.qualified);
+        } else {
+          stats.notQualified += 1;
+        }
+      }
+
+      if (analysisBatch.length >= SAVE_BATCH_SIZE || qualifiedBatch.length >= SAVE_BATCH_SIZE) {
+        await flushBatch(`#${idx + 1}`);
       }
 
       // Rate limiting
@@ -997,104 +1121,46 @@ async function main(maxChannels = null) {
     }
   }
 
-  if (allResults.length === 0) {
+  await flushBatch('final');
+
+  if (stats.analyzed === 0) {
     console.log("\n❌ No channels successfully analyzed");
     console.log(`\n📊 Final Quota Usage: ${QUOTA_USED.toLocaleString()}/${QUOTA_LIMIT.toLocaleString()} units (${((QUOTA_USED / QUOTA_LIMIT) * 100).toFixed(1)}%)`);
     return;
   }
 
-  // STEP 3: Filter for QUALIFYING channels and calculate scores
-  const qualifyingResults = [];
-
-  for (const result of allResults) {
-    // Check if channel qualifies and has valid data
-    if (result.Qualifying_Videos_60d >= MIN_VIDEOS_IN_TIMEFRAME &&
-        result._video_data &&
-        result._channel_data &&
-        result._video_data.avg_views > 0 &&
-        result._video_data.dates &&
-        result._video_data.dates.length > 0) {
-
-      try {
-        const videoData = result._video_data;
-        const channelData = result._channel_data;
-
-        // Calculate merchandise score
-        const scoreData = calculateMerchandiseScore(channelData, videoData);
-
-        // Add scoring data
-        const qualifyingResult = {
-          Channel_ID: result.Channel_ID,
-          Channel_Name: result.Channel_Name,
-          CSV_Subs: result.CSV_Subs,
-          Actual_Subs: result.Actual_Subs,
-          Qualifying_Videos_60d: result.Qualifying_Videos_60d,
-          Avg_Views: result.Avg_Views_Qualified,
-          Avg_Likes: result.Avg_Likes_Qualified,
-          Avg_Comments: result.Avg_Comments_Qualified,
-          Total_Views_Qualified: result.Total_Views_Qualified,
-          Engagement_Rate: Math.round(scoreData.engagement_raw * 1000) / 1000,
-          Comment_Rate: Math.round(scoreData.comment_rate_raw * 1000) / 1000,
-          Consistent_Reach: Math.round(scoreData.consistent_reach_norm * 100) / 100,
-          Upload_Per_Month: Math.round(scoreData.upload_consistency_raw * 10) / 10,
-          View_Velocity: Math.round(scoreData.view_velocity_norm * 100) / 100,
-          Like_Rate: Math.round(scoreData.like_rate_raw * 1000) / 1000,
-          Merch_Score: Math.round(scoreData.score * 10000) / 10000,
-          Search_Term: result.Search_Term,
-          Query_Name: result.Query_Name
-        };
-        qualifyingResults.push(qualifyingResult);
-      } catch (error) {
-        console.log(`  ⚠️ Error scoring ${result.Channel_Name || 'Unknown'}: ${error.message}`);
-        continue;
-      }
-    }
-  }
-
-  // Sort qualifying results by score
-  qualifyingResults.sort((a, b) => b.Merch_Score - a.Merch_Score);
-
-  // STEP 4: Display results
   console.log("\n" + "=".repeat(70));
   console.log("📊 ANALYSIS COMPLETE");
   console.log("=".repeat(70));
-  console.log(`Total channels analyzed: ${allResults.length}`);
-  console.log(`Channels with qualifying videos (≥${MIN_VIDEOS_IN_TIMEFRAME}): ${qualifyingResults.length}`);
-  console.log(`Channels without enough qualifying videos: ${allResults.length - qualifyingResults.length}`);
+  console.log(`Total channels analyzed: ${stats.analyzed}`);
+  console.log(`Channels with qualifying videos (≥${MIN_VIDEOS_IN_TIMEFRAME}): ${stats.qualified}`);
+  console.log(`Channels without enough qualifying videos: ${stats.notQualified}`);
+  console.log(`Total batches saved: ${totalBatchesSaved} (batch size: ${SAVE_BATCH_SIZE})`);
 
-  // Display top qualifying channels
-  if (qualifyingResults.length > 0) {
+  if (stats.qualified > 0 && topQualified.length > 0) {
     console.log("\n" + "=".repeat(70));
     console.log("🏆 TOP MERCHANDISE PARTNERSHIP CANDIDATES");
     console.log("=".repeat(70));
 
-    const topChannels = qualifyingResults.slice(0, 20);
-    console.table(topChannels.map(r => ({
+    console.table(topQualified.map(r => ({
       Channel: r.Channel_Name.substring(0, 30),
       Subs: r.CSV_Subs.toLocaleString(),
       Videos: r.Qualifying_Videos_60d,
       AvgViews: r.Avg_Views.toLocaleString(),
-      Engagement: `${(r.Engagement_Rate * 100).toFixed(2)}%`,
+      Engagement: `${r.Engagement_Rate.toFixed(3)}%`,
       Score: r.Merch_Score.toFixed(4)
     })));
 
-    // Score distribution
     console.log("\n" + "=".repeat(70));
     console.log("📊 SCORE DISTRIBUTION (QUALIFIED CHANNELS)");
     console.log("=".repeat(70));
-    const excellent = qualifyingResults.filter(r => r.Merch_Score >= 0.70).length;
-    const good = qualifyingResults.filter(r => r.Merch_Score >= 0.50 && r.Merch_Score < 0.70).length;
-    const moderate = qualifyingResults.filter(r => r.Merch_Score >= 0.30 && r.Merch_Score < 0.50).length;
-    const poor = qualifyingResults.filter(r => r.Merch_Score < 0.30).length;
-
-    console.log(`🟢 Excellent (0.70+):    ${excellent.toString().padStart(3)} channels`);
-    console.log(`🟡 Good (0.50-0.69):     ${good.toString().padStart(3)} channels`);
-    console.log(`🟠 Moderate (0.30-0.49): ${moderate.toString().padStart(3)} channels`);
-    console.log(`🔴 Poor (<0.30):         ${poor.toString().padStart(3)} channels`);
+    console.log(`🟢 Excellent (0.70+):    ${stats.buckets.excellent.toString().padStart(3)} channels`);
+    console.log(`🟡 Good (0.50-0.69):     ${stats.buckets.good.toString().padStart(3)} channels`);
+    console.log(`🟠 Moderate (0.30-0.49): ${stats.buckets.moderate.toString().padStart(3)} channels`);
+    console.log(`🔴 Poor (<0.30):         ${stats.buckets.poor.toString().padStart(3)} channels`);
+  } else {
+    console.log("\n⚠️  No qualifying channels met the minimum requirements in this run.");
   }
-
-  // STEP 5: Save to database
-  await saveResultsToDatabase(allResults, qualifyingResults);
 
   console.log(`\n⏱️  Time window: Last ${DAYS_LOOKBACK} days (videos ≥${Math.floor(MIN_VIDEO_DURATION / 60)}min only)`);
   console.log(`📊 Final Quota Usage:`);
@@ -1104,7 +1170,7 @@ async function main(maxChannels = null) {
   }
 
   // Calculate efficiency
-  const avgQuota = allResults.length > 0 ? QUOTA_USED / allResults.length : 0;
+  const avgQuota = stats.analyzed > 0 ? QUOTA_USED / stats.analyzed : 0;
   const estimatedDailyCapacity = avgQuota > 0 ? Math.floor(QUOTA_LIMIT / avgQuota) : 0;
   const totalCapacity = avgQuota > 0 ? Math.floor((QUOTA_LIMIT * API_KEYS.length) / avgQuota) : 0;
   console.log(`⚡ Average quota per channel: ${avgQuota.toFixed(1)} units`);
