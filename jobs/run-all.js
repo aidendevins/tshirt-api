@@ -61,7 +61,7 @@ async function runAnalyzerStep() {
   
   try {
     // Import and run the analyzer
-    const { main: runAnalyzer } = require('./youtube-scraper/youtubeapi');
+    const { main: runAnalyzer } = require('./youtube-api/youtubeapi');
     await runAnalyzer();
     return true;
   } catch (error) {

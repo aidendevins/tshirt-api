@@ -6,12 +6,12 @@
   "scripts": {
     "start": "node scheduler.js",
     "continuous": "node youtube-scraper/continuous-scraper.js",
-    "youtube-scheduler": "node youtube-scraper/youtubeapi-scheduler.js",
+    "youtube-scheduler": "node youtube-api/youtubeapi-scheduler.js",
     "test": "node run-once.js",
     "dev": "NODE_ENV=development node run-once.js",
-    "analyze": "node youtube-scraper/youtubeapi.js",
-    "analyze:dev": "NODE_ENV=development node youtube-scraper/youtubeapi.js",
-    "youtube-test": "node youtube-scraper/youtubeapi-test.js",
+    "analyze": "node youtube-api/youtubeapi.js",
+    "analyze:dev": "NODE_ENV=development node youtube-api/youtubeapi.js",
+    "youtube-test": "node youtube-api/youtubeapi-test.js",
     "all": "node run-all.js",
     "all:dev": "NODE_ENV=development node run-all.js"
   },
