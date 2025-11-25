@@ -1,12 +1,14 @@
 // ============================================================
-// ⏰ YouTube API Daily Scheduler - Runs at 4 AM Daily
+// ⏰ YouTube API Scheduler - Runs Every 4 Hours
 // ============================================================
 //
 // This scheduler runs the YouTube merchandise partnership scraper
-// every day at 4 AM UTC until all API keys are exhausted.
+// every 4 hours starting at 12 AM UTC until all API keys are exhausted.
+// 
+// Schedule: 12 AM, 4 AM, 8 AM, 12 PM, 4 PM, 8 PM UTC
 // 
 // Features:
-// - Runs daily at 4 AM UTC
+// - Runs every 4 hours starting at 12 AM UTC
 // - Skips channels already analyzed today
 // - Continues until all API keys are exhausted
 // - Quota resets daily automatically
@@ -24,14 +26,23 @@ const HEALTHCHECK_PORT = process.env.PORT || 3000; // Railway sets PORT automati
 let healthcheckServer = null;
 const startTime = Date.now();
 
-// Calculate next run time (4 AM UTC)
+// Calculate next run time (every 4 hours: 0, 4, 8, 12, 16, 20 UTC)
 function getNextRunTime() {
   const now = new Date();
-  const nextRun = new Date();
-  nextRun.setUTCHours(4, 0, 0, 0);
+  const currentHour = now.getUTCHours();
   
-  // If it's already past 4 AM today, schedule for tomorrow
-  if (now.getUTCHours() >= 4) {
+  // Find next 4-hour interval (0, 4, 8, 12, 16, 20)
+  const intervals = [0, 4, 8, 12, 16, 20];
+  let nextHour = intervals.find(h => h > currentHour);
+  
+  const nextRun = new Date();
+  
+  if (nextHour !== undefined) {
+    // Next interval is today
+    nextRun.setUTCHours(nextHour, 0, 0, 0);
+  } else {
+    // Next interval is tomorrow at midnight
+    nextRun.setUTCHours(0, 0, 0, 0);
     nextRun.setUTCDate(nextRun.getUTCDate() + 1);
   }
   
@@ -86,13 +97,14 @@ function startHealthcheckServer() {
   }
 })();
 
-// Schedule the scraper to run daily at 4 AM UTC
+// Schedule the scraper to run every 4 hours starting at 12 AM UTC
 // Cron format: minute hour day month weekday
-// '0 4 * * *' = 4:00 AM every day
-cron.schedule('0 4 * * *', async () => {
+// '0 */4 * * *' = Every 4 hours at minute 0 (12 AM, 4 AM, 8 AM, 12 PM, 4 PM, 8 PM UTC)
+cron.schedule('0 */4 * * *', async () => {
   const timestamp = new Date().toISOString();
+  const currentHour = new Date().getUTCHours();
   console.log(`\n${'='.repeat(80)}`);
-  console.log(`🕐 [${timestamp}] Starting daily YouTube API scraper at 4 AM UTC...`);
+  console.log(`🕐 [${timestamp}] Starting YouTube API scraper (every 4 hours - current: ${currentHour}:00 UTC)...`);
   console.log(`${'='.repeat(80)}\n`);
   
   try {
@@ -104,8 +116,9 @@ cron.schedule('0 4 * * *', async () => {
     
     const duration = ((Date.now() - startTime) / 1000 / 60).toFixed(2);
     
-    console.log(`\n✅ Daily scraper completed successfully in ${duration} minutes`);
-    console.log(`📊 Next run: Tomorrow at 4 AM UTC`);
+    console.log(`\n✅ Scraper completed successfully in ${duration} minutes`);
+    const nextRun = getNextRunTime();
+    console.log(`📊 Next run: ${nextRun.toISOString()} (${nextRun.getUTCHours()}:00 UTC)`);
     
   } catch (error) {
     console.error('\n❌ Scraper failed:', error.message);
@@ -113,7 +126,8 @@ cron.schedule('0 4 * * *', async () => {
     
     // If all API keys are exhausted, that's expected - log it but don't treat as error
     if (error.message && error.message.includes('ALL API KEYS EXHAUSTED')) {
-      console.log('\n⚠️ All API keys exhausted for today. Will resume tomorrow at 4 AM UTC.');
+      const nextRun = getNextRunTime();
+      console.log(`\n⚠️ All API keys exhausted. Will resume at ${nextRun.toISOString()} (${nextRun.getUTCHours()}:00 UTC).`);
     } else {
       // For other errors, you might want to send alerts
       // TODO: Send alert (email, Slack, Discord, etc.)
@@ -140,8 +154,9 @@ if (process.env.NODE_ENV === 'development' && process.env.RUN_ON_STARTUP === 'tr
 
 // Calculate next run time
 const nextRun = getNextRunTime();
-console.log('\n✓ YouTube API scraper scheduled - runs daily at 4 AM UTC');
-console.log(`  Next run: ${nextRun.toISOString()}`);
+console.log('\n✓ YouTube API scraper scheduled - runs every 4 hours starting at 12 AM UTC');
+console.log(`  Schedule: 12 AM, 4 AM, 8 AM, 12 PM, 4 PM, 8 PM UTC`);
+console.log(`  Next run: ${nextRun.toISOString()} (${nextRun.getUTCHours()}:00 UTC)`);
 console.log(`  Current time: ${new Date().toISOString()}`);
 console.log('\n📡 Scheduler is running. Press Ctrl+C to stop.\n');
 
