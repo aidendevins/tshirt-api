@@ -1,9 +1,8 @@
 [build]
 builder = "NIXPACKS"
-rootDirectory = "jobs/youtube-scraper"
 
 [deploy]
-startCommand = "npm start"
+startCommand = "cd jobs/youtube-scraper && npm start"
 restartPolicyType = "ON_FAILURE"
 restartPolicyMaxRetries = 10
 healthcheckPath = "/health"

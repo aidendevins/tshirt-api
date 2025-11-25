@@ -1,9 +1,8 @@
 [build]
 builder = "NIXPACKS"
-rootDirectory = "jobs/youtube-api"
 
 [deploy]
-startCommand = "npm start"
+startCommand = "cd jobs/youtube-api && npm start"
 restartPolicyType = "ON_FAILURE"
 restartPolicyMaxRetries = 10
 healthcheckPath = "/"
