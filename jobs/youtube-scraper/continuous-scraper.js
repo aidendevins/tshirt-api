@@ -6,7 +6,22 @@ require('dotenv').config();
 const http = require('http');
 const { runScraper, setupDriver } = require('./scraper');
 const { initializeDatabase, closePool } = require('./db/connection');
-const queries = require('./queries');
+let queries = require('./queries');
+
+// Shuffle queries in random order for load distribution
+// Fisher-Yates shuffle algorithm
+function shuffleArray(array) {
+  const shuffled = [...array];
+  for (let i = shuffled.length - 1; i > 0; i--) {
+    const j = Math.floor(Math.random() * (i + 1));
+    [shuffled[i], shuffled[j]] = [shuffled[j], shuffled[i]];
+  }
+  return shuffled;
+}
+
+// Randomize queries on startup
+queries = shuffleArray(queries);
+console.log(`🔀 Queries shuffled - will process in random order`);
 
 // Configuration
 const DRIVER_RESTART_INTERVAL = 2 * 60 * 60 * 1000; // 2 hours in milliseconds
