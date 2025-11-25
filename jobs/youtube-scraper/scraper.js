@@ -514,44 +514,44 @@ async function saveToDatabase(channels, queryName) {
   }
 
   const client = await getClient();
-  
-  let savedCount = 0;
-  let updatedCount = 0;
+    
+    let savedCount = 0;
+    let updatedCount = 0;
   let errorCount = 0;
-  
+    
   // Save channels individually to avoid transaction abort issues
   // This way one failure doesn't block the rest
-  for (const channel of channels) {
-    try {
-      // Use query_name from channel if available, otherwise use parameter
-      const finalQueryName = channel.query_name || queryName;
-      
-      const result = await client.query(`
-        INSERT INTO youtube_channels 
+    for (const channel of channels) {
+      try {
+        // Use query_name from channel if available, otherwise use parameter
+        const finalQueryName = channel.query_name || queryName;
+        
+        const result = await client.query(`
+          INSERT INTO youtube_channels 
           (channel_name, channel_id, subscribers, search_term, query_name, last_updated)
         VALUES ($1, $2, $3, $4, $5, NOW())
-        ON CONFLICT (channel_name) 
-        DO UPDATE SET 
+          ON CONFLICT (channel_name) 
+          DO UPDATE SET 
           channel_id = COALESCE(EXCLUDED.channel_id, youtube_channels.channel_id),
-          subscribers = EXCLUDED.subscribers,
-          search_term = EXCLUDED.search_term,
-          query_name = EXCLUDED.query_name,
-          last_updated = NOW()
-        RETURNING (xmax = 0) AS inserted
-      `, [
-        channel.channel_name,
+            subscribers = EXCLUDED.subscribers,
+            search_term = EXCLUDED.search_term,
+            query_name = EXCLUDED.query_name,
+            last_updated = NOW()
+          RETURNING (xmax = 0) AS inserted
+        `, [
+          channel.channel_name,
         channel.channel_id || null,
-        channel.subscribers,
-        channel.search_term,
-        finalQueryName
-      ]);
-      
-      if (result.rows[0].inserted) {
-        savedCount++;
-      } else {
-        updatedCount++;
-      }
-    } catch (error) {
+          channel.subscribers,
+          channel.search_term,
+          finalQueryName
+        ]);
+        
+        if (result.rows[0].inserted) {
+          savedCount++;
+        } else {
+          updatedCount++;
+        }
+      } catch (error) {
       errorCount++;
       // Log error but continue with next channel
       // Reduced logging to avoid rate limits - only log every 10th error
@@ -567,7 +567,7 @@ async function saveToDatabase(channels, queryName) {
     console.log(`    ⚠️  ${errorCount} channels failed to save (out of ${channels.length})`);
   }
   console.log(`    ✓ Database: ${savedCount} new, ${updatedCount} updated, ${errorCount} errors (${channels.length} total)`);
-  
+    
   return { saved: savedCount, updated: updatedCount, errors: errorCount };
 }
 

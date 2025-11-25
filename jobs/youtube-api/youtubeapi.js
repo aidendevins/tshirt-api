@@ -25,7 +25,7 @@ const { query, getClient } = require('./db/connection');
 
 // -------------------- CONFIG --------------------
 // MULTIPLE API KEYS - Will automatically switch when quota exceeded!
-const API_KEYS = [
+let API_KEYS = [
   process.env.YOUTUBE_API_KEY_1,
   process.env.YOUTUBE_API_KEY_2,
   process.env.YOUTUBE_API_KEY_3,
@@ -40,9 +40,37 @@ const API_KEYS = [
   process.env.YOUTUBE_API_KEY_12
 ].filter(key => key); // Remove undefined keys
 
+// Validate API keys
+if (API_KEYS.length === 0) {
+  console.error('❌ ERROR: No YouTube API keys found in environment variables!');
+  console.error('   Please set at least one of: YOUTUBE_API_KEY_1, YOUTUBE_API_KEY_2, etc.');
+  process.exit(1);
+}
+
+// Shuffle API keys in random order for load distribution
+// Fisher-Yates shuffle algorithm
+function shuffleArray(array) {
+  const shuffled = [...array];
+  for (let i = shuffled.length - 1; i > 0; i--) {
+    const j = Math.floor(Math.random() * (i + 1));
+    [shuffled[i], shuffled[j]] = [shuffled[j], shuffled[i]];
+  }
+  return shuffled;
+}
+
+API_KEYS = shuffleArray(API_KEYS);
+console.log(`🔀 API keys shuffled - will use in random order (${API_KEYS.length} keys available)`);
+
 // Current API key index
 let CURRENT_KEY_INDEX = 0;
-let API_KEY = API_KEYS[CURRENT_KEY_INDEX] || API_KEYS[0];
+let API_KEY = API_KEYS[CURRENT_KEY_INDEX];
+
+if (!API_KEY || API_KEY.trim() === '') {
+  console.error('❌ ERROR: First API key is empty or invalid!');
+  console.error(`   API Keys found: ${API_KEYS.length}, but first key is: ${API_KEY ? 'empty string' : 'undefined'}`);
+  process.exit(1);
+}
+
 let youtube = google.youtube({ version: 'v3', auth: API_KEY });
 
 // Filter configuration
@@ -68,6 +96,9 @@ const MAX_CHANNELS_TO_PROCESS = null;    // Set to a number like 100 for testing
 // Global quota tracker
 let QUOTA_USED = 0;
 const QUOTA_LIMIT = 10000;
+
+// Global flag to track if all API keys are exhausted
+let ALL_KEYS_EXHAUSTED = false;
 // ------------------------------------------------
 
 // ------------------------------------------------
@@ -79,17 +110,26 @@ function switchApiKey() {
   CURRENT_KEY_INDEX += 1;
 
   if (CURRENT_KEY_INDEX >= API_KEYS.length) {
+    ALL_KEYS_EXHAUSTED = true;
     console.log("\n" + "=".repeat(70));
     console.log("❌ ALL API KEYS EXHAUSTED!");
     console.log("=".repeat(70));
     console.log(`Used all ${API_KEYS.length} API keys.`);
     console.log("Please wait until tomorrow for quota reset or add more API keys.");
+    console.log("Stopping execution...");
     console.log("=".repeat(70));
     return false;
   }
 
   // Switch to new key
   API_KEY = API_KEYS[CURRENT_KEY_INDEX];
+  
+  // Validate the new key
+  if (!API_KEY || API_KEY.trim() === '') {
+    console.log(`    ⚠️ API key #${CURRENT_KEY_INDEX + 1} is empty, trying next...`);
+    return switchApiKey(); // Recursively try next key
+  }
+  
   youtube = google.youtube({ version: 'v3', auth: API_KEY });
 
   // Reset quota counter for new key
@@ -416,8 +456,22 @@ async function getChannelStats(channelIdInput, originalName) {
           console.log(`    ❌ All API keys exhausted`);
           return null;
         }
+      } else if (error.code === 403 || error.message?.includes('API key not valid') || error.message?.includes('invalid API key')) {
+        // API key is invalid - try next key
+        console.log(`    ⚠️ Invalid API key detected on key #${CURRENT_KEY_INDEX + 1}`);
+        if (switchApiKey()) {
+          console.log(`    🔄 Switching to API key #${CURRENT_KEY_INDEX + 1}...`);
+          continue; // Retry with new key
+        } else {
+          console.log(`    ❌ All API keys exhausted or invalid`);
+          return null;
+        }
       } else {
         console.log(`    ⚠️ HTTP error: ${error.message}`);
+        // Log more details for debugging
+        if (error.response?.data) {
+          console.log(`    Error details:`, JSON.stringify(error.response.data).substring(0, 200));
+        }
         return null;
       }
     }
@@ -461,6 +515,14 @@ async function getRecentVideoIds(playlistId, maxVideos = 50) {
           break; // Success, exit retry loop
         } catch (error) {
           if (isQuotaExceededError(error)) {
+            if (switchApiKey()) {
+              continue; // Retry with new key
+            } else {
+              return videoIds; // Return what we got
+            }
+          } else if (error.code === 403 || error.message?.includes('API key not valid') || error.message?.includes('invalid API key')) {
+            // API key is invalid - try next key
+            console.log(`    ⚠️ Invalid API key detected on key #${CURRENT_KEY_INDEX + 1}`);
             if (switchApiKey()) {
               continue; // Retry with new key
             } else {
@@ -517,17 +579,25 @@ async function getVideoMetrics(videoIds) {
 
           allVideos.push(...(res.data.items || []));
           break; // Success, exit retry loop
-        } catch (error) {
-          if (isQuotaExceededError(error)) {
-            if (switchApiKey()) {
-              continue; // Retry with new key
-            } else {
-              break; // No more keys, skip this batch
-            }
-          } else {
-            break; // Other error, skip this batch
-          }
-        }
+                } catch (error) {
+                  if (isQuotaExceededError(error)) {
+                    if (switchApiKey()) {
+                      continue; // Retry with new key
+                    } else {
+                      break; // No more keys, skip this batch
+                    }
+                  } else if (error.code === 403 || error.message?.includes('API key not valid') || error.message?.includes('invalid API key')) {
+                    // API key is invalid - try next key
+                    console.log(`    ⚠️ Invalid API key detected on key #${CURRENT_KEY_INDEX + 1}`);
+                    if (switchApiKey()) {
+                      continue; // Retry with new key
+                    } else {
+                      break; // No more keys, skip this batch
+                    }
+                  } else {
+                    break; // Other error, skip this batch
+                  }
+                }
       }
     }
 
@@ -1014,12 +1084,17 @@ async function main(maxChannels = null) {
    * @param {number|null} maxChannels - Maximum number of channels to process (null for all)
    */
   QUOTA_USED = 0;
+  ALL_KEYS_EXHAUSTED = false; // Reset flag for new run
 
   console.log("\n" + "=".repeat(70));
   console.log("🚀 YOUTUBE MERCHANDISE PARTNERSHIP SCRAPER (DATABASE OUTPUT)");
   console.log("=".repeat(70));
   console.log(`API Keys Available: ${API_KEYS.length}`);
-  console.log(`Currently Using: Key #${CURRENT_KEY_INDEX + 1} (${API_KEY.substring(0, 20)}...${API_KEY.substring(API_KEY.length - 4)})`);
+  if (API_KEY) {
+    console.log(`Currently Using: Key #${CURRENT_KEY_INDEX + 1} (${API_KEY.substring(0, 20)}...${API_KEY.substring(API_KEY.length - 4)})`);
+  } else {
+    console.log(`⚠️ WARNING: No valid API key found!`);
+  }
   console.log(`Minimum Subscribers Filter: ${MIN_SUBS_FILTER.toLocaleString()}`);
   console.log(`Videos to Fetch per Channel: ${VIDEOS_PER_CHANNEL}`);
   console.log(`Time Window: Last ${DAYS_LOOKBACK} days`);
@@ -1087,6 +1162,12 @@ async function main(maxChannels = null) {
   }
 
   for (let idx = 0; idx < channels.length; idx++) {
+    // Check if all API keys are exhausted - stop processing
+    if (ALL_KEYS_EXHAUSTED) {
+      console.log(`\n⚠️ All API keys exhausted. Stopping channel processing at ${idx + 1}/${channels.length}`);
+      break;
+    }
+
     const channel = channels[idx];
     const channelName = channel.channel_name;
     const channelId = channel.channel_id;
@@ -1100,6 +1181,12 @@ async function main(maxChannels = null) {
 
     try {
       const result = await processChannel(channel);
+      
+      // Check again after processing (in case keys were exhausted during the call)
+      if (ALL_KEYS_EXHAUSTED) {
+        console.log(`\n⚠️ All API keys exhausted during processing. Stopping at ${idx + 1}/${channels.length}`);
+        break;
+      }
 
       if (result && result.analysis) {
         analysisBatch.push(result.analysis);
@@ -1134,6 +1221,17 @@ async function main(maxChannels = null) {
   }
 
   await flushBatch('final');
+
+  // Check if stopped due to exhausted keys
+  if (ALL_KEYS_EXHAUSTED) {
+    console.log("\n" + "=".repeat(70));
+    console.log("⚠️ EXECUTION STOPPED - ALL API KEYS EXHAUSTED");
+    console.log("=".repeat(70));
+    console.log(`Channels processed before stopping: ${stats.analyzed}`);
+    console.log(`Channels remaining: ${channels.length - stats.analyzed}`);
+    console.log(`Next run will continue from where we left off (skips already analyzed today)`);
+    console.log("=".repeat(70));
+  }
 
   if (stats.analyzed === 0) {
     console.log("\n❌ No channels successfully analyzed");
