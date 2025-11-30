@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useRef } from 'react';
 import { Reorder } from 'framer-motion';
 
 const IMAGE_STYLES = [
@@ -46,13 +46,107 @@ export default function LeftSidebar({
     customPaletteColors, setCustomPaletteColors,
     effectFilter, setEffectFilter,
     moodVibe, setMoodVibe,
-    removeBackground, setRemoveBackground
+    removeBackground, setRemoveBackground,
+    // Sprites
+    spritesLibrary = [], setSpritesLibrary
 }) {
 
     const [showTextInGenDropdown, setShowTextInGenDropdown] = useState(false);
     const [showCustomTextStyleInput, setShowCustomTextStyleInput] = useState(false);
     const [showCustomImageStyleInput, setShowCustomImageStyleInput] = useState(false);
     const [showCustomPalette, setShowCustomPalette] = useState(false);
+    
+    // Sprite processing state
+    const [showSpriteModal, setShowSpriteModal] = useState(false);
+    const [uploadedSpriteImage, setUploadedSpriteImage] = useState(null);
+    const [processingSprite, setProcessingSprite] = useState(false);
+    const [processedSpriteImage, setProcessedSpriteImage] = useState(null);
+    const spriteFileInputRef = useRef(null);
+
+    const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || 'http://localhost:8000';
+
+    // Handle sprite image upload
+    const handleSpriteUpload = (e) => {
+        const file = e.target.files?.[0];
+        if (!file) return;
+
+        const reader = new FileReader();
+        reader.onload = (event) => {
+            const imageData = event.target.result;
+            setUploadedSpriteImage(imageData);
+            setShowSpriteModal(true);
+            setProcessedSpriteImage(null);
+            
+            // Start processing immediately
+            processSprite(imageData);
+        };
+        reader.readAsDataURL(file);
+    };
+
+    // Process sprite with backend
+    const processSprite = async (imageData) => {
+        setProcessingSprite(true);
+        try {
+            const response = await fetch(`${API_BASE_URL}/api/process-sprite`, {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                },
+                body: JSON.stringify({
+                    imageData: imageData
+                })
+            });
+
+            const result = await response.json();
+            
+            if (result.success && result.spriteImageUrl) {
+                setProcessedSpriteImage(result.spriteImageUrl);
+            } else {
+                console.error('Sprite processing failed:', result.error);
+                alert('Failed to process sprite: ' + (result.error || 'Unknown error'));
+            }
+        } catch (error) {
+            console.error('Error processing sprite:', error);
+            alert('Error processing sprite. Please try again.');
+        } finally {
+            setProcessingSprite(false);
+        }
+    };
+
+    // Accept processed sprite
+    const handleAcceptSprite = () => {
+        if (!processedSpriteImage) return;
+        
+        // Add to sprites library
+        const newSprite = {
+            id: Date.now().toString(),
+            imageUrl: processedSpriteImage
+        };
+        
+        if (setSpritesLibrary) {
+            setSpritesLibrary([...spritesLibrary, newSprite]);
+        }
+        
+        // Reset state
+        setShowSpriteModal(false);
+        setUploadedSpriteImage(null);
+        setProcessedSpriteImage(null);
+        setProcessingSprite(false);
+        if (spriteFileInputRef.current) {
+            spriteFileInputRef.current.value = '';
+        }
+    };
+
+    // Cancel sprite processing
+    const handleCancelSprite = () => {
+        setShowSpriteModal(false);
+        setUploadedSpriteImage(null);
+        setProcessedSpriteImage(null);
+        setProcessingSprite(false);
+        if (spriteFileInputRef.current) {
+            spriteFileInputRef.current.value = '';
+        }
+    };
 
     return (
         <div className="w-80 bg-[#2c2c2c] border-r border-white/10 flex flex-col z-40">
@@ -268,7 +362,13 @@ export default function LeftSidebar({
                                         <div className="w-8 h-8 bg-black/30 rounded flex items-center justify-center overflow-hidden pointer-events-none">
                                             {layer.type === 'image' && <img src={layer.preview} className="w-full h-full object-cover" />}
                                             {layer.type === 'text' && <span className="text-xs font-serif">T</span>}
-                                            {layer.type === 'sprite' && <span className="text-lg">{layer.content}</span>}
+                                            {layer.type === 'sprite' && (
+                                                layer.preview ? (
+                                                    <img src={layer.preview} className="w-full h-full object-contain" alt="Sprite" />
+                                                ) : (
+                                                    <span className="text-lg">{layer.content}</span>
+                                                )
+                                            )}
                                         </div>
                                         <span className="text-sm truncate flex-1 pointer-events-none">{layer.name}</span>
                                         <button className="opacity-0 group-hover:opacity-100 text-white/30 hover:text-white">
@@ -296,7 +396,40 @@ export default function LeftSidebar({
                         </div>
 
                         <div>
-                            <p className="text-xs font-semibold text-white/40 uppercase mb-3">Shapes</p>
+                            <p className="text-xs font-semibold text-white/40 uppercase mb-3">Sprites</p>
+                            <label className="border-2 border-dashed border-white/10 rounded-xl p-4 flex flex-col items-center justify-center text-center cursor-pointer hover:border-white/20 hover:bg-white/5 transition-colors mb-3">
+                                <svg className="w-6 h-6 text-white/20 mb-2" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z" /></svg>
+                                <span className="text-xs text-white/40">Upload Image</span>
+                                <input 
+                                    ref={spriteFileInputRef}
+                                    type="file" 
+                                    className="hidden" 
+                                    accept="image/*" 
+                                    onChange={handleSpriteUpload} 
+                                />
+                            </label>
+                            
+                            {spritesLibrary && spritesLibrary.length > 0 && (
+                                <div className="grid grid-cols-4 gap-2">
+                                    {spritesLibrary.map((sprite) => (
+                                        <button 
+                                            key={sprite.id} 
+                                            onClick={() => onAddSprite({ type: 'image', src: sprite.imageUrl })} 
+                                            className="aspect-square bg-white/5 rounded flex items-center justify-center hover:bg-white/10 overflow-hidden border border-white/10"
+                                        >
+                                            <img 
+                                                src={sprite.imageUrl} 
+                                                alt="Sprite" 
+                                                className="w-full h-full object-contain"
+                                            />
+                                        </button>
+                                    ))}
+                                </div>
+                            )}
+                        </div>
+
+                        <div>
+                            <p className="text-xs font-semibold text-white/40 uppercase mb-3">Text</p>
                             <div className="grid grid-cols-4 gap-2">
                                 <button onClick={() => onAddText()} className="aspect-square bg-white/5 rounded flex items-center justify-center hover:bg-white/10">
                                     <span className="font-serif text-xl">T</span>
@@ -306,6 +439,79 @@ export default function LeftSidebar({
                     </div>
                 )}
             </div>
+
+            {/* Sprite Processing Modal */}
+            {showSpriteModal && (
+                <div className="fixed inset-0 bg-black/60 flex items-center justify-center z-50">
+                    <div className="bg-[#2c2c2c] rounded-xl border border-white/20 p-6 max-w-md w-full mx-4">
+                        <div className="flex items-center justify-between mb-4">
+                            <h3 className="text-lg font-bold text-white">Process Sprite</h3>
+                            <button
+                                onClick={handleCancelSprite}
+                                className="text-white/50 hover:text-white"
+                            >
+                                <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                                </svg>
+                            </button>
+                        </div>
+
+                        {/* Original Image */}
+                        {uploadedSpriteImage && (
+                            <div className="mb-4">
+                                <p className="text-xs text-white/60 mb-2">Original Image</p>
+                                <div className="bg-black/30 rounded-lg p-4 flex items-center justify-center">
+                                    <img 
+                                        src={uploadedSpriteImage} 
+                                        alt="Uploaded" 
+                                        className="max-w-full max-h-48 object-contain rounded"
+                                    />
+                                </div>
+                            </div>
+                        )}
+
+                        {/* Loading or Processed Result */}
+                        <div className="mb-4">
+                            <p className="text-xs text-white/60 mb-2">
+                                {processingSprite ? 'Processing...' : 'Processed Sprite'}
+                            </p>
+                            <div className="bg-black/30 rounded-lg p-4 flex items-center justify-center min-h-[200px]">
+                                {processingSprite ? (
+                                    <div className="flex flex-col items-center gap-3">
+                                        <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-purple-500"></div>
+                                        <p className="text-sm text-white/60">Removing background...</p>
+                                    </div>
+                                ) : processedSpriteImage ? (
+                                    <img 
+                                        src={processedSpriteImage} 
+                                        alt="Processed Sprite" 
+                                        className="max-w-full max-h-48 object-contain rounded"
+                                    />
+                                ) : (
+                                    <p className="text-sm text-white/40">Processing will start shortly...</p>
+                                )}
+                            </div>
+                        </div>
+
+                        {/* Actions */}
+                        <div className="flex gap-3">
+                            <button
+                                onClick={handleCancelSprite}
+                                className="flex-1 py-2 px-4 bg-white/10 hover:bg-white/20 text-white rounded-lg text-sm font-medium transition-colors"
+                            >
+                                Cancel
+                            </button>
+                            <button
+                                onClick={handleAcceptSprite}
+                                disabled={!processedSpriteImage || processingSprite}
+                                className="flex-1 py-2 px-4 bg-purple-600 hover:bg-purple-500 disabled:opacity-50 disabled:cursor-not-allowed text-white rounded-lg text-sm font-medium transition-colors"
+                            >
+                                Accept
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            )}
         </div>
     );
 }

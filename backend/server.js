@@ -34,12 +34,14 @@ import printifyGetProductRouter from './api/printify-get-product.js';
 import printifyPublishShopifyRouter from './api/printify-publish-shopify.js';
 import printifyLinkShopifyRouter from './api/printify-link-shopify.js';
 import extractSpriteHandler from './api/extract-sprite.js';
+import processSpriteHandler from './api/process-sprite.js';
 // import generateHandler from './api/generate.js';
 
 // API Routes
 app.post('/api/generate-sd', generateSDHandler);
 app.post('/api/upload-design', uploadDesignHandler);
 app.post('/api/extract-sprite', extractSpriteHandler);
+app.post('/api/process-sprite', processSpriteHandler);
 app.use('/api/shopify', shopifyCollectionsRouter);
 app.use('/api/shopify', createProductRouter);
 app.post('/api/shopify/orders-webhook', shopifyOrdersWebhook);
@@ -65,7 +67,8 @@ app.get('/health', (req, res) => {
       '/api/printify/product/:productId',
       '/api/printify/publish-to-shopify',
       '/api/printify/link-to-shopify',
-      '/api/extract-sprite'
+      '/api/extract-sprite',
+      '/api/process-sprite'
     ]
   });
 });
@@ -89,7 +92,8 @@ app.get('/', (req, res) => {
       printifyPublishShopify: 'POST /api/printify/publish-to-shopify',
       printifyLinkShopify: 'POST /api/printify/link-to-shopify'
       ,
-      extractSprite: 'POST /api/extract-sprite'
+      extractSprite: 'POST /api/extract-sprite',
+      processSprite: 'POST /api/process-sprite'
     }
   });
 });
@@ -116,6 +120,8 @@ app.use((req, res) => {
       '/api/printify/product/:productId',
       '/api/printify/publish-to-shopify',
       '/api/printify/link-to-shopify',
+      '/api/extract-sprite',
+      '/api/process-sprite',
       '/health'
     ]
   });
@@ -135,8 +141,9 @@ app.listen(PORT, () => {
   console.log(`   - GET  http://localhost:${PORT}/api/printify/product/:productId`);
   console.log(`   - POST http://localhost:${PORT}/api/printify/publish-to-shopify`);
   console.log(`   - POST http://localhost:${PORT}/api/printify/link-to-shopify`);
-  console.log(`   - POST http://localhost:${PORT}/api/extract-sprite`);
-  console.log(`   - GET  http://localhost:${PORT}/health`);
+      console.log(`   - POST http://localhost:${PORT}/api/extract-sprite`);
+      console.log(`   - POST http://localhost:${PORT}/api/process-sprite`);
+      console.log(`   - GET  http://localhost:${PORT}/health`);
   console.log(`\n💡 Make sure you have the following environment variables set:`);
   console.log(`   - GEMINI_API_KEY`);
   console.log(`   - SHOPIFY_ADMIN_ACCESS_TOKEN`);

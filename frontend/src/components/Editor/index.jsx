@@ -281,7 +281,14 @@ export default function ProductDesigner({ onSave, onCancel }) {
       } else if (layerId.startsWith('sprite-')) {
         const idx = parseInt(layerId.split('-')[1]);
         const s = sprites[idx];
-        if (s) list.push({ id: `sprite-${idx}`, type: 'sprite', name: s.emoji || 'Sprite', ...s, content: s.emoji });
+        if (s) list.push({ 
+          id: `sprite-${idx}`, 
+          type: 'sprite', 
+          name: s.emoji || 'Sprite', 
+          ...s, 
+          content: s.emoji,
+          preview: s.image?.src || (s.imageUrl ? s.imageUrl : null)
+        });
       }
     });
     return list.reverse(); // Top on top
@@ -641,6 +648,7 @@ export default function ProductDesigner({ onSave, onCancel }) {
     const newSprite = {
       emoji: type === 'emoji' ? content : null,
       image: type === 'image' ? (() => { const img = new Image(); img.src = src; return img; })() : null,
+      imageUrl: type === 'image' ? src : null,
       x, y, size: 60, width: 60, height: 60, opacity: 1
     };
 
@@ -2333,6 +2341,7 @@ export default function ProductDesigner({ onSave, onCancel }) {
               effectFilter={effectFilter} setEffectFilter={setEffectFilter}
               moodVibe={moodVibe} setMoodVibe={setMoodVibe}
               removeBackground={removeBackground} setRemoveBackground={setRemoveBackground}
+              spritesLibrary={spritesLibrary} setSpritesLibrary={setSpritesLibrary}
             />
 
             <CanvasArea

@@ -6,7 +6,7 @@
     "start": "node server.js",
     "dev": "nodemon server.js",
     "serve": "nodemon server.js",
-    "install-python-deps": "python3 -m pip install --upgrade pip && python3 -m pip install -r python/requirements.txt || echo 'Warning: Python dependencies not installed. Ensure python3 is available.'"
+    "postinstall": "bash -c 'if command -v python3 &> /dev/null && python3 -m pip show rembg &> /dev/null; then echo \"📦 Pre-downloading rembg models...\" && python3 -m rembg d u2net 2>/dev/null || true && python3 -m rembg d u2net_human_seg 2>/dev/null || true && python3 -m rembg d u2net_cloth_seg 2>/dev/null || true; fi'"
   },
   "dependencies": {
     "@google/generative-ai": "^0.21.0",
