@@ -28,8 +28,12 @@ fi
 echo "✅ Found Python at: $PYTHON_CMD"
 $PYTHON_CMD --version
 
-$PYTHON_CMD -m pip install --upgrade pip --quiet || echo "⚠️  pip upgrade failed, continuing..."
-$PYTHON_CMD -m pip install rembg pillow --quiet || {
+# Ensure pip is available (use ensurepip if pip module not found)
+$PYTHON_CMD -m ensurepip --upgrade 2>/dev/null || echo "⚠️  ensurepip not available, trying pip directly..."
+$PYTHON_CMD -m pip install --upgrade pip --quiet 2>/dev/null || echo "⚠️  pip upgrade failed, continuing..."
+
+# Install rembg and dependencies
+$PYTHON_CMD -m pip install --user rembg pillow || {
     echo "⚠️  Warning: rembg installation failed."
     echo "   Background removal features may not work."
     exit 1
