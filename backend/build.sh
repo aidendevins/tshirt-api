@@ -1,8 +1,8 @@
 #!/bin/bash
 set -e
 
-echo "🔧 Installing Node.js dependencies..."
-npm install
+# Note: npm install is now handled by nixpacks automatically
+# This script only handles Python/rembg setup
 
 echo "🐍 Installing Python and rembg for background removal..."
 

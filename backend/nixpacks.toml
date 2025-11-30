@@ -1,7 +1,11 @@
 [phases.setup]
-nixPkgs = ["python311", "python311Packages.pip"]
+nixPkgs = ["nodejs-18_x", "python311", "python311Packages.pip"]
 
-[phases.install]
+# Install phase: npm install runs automatically by nixpacks when it detects package.json
+# We don't need to override it, nixpacks handles it
+
+# Build phase: Run our Python setup script after npm install
+[phases.build]
 cmds = ["bash build.sh"]
 
 [start]
