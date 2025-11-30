@@ -128,8 +128,32 @@ export default async function handler(req, res) {
        const __dirname = dirname(__filename);
        const removeBgScript = join(__dirname, '../python/remove_bg.py');
        
-       // Python binary selection - on Railway, use system python3
-       const pythonBin = process.env.PYTHON_BIN?.trim() || 'python3';
+       // Python binary selection - try multiple paths for Railway/nixpacks
+       let pythonBin = process.env.PYTHON_BIN?.trim();
+       if (!pythonBin) {
+         // Try common Python locations
+         const { execSync } = await import('child_process');
+         try {
+           pythonBin = execSync('which python3', { encoding: 'utf-8' }).trim();
+         } catch (e) {
+           try {
+             pythonBin = execSync('which python', { encoding: 'utf-8' }).trim();
+             // Verify it's Python 3
+             const version = execSync(`${pythonBin} --version`, { encoding: 'utf-8' });
+             if (!version.includes('Python 3')) {
+               pythonBin = null;
+             }
+           } catch (e2) {
+             // Try common Nix paths
+             try {
+               const nixPython = execSync('find /nix/store -name "python3" -type f -executable 2>/dev/null | head -1', { encoding: 'utf-8' }).trim();
+               if (nixPython) pythonBin = nixPython;
+             } catch (e3) {
+               pythonBin = 'python3'; // Last resort fallback
+             }
+           }
+         }
+       }
        
        const pythonArgs = [removeBgScript, inputImagePath, outputImagePath];
        
