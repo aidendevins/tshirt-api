@@ -139,9 +139,13 @@ export default async function handler(req, res) {
        const rembgProcess = spawn(pythonBin, pythonArgs, {
          stdio: ['ignore', 'pipe', 'pipe'],
          timeout: 60000, // 60 second timeout (rembg may need time to download models on first run)
+         cwd: '/tmp', // Run from /tmp to avoid any directory conflicts
          env: {
            ...process.env,
-           PYTHONUNBUFFERED: '1'
+           PYTHONUNBUFFERED: '1',
+           // Ensure venv site-packages is used
+           VIRTUAL_ENV: '/app/.venv',
+           PATH: `/app/.venv/bin:${process.env.PATH || ''}`
          }
        });
 
