@@ -1,0 +1,51 @@
+[phases.setup]
+aptPkgs = [
+  "chromium",
+  "libnss3",
+  "libgbm1",
+  "libxss1",
+  "libatk1.0-0",
+  "libatk-bridge2.0-0",
+  "libcups2",
+  "libdrm2",
+  "libxkbcommon0",
+  "libxcomposite1",
+  "libxdamage1",
+  "libxfixes3",
+  "libxrandr2",
+  "libpango-1.0-0",
+  "ca-certificates",
+  "fonts-liberation",
+  "libappindicator3-1",
+  "xdg-utils",
+  "libgdk-pixbuf2.0-0",
+  "libgtk-3-0",
+  "libx11-6",
+  "libx11-xcb1",
+  "libxcb1",
+  "libxext6",
+  "libxrender1",
+  "libxtst6",
+  "libxi6",
+  "libxcursor1",
+  "libdbus-1-3",
+  "libcairo2",
+  "libpangocairo-1.0-0",
+  "wget",
+  "unzip"
+]
+
+[phases.install]
+cmds = [
+  "npm install",
+  "echo 'ChromeDriver will be managed by selenium-webdriver automatically'",
+  "echo 'Testing Chromium installation...'",
+  "which chromium || which chromium-browser || echo 'Chromium not in PATH'",
+  "ls -la /usr/bin/chromium* 2>/dev/null || echo 'No chromium binaries found in /usr/bin'",
+  "ls -la /usr/lib/chromium* 2>/dev/null || echo 'No chromium binaries found in /usr/lib'",
+  "/usr/bin/chromium --version 2>/dev/null || /usr/lib/chromium/chromium --version 2>/dev/null || echo 'Could not verify Chromium version'"
+]
+
+[phases.build]
+cmds = ["echo 'Build complete'"]
+

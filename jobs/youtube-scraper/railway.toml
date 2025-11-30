@@ -1,5 +1,8 @@
 [build]
 builder = "NIXPACKS"
+# Explicitly override root railway.toml buildCommand - no build.sh needed for this service
+# Nixpacks will handle the build automatically, so we use a no-op command
+buildCommand = "echo 'Using Nixpacks build - no build.sh needed'"
 
 [deploy]
 startCommand = "node continuous-scraper.js"
