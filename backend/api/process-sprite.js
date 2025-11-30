@@ -128,8 +128,9 @@ export default async function handler(req, res) {
        const __dirname = dirname(__filename);
        const removeBgScript = join(__dirname, '../python/remove_bg.py');
        
-       // Python binary - use environment variable or default to python3
-       const pythonBin = process.env.PYTHON_BIN?.trim() || 'python3';
+       // Python binary - use venv on Railway, or environment variable, or default
+       const pythonBin = process.env.PYTHON_BIN?.trim() || 
+         (process.platform === 'linux' ? '/app/.venv/bin/python3' : 'python3');
        
        const pythonArgs = [removeBgScript, inputImagePath, outputImagePath];
        
