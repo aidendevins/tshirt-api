@@ -1,7 +1,6 @@
 [build]
 builder = "nixpacks"
 nixpacksConfigPath = "nixpacks.toml"
-# Note: buildCommand is now defined in nixpacks.toml
 
 [deploy]
 startCommand = "npm start"
