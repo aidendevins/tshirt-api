@@ -1083,8 +1083,14 @@ async function main(maxChannels = null) {
    * Run the scraper for all channels in database
    * @param {number|null} maxChannels - Maximum number of channels to process (null for all)
    */
+  // Reset all state for new run
+  CURRENT_KEY_INDEX = 0;
   QUOTA_USED = 0;
-  ALL_KEYS_EXHAUSTED = false; // Reset flag for new run
+  ALL_KEYS_EXHAUSTED = false;
+  
+  // Reinitialize API key and YouTube client for new run
+  API_KEY = API_KEYS[CURRENT_KEY_INDEX];
+  youtube = google.youtube({ version: 'v3', auth: API_KEY });
 
   console.log("\n" + "=".repeat(70));
   console.log("🚀 YOUTUBE MERCHANDISE PARTNERSHIP SCRAPER (DATABASE OUTPUT)");
