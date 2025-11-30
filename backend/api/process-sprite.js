@@ -100,11 +100,12 @@ export default async function handler(req, res) {
       });
     }
 
-    // Step 2: Use rembg CLI to remove green background from Gemini-edited image
-    const { spawn } = await import('child_process');
-    const fs = await import('fs/promises');
-    const os = await import('os');
-    const { join } = await import('path');
+     // Step 2: Use rembg Python library to remove green background from Gemini-edited image
+     const { spawn } = await import('child_process');
+     const { fileURLToPath } = await import('url');
+     const { dirname, join } = await import('path');
+     const fs = await import('fs/promises');
+     const os = await import('os');
 
     const tmpDir = os.tmpdir();
     const timestamp = Date.now();
@@ -122,17 +123,28 @@ export default async function handler(req, res) {
       await fs.writeFile(inputImagePath, imageBuffer);
       console.log('[JS] Wrote input image to temp file:', inputImagePath);
 
-      // Call rembg CLI: rembg i input.png output.png
-      // This is the exact same command that works perfectly when run manually
-      const rembgCommand = 'rembg';
-      const rembgArgs = ['i', inputImagePath, outputImagePath];
-      
-      console.log('[JS] Running rembg command:', rembgCommand, rembgArgs.join(' '));
+       // Use Python script to call rembg as a library
+       const __filename = fileURLToPath(import.meta.url);
+       const __dirname = dirname(__filename);
+       const removeBgScript = join(__dirname, '../python/remove_bg.py');
+       
+       // Python binary selection - on Railway, use system python3
+       const pythonBin = process.env.PYTHON_BIN?.trim() || 'python3';
+       
+       const pythonArgs = [removeBgScript, inputImagePath, outputImagePath];
+       
+       console.log('[JS] Running rembg via Python script:', pythonBin, pythonArgs.join(' '));
+       console.log('[JS] PATH:', process.env.PATH);
+       console.log('[JS] Platform:', process.platform);
 
-      const rembgProcess = spawn(rembgCommand, rembgArgs, {
-        stdio: ['ignore', 'pipe', 'pipe'],
-        timeout: 60000 // 60 second timeout (rembg may need time to download models on first run)
-      });
+       const rembgProcess = spawn(pythonBin, pythonArgs, {
+         stdio: ['ignore', 'pipe', 'pipe'],
+         timeout: 60000, // 60 second timeout (rembg may need time to download models on first run)
+         env: {
+           ...process.env, // Preserve environment variables
+           PYTHONUNBUFFERED: '1' // Ensure Python output is not buffered
+         }
+       });
 
       console.log('[JS] Spawned rembg process. PID:', rembgProcess.pid);
 
