@@ -1,7 +1,5 @@
 [build]
 builder = "NIXPACKS"
-# No buildCommand needed - Nixpacks handles the build process automatically
-# The nixpacks.toml file defines the build steps
 
 [deploy]
 startCommand = "node continuous-scraper.js"
@@ -13,6 +11,4 @@ healthcheckTimeout = 300
 # YouTube Scraper Service
 # Continuously scrapes YouTube channels using Selenium
 # Railway will automatically install Chrome/Chromium through Nixpacks
-# 
-# IMPORTANT: In Railway dashboard, set Root Directory to: jobs/youtube-scraper/
 

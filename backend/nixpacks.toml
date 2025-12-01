@@ -1,6 +1,6 @@
 [phases.setup]
-# Node 20 (required by Firebase), Python 3.11, and C++ libs for numpy
-nixPkgs = ["nodejs_20", "python311", "python311Packages.pip", "python311Packages.virtualenv", "stdenv.cc.cc.lib", "zlib"]
+# Node 20 (required by Firebase), Python 3.11, C++ libs for numpy, and shell utilities
+nixPkgs = ["nodejs_20", "python311", "python311Packages.pip", "python311Packages.virtualenv", "stdenv.cc.cc.lib", "zlib", "bash", "coreutils"]
 
 [phases.install]
 cmds = ["npm install"]
