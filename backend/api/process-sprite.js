@@ -100,10 +100,9 @@ export default async function handler(req, res) {
       });
     }
 
-     // Step 2: Use rembg Python library to remove green background from Gemini-edited image
+     // Step 2: Use rembg CLI to remove background from Gemini-edited image
      const { spawn } = await import('child_process');
-     const { fileURLToPath } = await import('url');
-     const { dirname, join } = await import('path');
+     const { join } = await import('path');
      const fs = await import('fs/promises');
      const os = await import('os');
 
@@ -123,27 +122,23 @@ export default async function handler(req, res) {
       await fs.writeFile(inputImagePath, imageBuffer);
       console.log('[JS] Wrote input image to temp file:', inputImagePath);
 
-       // Use Python script to call rembg as a library
-       const __filename = fileURLToPath(import.meta.url);
-       const __dirname = dirname(__filename);
-       const removeBgScript = join(__dirname, '../python/remove_bg.py');
+       // Call rembg CLI directly: rembg i input.png output.png
+       // Use venv's rembg on Railway (Linux), or system rembg locally
+       const rembgBin = process.platform === 'linux' 
+         ? '/app/.venv/bin/rembg' 
+         : 'rembg';
        
-       // Python binary - use venv on Railway, or environment variable, or default
-       const pythonBin = process.env.PYTHON_BIN?.trim() || 
-         (process.platform === 'linux' ? '/app/.venv/bin/python3' : 'python3');
+       const rembgArgs = ['i', inputImagePath, outputImagePath];
        
-       const pythonArgs = [removeBgScript, inputImagePath, outputImagePath];
-       
-       console.log('[JS] Running rembg via Python script:', pythonBin, pythonArgs.join(' '));
+       console.log('[JS] Running rembg CLI:', rembgBin, rembgArgs.join(' '));
 
-       const rembgProcess = spawn(pythonBin, pythonArgs, {
+       const rembgProcess = spawn(rembgBin, rembgArgs, {
          stdio: ['ignore', 'pipe', 'pipe'],
-         timeout: 60000, // 60 second timeout (rembg may need time to download models on first run)
+         timeout: 120000, // 120 second timeout (model download on first run can be slow)
          cwd: '/tmp', // Run from /tmp to avoid any directory conflicts
          env: {
            ...process.env,
-           PYTHONUNBUFFERED: '1',
-           // Ensure venv site-packages is used
+           // Ensure venv is used on Railway
            VIRTUAL_ENV: '/app/.venv',
            PATH: `/app/.venv/bin:${process.env.PATH || ''}`
          }
