@@ -4,7 +4,7 @@ const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || 'http://localhost:8000
 // Helper function to make Shopify API requests via backend
 const makeShopifyRequest = async (endpoint, method = 'GET', data = null) => {
   const url = `${API_BASE_URL}/api/shopify/${endpoint}`;
-  
+
   const config = {
     method,
     headers: {
@@ -18,7 +18,7 @@ const makeShopifyRequest = async (endpoint, method = 'GET', data = null) => {
 
   try {
     const response = await fetch(url, config);
-    
+
     if (!response.ok) {
       const errorData = await response.json().catch(() => ({}));
       throw new Error(`Shopify API Error: ${response.status} - ${errorData.message || response.statusText}`);
@@ -41,13 +41,13 @@ export const createCreatorCollection = async (creatorData, collectionType) => {
 export const createCreatorCollections = async (creatorData) => {
   try {
     console.log('Creating Shopify collections for creator:', creatorData.email);
-    
+
     // Create creator designs collection
     const creatorCollection = await createCreatorCollection(creatorData, 'creator');
-    
+
     // Create community designs collection
     const communityCollection = await createCreatorCollection(creatorData, 'community');
-    
+
     const results = {
       creatorCollection: creatorCollection,
       communityCollection: communityCollection,
@@ -104,6 +104,16 @@ export const deleteCollection = async (collectionId) => {
     return { success: true };
   } catch (error) {
     console.error('Failed to delete collection:', error);
+    throw error;
+  }
+};
+// Get product by handle (routes through backend)
+export const getProductByHandle = async (handle) => {
+  try {
+    const response = await makeShopifyRequest(`product/${handle}`, 'GET');
+    return response.product;
+  } catch (error) {
+    console.error('Failed to get product:', error);
     throw error;
   }
 };

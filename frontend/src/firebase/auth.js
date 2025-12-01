@@ -1,7 +1,7 @@
-import { 
-  createUserWithEmailAndPassword, 
-  signInWithEmailAndPassword, 
-  signOut, 
+import {
+  createUserWithEmailAndPassword,
+  signInWithEmailAndPassword,
+  signOut,
   sendPasswordResetEmail,
   sendEmailVerification,
   onAuthStateChanged
@@ -14,27 +14,27 @@ import { createCreatorCollections } from '../services/shopify-admin';
 // Password strength validation
 export const validatePasswordStrength = (password) => {
   const errors = [];
-  
+
   if (password.length < 8) {
     errors.push('Password must be at least 8 characters long');
   }
-  
+
   if (!/[A-Z]/.test(password)) {
     errors.push('Password must contain at least one uppercase letter');
   }
-  
+
   if (!/[a-z]/.test(password)) {
     errors.push('Password must contain at least one lowercase letter');
   }
-  
+
   if (!/\d/.test(password)) {
     errors.push('Password must contain at least one number');
   }
-  
+
   if (!/[!@#$%^&*()_+\-=\[\]{};':"\\|,.<>\/?]/.test(password)) {
     errors.push('Password must contain at least one special character');
   }
-  
+
   return {
     isValid: errors.length === 0,
     errors
@@ -44,13 +44,13 @@ export const validatePasswordStrength = (password) => {
 // Get password strength score (0-4)
 export const getPasswordStrength = (password) => {
   let score = 0;
-  
+
   if (password.length >= 8) score++;
   if (/[A-Z]/.test(password)) score++;
   if (/[a-z]/.test(password)) score++;
   if (/\d/.test(password)) score++;
   if (/[!@#$%^&*()_+\-=\[\]{};':"\\|,.<>\/?]/.test(password)) score++;
-  
+
   return score;
 };
 
@@ -77,6 +77,7 @@ export const signupCreator = async (email, password, userData) => {
       businessName: userData.businessName,
       firstName: userData.firstName,
       lastName: userData.lastName,
+      username: userData.username, // Add username
       role: 'creator',
       createdAt: new Date(),
       emailVerified: false,
@@ -90,12 +91,12 @@ export const signupCreator = async (email, password, userData) => {
 
     // Set session first, then create collections automatically
     setCreatorSession(creatorData);
-    
+
     // Create collections automatically via backend
     try {
       console.log('Creating Shopify collections for new creator...');
       const collectionResults = await createCreatorCollections(creatorData);
-      
+
       if (collectionResults.allSuccessful) {
         // Update creator data with collection IDs
         const updatedCreatorData = {
@@ -120,10 +121,10 @@ export const signupCreator = async (email, password, userData) => {
         });
 
         console.log('Successfully created Shopify collections and updated creator data');
-        
+
         // Set session with updated data
         setCreatorSession(updatedCreatorData);
-        
+
         return {
           user: user,
           creatorData: updatedCreatorData,
@@ -133,7 +134,7 @@ export const signupCreator = async (email, password, userData) => {
         console.warn('Failed to create some Shopify collections, but creator account was created');
         // Still set session even if collections failed
         setCreatorSession(creatorData);
-        
+
         return {
           user: user,
           creatorData: creatorData,
@@ -148,7 +149,7 @@ export const signupCreator = async (email, password, userData) => {
       console.error('Error creating Shopify collections:', error);
       // Don't fail the signup if Shopify fails
       setCreatorSession(creatorData);
-      
+
       return {
         user: user,
         creatorData: creatorData,
@@ -170,7 +171,7 @@ export const loginCreator = async (email, password) => {
 
     // Get creator data from Firestore
     const creatorDoc = await getDoc(doc(db, 'creators', user.uid));
-    
+
     if (!creatorDoc.exists()) {
       throw new Error('Creator account not found. Please contact support.');
     }

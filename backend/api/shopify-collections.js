@@ -8,14 +8,14 @@ const router = express.Router();
 // Helper function to make authenticated Shopify API requests from backend
 const makeShopifyRequest = async (endpoint, method = 'GET', data = null) => {
   const accessToken = req.headers['x-shopify-access-token'];
-  
+
   if (!accessToken) {
     throw new Error('No Shopify access token provided');
   }
 
   const shopifyStoreUrl = process.env.SHOPIFY_STORE_URL;
   const url = `${shopifyStoreUrl}/admin/api/2025-04/${endpoint}`;
-  
+
   const headers = {
     'X-Shopify-Access-Token': accessToken,
     'Content-Type': 'application/json',
@@ -32,7 +32,7 @@ const makeShopifyRequest = async (endpoint, method = 'GET', data = null) => {
 
   try {
     const response = await fetch(url, config);
-    
+
     if (!response.ok) {
       const errorData = await response.json().catch(() => ({}));
       throw new Error(`Shopify API Error: ${response.status} - ${errorData.message || response.statusText}`);
@@ -48,10 +48,10 @@ const makeShopifyRequest = async (endpoint, method = 'GET', data = null) => {
 // Create a custom collection for a creator
 const createCreatorCollection = async (creatorData, collectionType, accessToken) => {
   try {
-    const collectionTitle = collectionType === 'creator' 
+    const collectionTitle = collectionType === 'creator'
       ? `${creatorData.businessName} - Original Designs`
       : `${creatorData.businessName} - Community Designs`;
-    
+
     const collectionDescription = collectionType === 'creator'
       ? `Original designs created by ${creatorData.firstName} ${creatorData.lastName} from ${creatorData.businessName}`
       : `Community designs created by fans using ${creatorData.businessName}'s AI design tool`;
@@ -87,7 +87,7 @@ const createCreatorCollection = async (creatorData, collectionType, accessToken)
 
     const shopifyStoreUrl = process.env.SHOPIFY_STORE_URL;
     const url = `${shopifyStoreUrl}/admin/api/2025-04/custom_collections.json`;
-    
+
     const response = await fetch(url, {
       method: 'POST',
       headers: {
@@ -104,7 +104,7 @@ const createCreatorCollection = async (creatorData, collectionType, accessToken)
     }
 
     const result = await response.json();
-    
+
     return {
       success: true,
       collectionId: result.custom_collection.id,
@@ -125,14 +125,14 @@ const createCreatorCollection = async (creatorData, collectionType, accessToken)
 router.post('/test-token', async (req, res) => {
   try {
     const { accessToken } = req.body;
-    
+
     if (!accessToken) {
       return res.status(400).json({ error: 'No access token provided' });
     }
 
     const shopifyStoreUrl = process.env.SHOPIFY_STORE_URL;
     const url = `${shopifyStoreUrl}/admin/api/2025-04/shop.json`;
-    
+
     const response = await fetch(url, {
       method: 'GET',
       headers: {
@@ -157,7 +157,7 @@ router.post('/test-token', async (req, res) => {
 router.post('/collections', async (req, res) => {
   try {
     const { creatorData } = req.body;
-    
+
     // Use Admin API token from environment
     const adminToken = process.env.SHOPIFY_ADMIN_ACCESS_TOKEN;
     if (!adminToken) {
@@ -167,13 +167,13 @@ router.post('/collections', async (req, res) => {
         allSuccessful: false
       });
     }
-    
+
     // Create creator designs collection
     const creatorCollection = await createCreatorCollection(creatorData, 'creator', adminToken);
-    
+
     // Create community designs collection
     const communityCollection = await createCreatorCollection(creatorData, 'community', adminToken);
-    
+
     const results = {
       creatorCollection: creatorCollection,
       communityCollection: communityCollection,
@@ -200,9 +200,12 @@ router.post('/collections', async (req, res) => {
 const getProductsFromCollection = async (collectionId, accessToken) => {
   try {
     const shopifyStoreUrl = process.env.SHOPIFY_STORE_URL;
-    const url = `${shopifyStoreUrl}/admin/api/2025-04/collections/${collectionId}/products.json`;
-    
-    const response = await fetch(url, {
+
+    // Step 1: Get product IDs from the collection
+    // We fetch only IDs first to avoid potential data incompleteness in the sub-resource
+    const collectionUrl = `${shopifyStoreUrl}/admin/api/2025-04/collections/${collectionId}/products.json?fields=id`;
+
+    const response = await fetch(collectionUrl, {
       method: 'GET',
       headers: {
         'X-Shopify-Access-Token': accessToken,
@@ -211,11 +214,35 @@ const getProductsFromCollection = async (collectionId, accessToken) => {
     });
 
     if (!response.ok) {
-      throw new Error(`Failed to fetch products: ${response.status}`);
+      throw new Error(`Failed to fetch collection products: ${response.status}`);
     }
 
     const data = await response.json();
-    return data.products || [];
+    const products = data.products || [];
+
+    if (products.length === 0) return [];
+
+    const productIds = products.map(p => p.id).join(',');
+
+    // Step 2: Fetch full product details by IDs
+    // This ensures we get all variants and prices correctly
+    const productsUrl = `${shopifyStoreUrl}/admin/api/2025-04/products.json?ids=${productIds}`;
+
+    const detailsResponse = await fetch(productsUrl, {
+      method: 'GET',
+      headers: {
+        'X-Shopify-Access-Token': accessToken,
+        'Content-Type': 'application/json',
+      }
+    });
+
+    if (!detailsResponse.ok) {
+      throw new Error(`Failed to fetch product details: ${detailsResponse.status}`);
+    }
+
+    const detailsData = await detailsResponse.json();
+    return detailsData.products || [];
+
   } catch (error) {
     console.error('Error fetching products from collection:', error);
     return [];
@@ -227,7 +254,7 @@ const getAllCollections = async (accessToken) => {
   try {
     const shopifyStoreUrl = process.env.SHOPIFY_STORE_URL;
     const url = `${shopifyStoreUrl}/admin/api/2025-04/custom_collections.json?limit=250&fields=id,title,handle,metafields`;
-    
+
     const response = await fetch(url, {
       method: 'GET',
       headers: {
@@ -242,7 +269,7 @@ const getAllCollections = async (accessToken) => {
 
     const data = await response.json();
     const collections = data.custom_collections || [];
-    
+
     // For each collection, fetch its metafields separately
     const collectionsWithMetafields = await Promise.all(
       collections.map(async (collection) => {
@@ -255,7 +282,7 @@ const getAllCollections = async (accessToken) => {
               'Content-Type': 'application/json',
             }
           });
-          
+
           if (metafieldsResponse.ok) {
             const metafieldsData = await metafieldsResponse.json();
             collection.metafields = metafieldsData.metafields || [];
@@ -266,11 +293,11 @@ const getAllCollections = async (accessToken) => {
           console.error(`Error fetching metafields for collection ${collection.id}:`, error);
           collection.metafields = [];
         }
-        
+
         return collection;
       })
     );
-    
+
     return collectionsWithMetafields;
   } catch (error) {
     console.error('Error fetching collections:', error);
@@ -285,27 +312,27 @@ router.get('/creator-products/:creatorId', async (req, res) => {
 
     const adminToken = process.env.SHOPIFY_ADMIN_ACCESS_TOKEN;
     if (!adminToken) {
-      return res.status(500).json({ 
+      return res.status(500).json({
         error: 'Admin API token not configured',
         creatorProducts: [],
         communityProducts: []
       });
     }
-    
+
     // Get all collections from Shopify
     const allCollections = await getAllCollections(adminToken);
-    
+
     // Filter collections by creator ID in metafields
     const creatorCollections = allCollections.filter(collection => {
       // Check if collection has metafields with creator_id matching our creatorId
-      return collection.metafields && 
-             collection.metafields.some(metafield => 
-               metafield.namespace === 'creator' && 
-               metafield.key === 'creator_id' && 
-               metafield.value === creatorId
-             );
+      return collection.metafields &&
+        collection.metafields.some(metafield =>
+          metafield.namespace === 'creator' &&
+          metafield.key === 'creator_id' &&
+          metafield.value === creatorId
+        );
     });
-    
+
     if (creatorCollections.length === 0) {
       return res.json({
         creatorProducts: [],
@@ -313,30 +340,39 @@ router.get('/creator-products/:creatorId', async (req, res) => {
         message: 'No collections found for this creator'
       });
     }
-    
+
     // Separate creator designs from community designs based on collection type
     const creatorDesignsCollection = creatorCollections.find(collection => {
-      return collection.metafields.some(metafield => 
-        metafield.namespace === 'creator' && 
-        metafield.key === 'collection_type' && 
+      return collection.metafields.some(metafield =>
+        metafield.namespace === 'creator' &&
+        metafield.key === 'collection_type' &&
         metafield.value === 'creator'
       );
     });
-    
+
     const communityDesignsCollection = creatorCollections.find(collection => {
-      return collection.metafields.some(metafield => 
-        metafield.namespace === 'creator' && 
-        metafield.key === 'collection_type' && 
+      return collection.metafields.some(metafield =>
+        metafield.namespace === 'creator' &&
+        metafield.key === 'collection_type' &&
         metafield.value === 'community'
       );
     });
-    
+
     // Fetch products from both collections
     const [creatorProducts, communityProducts] = await Promise.all([
       creatorDesignsCollection ? getProductsFromCollection(creatorDesignsCollection.id, adminToken) : [],
       communityDesignsCollection ? getProductsFromCollection(communityDesignsCollection.id, adminToken) : []
     ]);
-    
+
+    if (creatorProducts.length > 0) {
+      console.log('Debug - First Creator Product:', JSON.stringify({
+        id: creatorProducts[0].id,
+        title: creatorProducts[0].title,
+        variants_count: creatorProducts[0].variants?.length,
+        first_variant_price: creatorProducts[0].variants?.[0]?.price
+      }, null, 2));
+    }
+
     res.json({
       creatorProducts: creatorProducts.map(product => ({
         id: product.id,
@@ -372,7 +408,7 @@ router.get('/creator-products/:creatorId', async (req, res) => {
 
   } catch (error) {
     console.error('Error fetching creator products:', error);
-    res.status(500).json({ 
+    res.status(500).json({
       error: 'Failed to fetch products',
       message: error.message,
       creatorProducts: [],
@@ -386,14 +422,14 @@ router.get('/collection/:collectionId', async (req, res) => {
   try {
     const { collectionId } = req.params;
     const adminToken = process.env.SHOPIFY_ADMIN_ACCESS_TOKEN;
-    
+
     if (!adminToken) {
       return res.status(500).json({ error: 'Admin API token not configured' });
     }
 
     const shopifyStoreUrl = process.env.SHOPIFY_STORE_URL;
     const url = `${shopifyStoreUrl}/admin/api/2025-04/custom_collections/${collectionId}.json`;
-    
+
     const response = await fetch(url, {
       method: 'GET',
       headers: {
@@ -404,9 +440,9 @@ router.get('/collection/:collectionId', async (req, res) => {
 
     if (!response.ok) {
       const errorData = await response.json().catch(() => ({}));
-      return res.status(response.status).json({ 
+      return res.status(response.status).json({
         error: 'Failed to fetch collection',
-        details: errorData 
+        details: errorData
       });
     }
 
@@ -425,14 +461,14 @@ router.put('/collection/:collectionId', async (req, res) => {
     const { collectionId } = req.params;
     const { updates } = req.body;
     const adminToken = process.env.SHOPIFY_ADMIN_ACCESS_TOKEN;
-    
+
     if (!adminToken) {
       return res.status(500).json({ error: 'Admin API token not configured' });
     }
 
     const shopifyStoreUrl = process.env.SHOPIFY_STORE_URL;
     const url = `${shopifyStoreUrl}/admin/api/2025-04/custom_collections/${collectionId}.json`;
-    
+
     const response = await fetch(url, {
       method: 'PUT',
       headers: {
@@ -449,9 +485,9 @@ router.put('/collection/:collectionId', async (req, res) => {
 
     if (!response.ok) {
       const errorData = await response.json().catch(() => ({}));
-      return res.status(response.status).json({ 
+      return res.status(response.status).json({
         error: 'Failed to update collection',
-        details: errorData 
+        details: errorData
       });
     }
 
@@ -469,14 +505,14 @@ router.delete('/collection/:collectionId', async (req, res) => {
   try {
     const { collectionId } = req.params;
     const adminToken = process.env.SHOPIFY_ADMIN_ACCESS_TOKEN;
-    
+
     if (!adminToken) {
       return res.status(500).json({ error: 'Admin API token not configured' });
     }
 
     const shopifyStoreUrl = process.env.SHOPIFY_STORE_URL;
     const url = `${shopifyStoreUrl}/admin/api/2025-04/custom_collections/${collectionId}.json`;
-    
+
     const response = await fetch(url, {
       method: 'DELETE',
       headers: {
@@ -487,9 +523,9 @@ router.delete('/collection/:collectionId', async (req, res) => {
 
     if (!response.ok) {
       const errorData = await response.json().catch(() => ({}));
-      return res.status(response.status).json({ 
+      return res.status(response.status).json({
         error: 'Failed to delete collection',
-        details: errorData 
+        details: errorData
       });
     }
 
@@ -498,6 +534,85 @@ router.delete('/collection/:collectionId', async (req, res) => {
   } catch (error) {
     console.error('Error deleting collection:', error);
     res.status(500).json({ error: 'Failed to delete collection', message: error.message });
+  }
+});
+
+// Get a single product by handle
+router.get('/product/:handle', async (req, res) => {
+  try {
+    const { handle } = req.params;
+    const adminToken = process.env.SHOPIFY_ADMIN_ACCESS_TOKEN;
+
+    if (!adminToken) {
+      return res.status(500).json({ error: 'Admin API token not configured' });
+    }
+
+    const shopifyStoreUrl = process.env.SHOPIFY_STORE_URL;
+    // Search for product by handle
+    const url = `${shopifyStoreUrl}/admin/api/2025-04/products.json?handle=${handle}`;
+
+    const response = await fetch(url, {
+      method: 'GET',
+      headers: {
+        'X-Shopify-Access-Token': adminToken,
+        'Content-Type': 'application/json',
+      }
+    });
+
+    if (!response.ok) {
+      const errorData = await response.json().catch(() => ({}));
+      return res.status(response.status).json({
+        error: 'Failed to fetch product',
+        details: errorData
+      });
+    }
+
+    const data = await response.json();
+    const products = data.products || [];
+
+    if (products.length === 0) {
+      return res.status(404).json({ error: 'Product not found' });
+    }
+
+    const product = products[0];
+
+    // Format product data
+    const formattedProduct = {
+      id: product.id,
+      title: product.title,
+      handle: product.handle,
+      descriptionHtml: product.body_html,
+      vendor: product.vendor,
+      productType: product.product_type,
+      createdAt: product.created_at,
+      tags: product.tags,
+      variants: product.variants.map(v => ({
+        id: v.id,
+        title: v.title,
+        price: v.price,
+        sku: v.sku,
+        available: v.inventory_quantity > 0 || v.inventory_policy === 'continue',
+        options: [v.option1, v.option2, v.option3].filter(Boolean)
+      })),
+      images: product.images.map(img => ({
+        id: img.id,
+        src: img.src,
+        alt: img.alt,
+        width: img.width,
+        height: img.height
+      })),
+      options: product.options.map(opt => ({
+        id: opt.id,
+        name: opt.name,
+        values: opt.values
+      }))
+    };
+
+    res.json({ product: formattedProduct });
+
+  } catch (error) {
+    console.error('Error fetching product:', error);
+    res.status(500).json({ error: 'Failed to fetch product', message: error.message });
   }
 });
 

@@ -29,13 +29,13 @@ function ProductsPage({ user }) {
   useEffect(() => {
     const loadProducts = async () => {
       if (!user?.uid) return;
-      
+
       setIsLoading(true);
       setError(null);
-      
+
       try {
         const data = await fetchCreatorProducts(user.uid);
-        
+
         if (data.error) {
           setError(data.error);
         } else {
@@ -58,26 +58,26 @@ function ProductsPage({ user }) {
 
   const ProductCard = ({ product }) => {
     const [currentImageIndex, setCurrentImageIndex] = useState(0);
-    
-    const images = product.images && Array.isArray(product.images) 
+
+    const images = product.images && Array.isArray(product.images)
       ? product.images.map(img => typeof img === 'string' ? img : (img.src || img))
       : (product.image ? [product.image] : []);
     const currentImage = images[currentImageIndex] || product.image;
     const hasMultipleImages = images.length > 1;
-    
+
     const nextImage = () => {
       setCurrentImageIndex((prev) => (prev + 1) % images.length);
     };
-    
+
     const prevImage = () => {
       setCurrentImageIndex((prev) => (prev - 1 + images.length) % images.length);
     };
-    
+
     return (
       <div className="glass-card p-0 overflow-hidden hover:shadow-glow-lg transition-all duration-300 hover:scale-105">
         <div className="relative aspect-square group">
           <img src={currentImage} alt={product.name} className="w-full h-full object-cover" />
-          
+
           {hasMultipleImages && (
             <>
               <button
@@ -91,7 +91,7 @@ function ProductsPage({ user }) {
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7" />
                 </svg>
               </button>
-              
+
               <button
                 onClick={(e) => {
                   e.stopPropagation();
@@ -103,18 +103,17 @@ function ProductsPage({ user }) {
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
                 </svg>
               </button>
-              
+
               <div className="absolute bottom-2 right-2 px-2 py-1 bg-black/50 backdrop-blur-sm rounded-full text-xs text-white">
                 {currentImageIndex + 1} / {images.length}
               </div>
             </>
           )}
-          
-          <div className={`absolute top-4 right-4 px-3 py-1 rounded-full text-xs font-semibold backdrop-blur-md ${
-            product.status.toLowerCase() === 'active' 
-              ? 'bg-green-500/30 border border-green-500/50 text-green-300' 
+
+          <div className={`absolute top-4 right-4 px-3 py-1 rounded-full text-xs font-semibold backdrop-blur-md ${product.status.toLowerCase() === 'active'
+              ? 'bg-green-500/30 border border-green-500/50 text-green-300'
               : 'bg-yellow-500/30 border border-yellow-500/50 text-yellow-300'
-          }`}>
+            }`}>
             {product.status}
           </div>
         </div>
@@ -145,7 +144,7 @@ function ProductsPage({ user }) {
   return (
     <div className="flex min-h-screen gradient-bg">
       <Sidebar />
-      
+
       <main className="ml-64 flex-1 p-8">
         <div className="glass-card p-8">
           <div className="flex items-center justify-between mb-8">
@@ -206,13 +205,13 @@ function CommunityDesignsPage({ user }) {
   useEffect(() => {
     const loadProducts = async () => {
       if (!user?.uid) return;
-      
+
       setIsLoading(true);
       setError(null);
-      
+
       try {
         const data = await fetchCreatorProducts(user.uid);
-        
+
         if (data.error) {
           setError(data.error);
         } else {
@@ -231,26 +230,26 @@ function CommunityDesignsPage({ user }) {
 
   const ProductCard = ({ product }) => {
     const [currentImageIndex, setCurrentImageIndex] = useState(0);
-    
-    const images = product.images && Array.isArray(product.images) 
+
+    const images = product.images && Array.isArray(product.images)
       ? product.images.map(img => typeof img === 'string' ? img : (img.src || img))
       : (product.image ? [product.image] : []);
     const currentImage = images[currentImageIndex] || product.image;
     const hasMultipleImages = images.length > 1;
-    
+
     const nextImage = () => {
       setCurrentImageIndex((prev) => (prev + 1) % images.length);
     };
-    
+
     const prevImage = () => {
       setCurrentImageIndex((prev) => (prev - 1 + images.length) % images.length);
     };
-    
+
     return (
       <div className="glass-card p-0 overflow-hidden hover:shadow-glow-lg transition-all duration-300 hover:scale-105">
         <div className="relative aspect-square group">
           <img src={currentImage} alt={product.name} className="w-full h-full object-cover" />
-          
+
           {hasMultipleImages && (
             <>
               <button
@@ -264,7 +263,7 @@ function CommunityDesignsPage({ user }) {
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7" />
                 </svg>
               </button>
-              
+
               <button
                 onClick={(e) => {
                   e.stopPropagation();
@@ -276,18 +275,17 @@ function CommunityDesignsPage({ user }) {
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
                 </svg>
               </button>
-              
+
               <div className="absolute bottom-2 right-2 px-2 py-1 bg-black/50 backdrop-blur-sm rounded-full text-xs text-white">
                 {currentImageIndex + 1} / {images.length}
               </div>
             </>
           )}
-          
-          <div className={`absolute top-4 right-4 px-3 py-1 rounded-full text-xs font-semibold backdrop-blur-md ${
-            product.status.toLowerCase() === 'active' 
-              ? 'bg-green-500/30 border border-green-500/50 text-green-300' 
+
+          <div className={`absolute top-4 right-4 px-3 py-1 rounded-full text-xs font-semibold backdrop-blur-md ${product.status.toLowerCase() === 'active'
+              ? 'bg-green-500/30 border border-green-500/50 text-green-300'
               : 'bg-yellow-500/30 border border-yellow-500/50 text-yellow-300'
-          }`}>
+            }`}>
             {product.status}
           </div>
         </div>
@@ -318,8 +316,8 @@ function CommunityDesignsPage({ user }) {
 
   return (
     <div className="flex min-h-screen gradient-bg">
-      <Sidebar />
-      
+      <Sidebar user={user} />
+
       <main className="ml-64 flex-1 p-8">
         <div className="glass-card p-8">
           <div className="flex items-center justify-between mb-8">

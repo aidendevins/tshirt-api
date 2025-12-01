@@ -9,7 +9,8 @@ export default function CreatorLogin({ onAuthSuccess }) {
     confirmPassword: '',
     businessName: '',
     firstName: '',
-    lastName: ''
+    lastName: '',
+    username: ''
   });
   const [errors, setErrors] = useState({});
   const [isLoading, setIsLoading] = useState(false);
@@ -55,6 +56,12 @@ export default function CreatorLogin({ onAuthSuccess }) {
       if (!formData.lastName) {
         newErrors.lastName = 'Last name is required';
       }
+
+      if (!formData.username) {
+        newErrors.username = 'Username is required';
+      } else if (!/^[a-zA-Z0-9]+$/.test(formData.username)) {
+        newErrors.username = 'Username must be alphanumeric (no spaces)';
+      }
     }
 
     setErrors(newErrors);
@@ -68,11 +75,11 @@ export default function CreatorLogin({ onAuthSuccess }) {
       ...prev,
       [name]: value
     }));
-    
+
     if (name === 'password' && !isLogin) {
       setPasswordStrength(getPasswordStrength(value));
     }
-    
+
     if (errors[name]) {
       setErrors(prev => ({
         ...prev,
@@ -85,7 +92,7 @@ export default function CreatorLogin({ onAuthSuccess }) {
   // Handle form submission
   const handleSubmit = async (e) => {
     e.preventDefault();
-    
+
     if (!validateForm()) {
       return;
     }
@@ -95,17 +102,18 @@ export default function CreatorLogin({ onAuthSuccess }) {
 
     try {
       let result;
-      
+
       if (isLogin) {
         result = await loginCreator(formData.email, formData.password);
       } else {
         result = await signupCreator(formData.email, formData.password, {
           businessName: formData.businessName,
           firstName: formData.firstName,
-          lastName: formData.lastName
+          lastName: formData.lastName,
+          username: formData.username
         });
       }
-      
+
       onAuthSuccess(result.creatorData);
 
     } catch (error) {
@@ -124,7 +132,8 @@ export default function CreatorLogin({ onAuthSuccess }) {
       confirmPassword: '',
       businessName: '',
       firstName: '',
-      lastName: ''
+      lastName: '',
+      username: ''
     });
     setErrors({});
     setAuthError('');
@@ -221,6 +230,25 @@ export default function CreatorLogin({ onAuthSuccess }) {
               </>
             )}
 
+            {!isLogin && (
+              <div className="space-y-2">
+                <label htmlFor="username" className="block text-sm font-medium text-white/80">
+                  Username
+                </label>
+                <input
+                  type="text"
+                  id="username"
+                  name="username"
+                  value={formData.username}
+                  onChange={handleInputChange}
+                  className={`glass-input w-full ${errors.username ? 'border-red-500/50' : ''}`}
+                  placeholder="Choose a username"
+                />
+                {errors.username && <p className="text-red-300 text-xs mt-1">{errors.username}</p>}
+                <p className="text-xs text-white/40">This will be your profile URL: domain.com/username</p>
+              </div>
+            )}
+
             <div className="space-y-2">
               <label htmlFor="email" className="block text-sm font-medium text-white/80">
                 Email
@@ -251,19 +279,19 @@ export default function CreatorLogin({ onAuthSuccess }) {
                 placeholder="Enter your password"
               />
               {errors.password && <p className="text-red-300 text-xs mt-1">{errors.password}</p>}
-              
+
               {!isLogin && formData.password && (
                 <div className="space-y-2 mt-2">
                   <div className="h-1 bg-white/10 rounded-full overflow-hidden">
-                    <div 
-                      className="h-full transition-all duration-300" 
-                      style={{ 
+                    <div
+                      className="h-full transition-all duration-300"
+                      style={{
                         width: `${(passwordStrength / 5) * 100}%`,
                         backgroundColor: getPasswordStrengthColor(passwordStrength)
                       }}
                     ></div>
                   </div>
-                  <span 
+                  <span
                     className="text-xs font-medium"
                     style={{ color: getPasswordStrengthColor(passwordStrength) }}
                   >
@@ -291,8 +319,8 @@ export default function CreatorLogin({ onAuthSuccess }) {
               </div>
             )}
 
-            <button 
-              type="submit" 
+            <button
+              type="submit"
               className="w-full btn-primary mt-6"
               disabled={isLoading}
             >
@@ -304,9 +332,9 @@ export default function CreatorLogin({ onAuthSuccess }) {
           <div className="text-center pt-4 border-t border-white/10">
             <p className="text-white/60 text-sm">
               {isLogin ? "Don't have an account?" : "Already have an account?"}
-              <button 
-                type="button" 
-                onClick={toggleMode} 
+              <button
+                type="button"
+                onClick={toggleMode}
                 className="ml-2 text-purple-bright hover:text-purple-light font-medium transition-colors"
               >
                 {isLogin ? 'Sign up' : 'Sign in'}
@@ -315,6 +343,6 @@ export default function CreatorLogin({ onAuthSuccess }) {
           </div>
         </div>
       </div>
-    </div>
+    </div >
   );
 }

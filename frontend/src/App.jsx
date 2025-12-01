@@ -5,6 +5,8 @@ import UserLogin from './pages/UserLogin.jsx';
 import ProductDesignerPage from './pages/ProductDesigner.jsx';
 import Header from './components/Header.jsx';
 import Footer from './components/Footer.jsx';
+import CreatorProfile from './pages/CreatorProfile.jsx';
+import ProductDetail from './pages/ProductDetail.jsx';
 
 export default function App() {
   return (
@@ -13,7 +15,7 @@ export default function App() {
         {/* Routes without Header/Footer (Dashboard has its own layout) */}
         <Route path="/creator/*" element={<Creator />} />
         <Route path="/creator/design" element={<ProductDesignerPage />} />
-        
+
         {/* Routes with Header/Footer */}
         <Route path="/*" element={
           <>
@@ -22,6 +24,8 @@ export default function App() {
               <Routes>
                 <Route path="/" element={<Landing />} />
                 <Route path="/login" element={<UserLogin />} />
+                <Route path="/:username" element={<CreatorProfile />} />
+                <Route path="/:username/:handle" element={<ProductDetail />} />
                 <Route path="*" element={<Navigate to="/" replace />} />
               </Routes>
             </main>

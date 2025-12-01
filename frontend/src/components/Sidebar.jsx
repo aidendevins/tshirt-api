@@ -1,7 +1,7 @@
 import { NavLink, Link } from 'react-router-dom';
 import { motion } from 'framer-motion';
 
-export default function Sidebar() {
+export default function Sidebar({ user }) {
   const navItems = [
     { name: 'Home', path: '/creator', icon: HomeIcon },
     { name: 'Orders', path: '/creator/orders', icon: OrdersIcon, badge: '3' },
@@ -24,7 +24,7 @@ export default function Sidebar() {
     >
       {/* Logo */}
       <div className="mb-8">
-        <motion.h1 
+        <motion.h1
           className="text-2xl font-bold text-gradient"
           whileHover={{ scale: 1.05 }}
           transition={{ duration: 0.2 }}
@@ -47,11 +47,10 @@ export default function Sidebar() {
             >
               {({ isActive }) => (
                 <motion.div
-                  className={`flex items-center gap-3 px-4 py-3 rounded-xl transition-all duration-300 relative overflow-hidden group ${
-                    isActive
+                  className={`flex items-center gap-3 px-4 py-3 rounded-xl transition-all duration-300 relative overflow-hidden group ${isActive
                       ? 'bg-gradient-to-r from-purple-mid to-purple-bright text-white shadow-glow'
                       : 'text-white/60 hover:text-white hover:bg-white/5'
-                  }`}
+                    }`}
                   initial={{ opacity: 0, x: -20 }}
                   animate={{ opacity: 1, x: 0 }}
                   transition={{ delay: idx * 0.05 }}
@@ -86,20 +85,35 @@ export default function Sidebar() {
         </nav>
       </div>
 
-      {/* Back to Studio Button */}
-      <div className="mt-6 pt-6 border-t border-white/10">
+      {/* Footer Actions */}
+      <div className="mt-6 pt-6 border-t border-white/10 space-y-2">
         <Link to="/">
           <motion.div
-            className="flex items-center justify-center gap-2 px-4 py-3 rounded-xl text-white/60 hover:text-white hover:bg-white/5 transition-all duration-300"
+            className="flex items-center gap-2 px-4 py-3 rounded-xl text-white/60 hover:text-white hover:bg-white/5 transition-all duration-300"
             whileHover={{ x: -5 }}
             whileTap={{ scale: 0.98 }}
           >
             <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10 19l-7-7m0 0l7-7m-7 7h18" />
             </svg>
-            <span className="font-medium">Back to T Shirt Studio</span>
+            <span className="font-medium">Back to Studio</span>
           </motion.div>
         </Link>
+
+        {user?.username && (
+          <Link to={`/${user.username}`} target="_blank">
+            <motion.div
+              className="flex items-center gap-2 px-4 py-3 rounded-xl text-white/60 hover:text-white hover:bg-white/5 transition-all duration-300"
+              whileHover={{ x: 5 }}
+              whileTap={{ scale: 0.98 }}
+            >
+              <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14" />
+              </svg>
+              <span className="font-medium">Visit Site</span>
+            </motion.div>
+          </Link>
+        )}
       </div>
     </motion.aside>
   );

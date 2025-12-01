@@ -1,0 +1,24 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+    // Creators collection
+    match /creators/{creatorId} {
+      // Allow public read access (REQUIRED for public profile pages)
+      allow read: if true;
+      
+      // Allow creators to update their own data (except protected fields)
+      allow update: if request.auth != null 
+                    && request.auth.uid == creatorId
+                    && !request.resource.data.diff(resource.data).affectedKeys()
+                        .hasAny(['tokenUsage', 'tokenLimits']);
+      
+      // Only allow creation during signup
+      allow create: if request.auth != null && request.auth.uid == creatorId;
+      
+      // Prevent deletion
+      allow delete: if false;
+    }
+    
+    // Add other collections here if needed
+  }
+}

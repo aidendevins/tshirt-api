@@ -8,6 +8,7 @@
     "serve": "nodemon server.js"
   },
   "dependencies": {
+    "@google-cloud/vertexai": "^1.10.0",
     "@google/generative-ai": "^0.21.0",
     "@shopify/cli": "^3.86.1",
     "@vercel/blob": "^2.0.0",
@@ -16,6 +17,7 @@
     "express": "^4.18.2",
     "firebase": "^12.4.0",
     "firebase-admin": "^13.6.0",
+    "google-auth-library": "^9.15.1",
     "nodemon": "^3.1.10",
     "openai": "^6.7.0",
     "parcel": "^2.16.0",
