@@ -1,18 +1,21 @@
 [phases.setup]
-# gcc-unwrapped provides libstdc++.so.6 needed by numpy/onnxruntime
-nixPkgs = ["nodejs-18_x", "python311", "python311Packages.pip", "python311Packages.virtualenv", "gcc-unwrapped", "zlib"]
-
-# Set LD_LIBRARY_PATH so numpy can find libstdc++
-[variables]
-LD_LIBRARY_PATH = "/root/.nix-profile/lib"
+# Node 20 (required by Firebase), Python 3.11, and C++ libs for numpy
+nixPkgs = ["nodejs_20", "python311", "python311Packages.pip", "python311Packages.virtualenv", "stdenv.cc.cc.lib", "zlib"]
 
 [phases.install]
+cmds = ["npm install"]
+
+[phases.build]
 cmds = [
-    "npm install",
     "python3 -m venv /app/.venv",
-    "/app/.venv/bin/pip install -r requirements.txt"
+    "/app/.venv/bin/pip install --no-cache-dir -r requirements.txt"
 ]
 
 [start]
 cmd = "npm start"
+
+[variables]
+LD_LIBRARY_PATH = "/nix/store/*-gcc-*/lib:/root/.nix-profile/lib"
+VIRTUAL_ENV = "/app/.venv"
+PATH = "/app/.venv/bin:/root/.nix-profile/bin:/nix/var/nix/profiles/default/bin"
 

@@ -37,15 +37,6 @@ aptPkgs = [
 
 [phases.install]
 cmds = [
-  "npm install",
-  "echo 'ChromeDriver will be managed by selenium-webdriver automatically'",
-  "echo 'Testing Chromium installation...'",
-  "which chromium || which chromium-browser || echo 'Chromium not in PATH'",
-  "ls -la /usr/bin/chromium* 2>/dev/null || echo 'No chromium binaries found in /usr/bin'",
-  "ls -la /usr/lib/chromium* 2>/dev/null || echo 'No chromium binaries found in /usr/lib'",
-  "/usr/bin/chromium --version 2>/dev/null || /usr/lib/chromium/chromium --version 2>/dev/null || echo 'Could not verify Chromium version'"
+  "npm install"
 ]
-
-[phases.build]
-cmds = ["echo 'Build complete'"]
 
