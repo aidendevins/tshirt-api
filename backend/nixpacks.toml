@@ -1,5 +1,10 @@
 [phases.setup]
-nixPkgs = ["nodejs-18_x", "python311", "python311Packages.pip", "python311Packages.virtualenv"]
+# gcc-unwrapped provides libstdc++.so.6 needed by numpy/onnxruntime
+nixPkgs = ["nodejs-18_x", "python311", "python311Packages.pip", "python311Packages.virtualenv", "gcc-unwrapped", "zlib"]
+
+# Set LD_LIBRARY_PATH so numpy can find libstdc++
+[variables]
+LD_LIBRARY_PATH = "/root/.nix-profile/lib"
 
 [phases.install]
 cmds = [

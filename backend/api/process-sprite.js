@@ -140,7 +140,9 @@ export default async function handler(req, res) {
            ...process.env,
            // Ensure venv is used on Railway
            VIRTUAL_ENV: '/app/.venv',
-           PATH: `/app/.venv/bin:${process.env.PATH || ''}`
+           PATH: `/app/.venv/bin:${process.env.PATH || ''}`,
+           // Ensure libstdc++ is found on Nix/Railway
+           LD_LIBRARY_PATH: `/root/.nix-profile/lib:${process.env.LD_LIBRARY_PATH || ''}`
          }
        });
 
