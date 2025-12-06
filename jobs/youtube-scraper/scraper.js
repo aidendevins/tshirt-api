@@ -7,6 +7,20 @@ const cheerio = require('cheerio');
 const { getClient } = require('./db/connection');
 
 /**
+ * Shuffle array using Fisher-Yates algorithm
+ * @param {Array} array - Array to shuffle
+ * @returns {Array} Shuffled array
+ */
+function shuffleArray(array) {
+  const shuffled = [...array];
+  for (let i = shuffled.length - 1; i > 0; i--) {
+    const j = Math.floor(Math.random() * (i + 1));
+    [shuffled[i], shuffled[j]] = [shuffled[j], shuffled[i]];
+  }
+  return shuffled;
+}
+
+/**
  * Setup Selenium WebDriver - supports both Selenium Grid (preferred) and local Chrome
  * Set SELENIUM_GRID_URL environment variable to use Railway's Selenium Grid template
  * Example: SELENIUM_GRID_URL=https://your-grid.up.railway.app/wd/hub
@@ -633,30 +647,37 @@ async function runScraper(queries, options = {}) {
     }
     
     // Flatten all queries into individual terms with query names
+    // Randomize terms within each query category
     const allTerms = [];
     for (const query of queries) {
       const searchTerms = query.terms.split(',').map(t => t.trim());
-      for (const term of searchTerms) {
+      // Shuffle terms within this query category
+      const shuffledTerms = shuffleArray(searchTerms);
+      for (const term of shuffledTerms) {
         allTerms.push({ term, queryName: query.name });
       }
     }
     
+    // Shuffle the entire allTerms array to randomize across all queries
+    const finalShuffled = shuffleArray(allTerms);
+    
     console.log(`\n${'='.repeat(60)}`);
-    console.log(`📊 Starting scraper with ${allTerms.length} total search terms`);
+    console.log(`📊 Starting scraper with ${finalShuffled.length} total search terms`);
     console.log(`💾 Saving incrementally every ${saveInterval} terms`);
+    console.log(`🔀 Search terms randomized within and across query categories`);
     console.log(`${'='.repeat(60)}\n`);
     
-    for (let i = 0; i < allTerms.length; i++) {
+    for (let i = 0; i < finalShuffled.length; i++) {
       // Check if should stop
       if (shouldStop()) {
         console.log('\n⚠️  Stop signal received, saving current batch and exiting...');
         break;
       }
       
-      const { term, queryName } = allTerms[i];
+      const { term, queryName } = finalShuffled[i];
       const termIndex = i + 1;
       
-      console.log(`\n  [${termIndex}/${allTerms.length}] Searching: "${term}" (${queryName})`);
+      console.log(`\n  [${termIndex}/${finalShuffled.length}] Searching: "${term}" (${queryName})`);
       
       // Check if this search term has already been processed
       const alreadyExists = await searchTermExists(term);
@@ -668,7 +689,7 @@ async function runScraper(queries, options = {}) {
         if (onProgress) {
           onProgress({
             termIndex,
-            totalTerms: allTerms.length,
+            totalTerms: finalShuffled.length,
             currentBatchSize: currentBatch.length,
             totalSaved,
             totalUpdated,
@@ -690,7 +711,7 @@ async function runScraper(queries, options = {}) {
         await localDriver.sleep(delay);
         
         // Save incrementally every saveInterval terms
-        if (currentBatch.length > 0 && (termIndex % saveInterval === 0 || i === allTerms.length - 1)) {
+        if (currentBatch.length > 0 && (termIndex % saveInterval === 0 || i === finalShuffled.length - 1)) {
           // Remove duplicates based on channel_name
           const uniqueChannels = Array.from(
             new Map(currentBatch.map(ch => [ch.channel_name, ch])).values()
@@ -718,7 +739,7 @@ async function runScraper(queries, options = {}) {
         if (onProgress) {
           onProgress({
             termIndex,
-            totalTerms: allTerms.length,
+            totalTerms: finalShuffled.length,
             currentBatchSize: currentBatch.length,
             totalSaved,
             totalUpdated

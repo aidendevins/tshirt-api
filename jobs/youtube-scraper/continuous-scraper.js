@@ -22,6 +22,7 @@ function shuffleArray(array) {
 // Randomize queries on startup
 queries = shuffleArray(queries);
 console.log(`🔀 Queries shuffled - will process in random order`);
+console.log(`🔀 Search terms will be randomized within and across query categories`);
 
 // Configuration
 const DRIVER_RESTART_INTERVAL = 2 * 60 * 60 * 1000; // 2 hours in milliseconds
@@ -182,8 +183,12 @@ async function runContinuous() {
       console.log(`Total stats: ${totalStats.termsProcessed} processed, ${totalStats.termsSkipped} skipped, ${totalStats.channelsSaved} saved, ${totalStats.channelsUpdated} updated`);
       console.log('='.repeat(80) + '\n');
       
+      // Reshuffle queries for each cycle to randomize order
+      const cycleQueries = shuffleArray(queries);
+      console.log(`🔀 Queries reshuffled for cycle #${cycleCount}\n`);
+      
       // Run scraper with current driver
-      const stats = await runScraper(queries, {
+      const stats = await runScraper(cycleQueries, {
         saveInterval: SAVE_INTERVAL,
         driver: driver,
         shouldStop: () => !isRunning || shouldRestartDriver(),
